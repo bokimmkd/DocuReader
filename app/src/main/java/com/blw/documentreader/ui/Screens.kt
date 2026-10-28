@@ -62,19 +62,19 @@ private fun DocumentBadge(type: String) {
         "Word" -> Icons.Default.Description to WordBlue
         else -> Icons.Default.TableChart to ExcelGreen
     }
-    Box(Modifier.size(44.dp).clip(MaterialTheme.shapes.small)
+    Box(Modifier.size(38.dp).clip(MaterialTheme.shapes.small)
         .background(tint.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = type, tint = tint, modifier = Modifier.size(28.dp))
+        Icon(icon, contentDescription = type, tint = tint, modifier = Modifier.size(23.dp))
     }
 }
 
 @Composable
 private fun DocumentRow(doc: DocumentEntry, onFavorite: () -> Unit, onOpen: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-        .clickable(onClick = onOpen).padding(horizontal = 6.dp, vertical = 10.dp),
+        .clickable(onClick = onOpen).padding(horizontal = 4.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically) {
         DocumentBadge(doc.type)
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(doc.name, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -91,63 +91,86 @@ private fun DocumentRow(doc: DocumentEntry, onFavorite: () -> Unit, onOpen: () -
 }
 
 @Composable
+private fun FormatPill(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color) {
+    Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+        .background(tint.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = tint)
+    }
+}
+
+@Composable
 fun HomeScreen(vm: MainViewModel, openPicker: () -> Unit, reopen: (DocumentEntry) -> Unit) {
     var filter by rememberSaveable { mutableStateOf("All") }
     var showAll by rememberSaveable { mutableStateOf(false) }
     val recent = vm.recent.filter { it.openedAt > 0L && (filter == "All" || it.type == filter) }
     val favorites = vm.recent.filter { it.favorite }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 14.dp, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        contentPadding = PaddingValues(top = 10.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)) {
         item {
-            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(54.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
-                shape = MaterialTheme.shapes.large) {
-                Icon(Icons.Default.FolderOpen, null)
-                Spacer(Modifier.width(10.dp))
-                Text("Open document", style = MaterialTheme.typography.titleSmall)
+            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
+                Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Open document", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("Recent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Recent", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 if (recent.size > 5) TextButton(onClick = { showAll = !showAll }) {
-                    Text(if (showAll) "Show less" else "See all")
+                    Text(if (showAll) "Show less" else "See all", fontSize = 12.sp)
                 }
             }
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 items(listOf("All", "PDF", "Word", "Excel")) { type ->
                     FilterChip(selected = filter == type, onClick = { filter = type },
-                        label = { Text(type) })
+                        label = { Text(type, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary))
                 }
             }
         }
         if (recent.isEmpty()) item {
-            Text("Open a PDF, Word or Excel file to get started.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 24.dp))
+            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                if (filter == "All") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FormatPill("PDF", Icons.Default.PictureAsPdf, PdfRed)
+                    FormatPill("Word", Icons.Default.Description, WordBlue)
+                    FormatPill("Excel", Icons.Default.TableChart, ExcelGreen)
+                }
+                Text(if (filter == "All") "Your opened files will appear here" else "No $filter files yet",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         items(if (showAll) recent else recent.take(5), key = { "recent:" + it.uri }) { doc ->
             DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         }
         item {
-            Text("Favorites", modifier = Modifier.padding(top = 10.dp),
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Favorites", modifier = Modifier.padding(top = 9.dp),
+                fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         if (favorites.isEmpty()) item {
-            Text("Tap the star beside a document to keep it here.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 14.dp))
+            Row(Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.StarBorder, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+                Text("Star documents for quick access", fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         items(favorites, key = { "favorite:" + it.uri }) { doc ->
             DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         }
     }
 }
@@ -286,35 +309,34 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).clip(MaterialTheme.shapes.medium)
-                .background(color.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, Modifier.size(28.dp), tint = color)
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(42.dp).clip(MaterialTheme.shapes.medium)
+                .background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(23.dp), tint = color)
             }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(detail, style = MaterialTheme.typography.bodySmall,
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(detail, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.ChevronRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
     }
 }
 
 @Composable
 fun ToolsStartScreen(onChoosePdf: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("PDF Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Quick changes without altering your original PDF.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(4.dp))
-        ToolChoice(Icons.Default.PostAdd, "Add Pages", "Import selected pages from another PDF", PdfRed, onChoosePdf)
-        ToolChoice(Icons.Default.ContentCut, "Extract Pages", "Create a new PDF from selected pages", BrandBlue, onChoosePdf)
-        ToolChoice(Icons.Default.SwapVert, "Organize Pages", "Reorder, rotate or remove pages", Color(0xFF7253DE), onChoosePdf)
-        Spacer(Modifier.height(5.dp))
-        Text("Choose a PDF to start. Review all changes before saving a new file.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("PDF Tools", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Edit pages. Keep your original unchanged.",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ToolChoice(Icons.Default.PostAdd, "Add Pages", "Import pages from another PDF", PdfRed, onChoosePdf)
+        ToolChoice(Icons.Default.ContentCut, "Extract Pages", "Save selected pages to a new PDF", BrandBlue, onChoosePdf)
+        ToolChoice(Icons.Default.SwapVert, "Organize Pages", "Reorder, rotate or delete pages", Color(0xFF6B59D9), onChoosePdf)
     }
 }
 
