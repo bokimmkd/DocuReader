@@ -54,16 +54,24 @@ jobs:
             adb pull /sdcard/wreader-home.png verification/ui/home.png
             H=$(adb shell wm size | grep Physical | sed 's/.*x//')
             W=$(adb shell wm size | grep Physical | sed 's/.*: //' | cut -d'x' -f1)
-            adb shell input tap $((W * 5 / 6)) $((H - 100))
-            sleep 3
+            # Tap the CENTER of the 60dp Settings item, not the bottom system inset.
+            adb shell input tap $((W * 5 / 6)) $((H - 170))
+            sleep 4
+            adb shell uiautomator dump /sdcard/wreader-window.xml
+            adb pull /sdcard/wreader-window.xml verification/ui/window.xml
             adb shell screencap -p /sdcard/wreader-settings.png
             adb pull /sdcard/wreader-settings.png verification/ui/settings.png
+            # The screenshot must actually show Settings, not Home after a missed tap.
+            grep -q 'Appearance' verification/ui/window.xml || {
+              echo 'ERROR: Settings page not visible after navigation tap'
+              exit 1
+            }
       - name: Upload Android emulator UI screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: WReader-0.1.1-UI-screenshots
-          path: verification/ui/*.png
+          path: verification/ui/*
           if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@v4
