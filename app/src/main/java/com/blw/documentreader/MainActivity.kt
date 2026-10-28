@@ -17,6 +17,9 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -122,6 +125,12 @@ class MainActivity : ComponentActivity() {
                 if (locate && result == SnackbarResult.ActionPerformed) openPicker()
             }
         }
+        // Keep status and gesture navigation icons legible in both theme modes.
+        SideEffect {
+            val bars = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            bars.isAppearanceLightStatusBars = !dark
+            bars.isAppearanceLightNavigationBars = !dark
+        }
         val blue = Color(0xFF0869E8)
         MaterialTheme(colorScheme = if (dark) darkColorScheme(
             primary = Color(0xFF3286EC), onPrimary = Color.White,
@@ -152,7 +161,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 Icon(
                                     painter = androidx.compose.ui.res.painterResource(
-                                        com.blw.documentreader.R.drawable.ic_blw_launcher
+                                        com.blw.documentreader.R.drawable.ic_wreader_symbol
                                     ),
                                     contentDescription = "W Reader",
                                     tint = Color.Unspecified,
@@ -171,43 +180,48 @@ class MainActivity : ComponentActivity() {
                 },
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    Column {
+                    // API 35+/36 edge-to-edge: the footer must reserve the physical
+                    // system navigation/gesture area. Scaffold does not inset custom bars.
+                    val footerTint = MaterialTheme.colorScheme.surface
+                    val selectedTint = if (dark) Color(0xFF78BBFF) else Color(0xFF0869E8)
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(footerTint)
+                            .navigationBarsPadding()
+                    ) {
                         if (!billing.adFree && permittedAds) BottomBanner()
                         if (vm.current == null) {
-                            Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
-                                Row(Modifier.fillMaxWidth().height(60.dp),
-                                    verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = footerTint, shadowElevation = 2.dp) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     val labels = listOf("Home", "Tools", "Settings")
                                     val icons: List<ImageVector> = listOf(
-                                        Icons.Default.Home, Icons.Default.AutoFixHigh, Icons.Default.Settings
+                                        Icons.Outlined.Home,
+                                        Icons.Outlined.ContentCopy,
+                                        Icons.Outlined.Settings
                                     )
                                     labels.forEachIndexed { index, label ->
                                         val active = tab == index
+                                        val tint = if (active) selectedTint
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant
                                         Column(
-                                            Modifier.weight(1f).fillMaxHeight()
-                                                .clickable { tab = index },
+                                            modifier = Modifier.weight(1f).fillMaxHeight()
+                                                .clickable(onClickLabel = "Open $label") { tab = index },
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.Center
                                         ) {
-                                            Box(
-                                                Modifier.size(width = 48.dp, height = 28.dp)
-                                                    .background(
-                                                        if (active) MaterialTheme.colorScheme.primaryContainer
-                                                        else Color.Transparent,
-                                                        RoundedCornerShape(16.dp)
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(icons[index], contentDescription = label,
-                                                    tint = if (active) MaterialTheme.colorScheme.primary
-                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(20.dp))
-                                            }
-                                            Spacer(Modifier.height(2.dp))
-                                            Text(label, fontSize = 11.sp, maxLines = 1,
-                                                color = if (active) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
+                                            Icon(
+                                                icons[index], contentDescription = label,
+                                                tint = tint, modifier = Modifier.size(22.dp)
+                                            )
+                                            Spacer(Modifier.height(3.dp))
+                                            Text(
+                                                label, fontSize = 11.sp, maxLines = 1,
+                                                color = tint,
+                                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                                            )
                                         }
                                     }
                                 }
