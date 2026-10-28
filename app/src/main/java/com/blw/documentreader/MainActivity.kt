@@ -25,9 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.blw.documentreader.monetization.AdConsent
 import com.blw.documentreader.monetization.BottomBanner
 import com.blw.documentreader.monetization.RemoveAdsBilling
@@ -121,28 +124,42 @@ class MainActivity : ComponentActivity() {
         }
         val blue = Color(0xFF0869E8)
         MaterialTheme(colorScheme = if (dark) darkColorScheme(
-            primary = Color(0xFF82B5FF), secondary = Color(0xFFB2CEFF),
-            surface = Color(0xFF131923), background = Color(0xFF0D121B)
+            primary = Color(0xFF3286EC), onPrimary = Color.White,
+            primaryContainer = Color(0xFF1B3C63), onPrimaryContainer = Color(0xFFE5F2FF),
+            secondary = Color(0xFF9FCBFF), onSecondary = Color(0xFF071725),
+            secondaryContainer = Color(0xFF233F62), onSecondaryContainer = Color(0xFFE9F2FF),
+            surface = Color(0xFF151C29), background = Color(0xFF101723),
+            surfaceContainer = Color(0xFF1B2736), surfaceContainerLow = Color(0xFF172231),
+            onSurface = Color(0xFFF0F4F9), onSurfaceVariant = Color(0xFFB3C2D3),
+            outline = Color(0xFF8293A7)
         ) else lightColorScheme(
-            primary = blue, secondary = Color(0xFF3C7CDC),
+            primary = blue, onPrimary = Color.White,
+            primaryContainer = Color(0xFFDCEBFF), onPrimaryContainer = Color(0xFF0B3975),
+            secondary = Color(0xFF3C7CDC), onSecondary = Color.White,
+            secondaryContainer = Color(0xFFDDEBFC), onSecondaryContainer = Color(0xFF123B70),
             surface = Color.White, background = Color(0xFFF9FBFF),
-            surfaceContainer = Color(0xFFF1F5FC)
+            surfaceContainer = Color(0xFFF1F5FC), surfaceContainerLow = Color(0xFFF7F9FC),
+            onSurface = Color(0xFF172338), onSurfaceVariant = Color(0xFF596C82)
         )) {
             Scaffold(
                 topBar = {
                     if (vm.current == null && !(tab == 1 && vm.toolReady)) {
-                        Surface(shadowElevation = 1.dp) {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Surface(color = Color(0xFF0869E8), shape = RoundedCornerShape(10.dp)) {
-                                    Icon(Icons.Default.Description, "W Reader", tint = Color.White,
-                                        modifier = Modifier.padding(9.dp).size(25.dp))
+                        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                            Row(
+                                Modifier.fillMaxWidth().statusBarsPadding()
+                                    .height(58.dp).padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(color = blue, shape = RoundedCornerShape(11.dp)) {
+                                    Icon(Icons.Default.Description, "W Reader logo",
+                                        tint = Color.White, modifier = Modifier.padding(9.dp).size(23.dp))
                                 }
                                 Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text("W Reader", style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold)
-                                    Text("PDF · Word · Excel", style = MaterialTheme.typography.labelSmall)
+                                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                    Text("W Reader", fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface)
+                                    Text("PDF  ·  Word  ·  Excel", fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -152,12 +169,44 @@ class MainActivity : ComponentActivity() {
                 bottomBar = {
                     Column {
                         if (!billing.adFree && permittedAds) BottomBanner()
-                        if (vm.current == null) NavigationBar {
-                            val labels = listOf("Home", "Tools", "Settings")
-                            val icons: List<ImageVector> = listOf(Icons.Default.Home, Icons.Default.AutoFixHigh, Icons.Default.Settings)
-                            labels.forEachIndexed { i, label ->
-                                NavigationBarItem(selected = tab == i, onClick = { tab = i },
-                                    icon = { Icon(icons[i], null) }, label = { Text(label) })
+                        if (vm.current == null) {
+                            Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                                Row(Modifier.fillMaxWidth().height(60.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    val labels = listOf("Home", "Tools", "Settings")
+                                    val icons: List<ImageVector> = listOf(
+                                        Icons.Default.Home, Icons.Default.AutoFixHigh, Icons.Default.Settings
+                                    )
+                                    labels.forEachIndexed { index, label ->
+                                        val active = tab == index
+                                        Column(
+                                            Modifier.weight(1f).fillMaxHeight()
+                                                .clickable { tab = index },
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Box(
+                                                Modifier.size(width = 48.dp, height = 28.dp)
+                                                    .background(
+                                                        if (active) MaterialTheme.colorScheme.primaryContainer
+                                                        else Color.Transparent,
+                                                        RoundedCornerShape(16.dp)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(icons[index], contentDescription = label,
+                                                    tint = if (active) MaterialTheme.colorScheme.primary
+                                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp))
+                                            }
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(label, fontSize = 11.sp, maxLines = 1,
+                                                color = if (active) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
