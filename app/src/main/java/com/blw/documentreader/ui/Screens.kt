@@ -595,7 +595,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
         SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
-        Text("W Reader 0.1.0 · English", fontSize = 11.sp,
+        Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 4.dp, top = 5.dp, bottom = 12.dp))
     }
