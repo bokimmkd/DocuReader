@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
                             Row(
                                 Modifier.fillMaxWidth().statusBarsPadding()
                                     .padding(horizontal = 14.dp, vertical = 5.dp)
-                                    .height(66.dp)
+                                    .height(78.dp)
                                     .background(
                                         if (dark) Color(0xFF252525) else Color(0xFFE9EFF6),
                                         RoundedCornerShape(17.dp)
