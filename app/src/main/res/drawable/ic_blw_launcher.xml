@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Blue compact app icon based on the approved five-screen UI reference. -->
+    <path android:fillColor="#0869E8"
+        android:pathData="M20,6 L88,6 Q102,6 102,20 L102,88 Q102,102 88,102 L20,102 Q6,102 6,88 L6,20 Q6,6 20,6 Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M32,22 L64,22 L81,39 L81,81 Q81,86 76,86 L32,86 Q27,86 27,81 L27,27 Q27,22 32,22 Z" />
+    <path android:fillColor="#CFE4FF"
+        android:pathData="M64,22 L64,35 Q64,40 69,40 L81,40 Z" />
+    <path android:fillColor="#0869E8"
+        android:pathData="M39,48 L66,48 L66,53 L39,53 Z M39,59 L69,59 L69,64 L39,64 Z M39,70 L60,70 L60,75 L39,75 Z" />
+</vector>
