@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Approved overlapping-document symbol; transparent canvas for the header. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#58ACF7"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8,13 Q8,8 13,8 L29,8 Q34,8 34,13 L34,29 Q34,34 29,34 L13,34 Q8,34 8,29 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#58ACF7"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17,20 Q17,15 22,15 L35,15 Q40,15 40,20 L40,35 Q40,40 35,40 L22,40 Q17,40 17,35 Z" />
+</vector>
