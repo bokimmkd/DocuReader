@@ -153,10 +153,10 @@ class MainActivity : ComponentActivity() {
             Scaffold(
                 topBar = {
                     if (vm.current == null && !(tab == 1 && vm.toolReady)) {
-                        Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
+                        Surface(color = MaterialTheme.colorScheme.background) {
                             Row(
                                 Modifier.fillMaxWidth().statusBarsPadding()
-                                    .height(58.dp).padding(horizontal = 16.dp),
+                                    .height(64.dp).padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -165,13 +165,16 @@ class MainActivity : ComponentActivity() {
                                     ),
                                     contentDescription = "W Reader",
                                     tint = Color.Unspecified,
-                                    modifier = Modifier.size(44.dp)
+                                    modifier = Modifier.size(43.dp)
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(11.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                    Text("W Reader", fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                                    Text("W Reader", fontSize = 19.sp,
+                                        fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface)
-                                    Text("PDF  ·  Word  ·  Excel", fontSize = 11.sp,
+                                    Text("PDF · Word · Excel", fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Read · Organize · Share", fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -180,49 +183,50 @@ class MainActivity : ComponentActivity() {
                 },
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    // API 35+/36 edge-to-edge: the footer must reserve the physical
-                    // system navigation/gesture area. Scaffold does not inset custom bars.
-                    val footerTint = MaterialTheme.colorScheme.surface
-                    val selectedTint = if (dark) Color(0xFF78BBFF) else Color(0xFF0869E8)
+                    // Keep the ad and the 60dp rounded navigation card ABOVE system gestures.
+                    val navBackground = if (dark) Color(0xFF252525) else Color(0xFFE9EFF6)
+                    val inactiveTint = if (dark) Color(0xFFEAEDF3) else Color(0xFF43556B)
+                    val activeTint = if (dark) Color(0xFF67B6FF) else Color(0xFF0869E8)
                     Column(
-                        Modifier.fillMaxWidth()
-                            .background(footerTint)
+                        modifier = Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
                             .navigationBarsPadding()
                     ) {
                         if (!billing.adFree && permittedAds) BottomBanner()
                         if (vm.current == null) {
-                            Surface(color = footerTint, shadowElevation = 2.dp) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().height(60.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val labels = listOf("Home", "Tools", "Settings")
-                                    val icons: List<ImageVector> = listOf(
-                                        Icons.Outlined.Home,
-                                        Icons.Outlined.ContentCopy,
-                                        Icons.Outlined.Settings
-                                    )
-                                    labels.forEachIndexed { index, label ->
-                                        val active = tab == index
-                                        val tint = if (active) selectedTint
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant
-                                        Column(
-                                            modifier = Modifier.weight(1f).fillMaxHeight()
-                                                .clickable(onClickLabel = "Open $label") { tab = index },
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                icons[index], contentDescription = label,
-                                                tint = tint, modifier = Modifier.size(22.dp)
-                                            )
-                                            Spacer(Modifier.height(3.dp))
-                                            Text(
-                                                label, fontSize = 11.sp, maxLines = 1,
-                                                color = tint,
-                                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
-                                            )
-                                        }
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                                    .height(60.dp)
+                                    .background(navBackground, RoundedCornerShape(17.dp)),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val labels = listOf("Home", "Tools", "Settings")
+                                val icons: List<ImageVector> = listOf(
+                                    Icons.Outlined.Home,
+                                    Icons.Outlined.ContentCopy,
+                                    Icons.Outlined.Settings
+                                )
+                                labels.forEachIndexed { index, label ->
+                                    val selected = tab == index
+                                    val tint = if (selected) activeTint else inactiveTint
+                                    Column(
+                                        modifier = Modifier.weight(1f).fillMaxHeight()
+                                            .clickable(onClickLabel = "Open $label") { tab = index },
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            icons[index], contentDescription = label,
+                                            tint = tint, modifier = Modifier.size(21.dp)
+                                        )
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(
+                                            label, fontSize = 11.sp, maxLines = 1,
+                                            color = tint,
+                                            fontWeight = if (selected) FontWeight.SemiBold
+                                                else FontWeight.Normal
+                                        )
                                     }
                                 }
                             }
