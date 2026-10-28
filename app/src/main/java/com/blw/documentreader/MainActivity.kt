@@ -175,12 +175,12 @@ class MainActivity : ComponentActivity() {
                                 )
                                 Spacer(Modifier.width(11.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                    Text("W Reader", fontSize = 19.sp,
+                                    Text("W Reader", fontSize = 19.sp, lineHeight = 23.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface)
-                                    Text("PDF · Word · Excel", fontSize = 11.sp,
+                                    Text("PDF · Word · Excel", fontSize = 11.sp, lineHeight = 15.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Read · Organize · Share", fontSize = 10.sp,
+                                    Text("Read · Organize · Share", fontSize = 10.sp, lineHeight = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
