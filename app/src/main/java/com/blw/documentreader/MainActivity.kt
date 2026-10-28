@@ -150,10 +150,14 @@ class MainActivity : ComponentActivity() {
                                     .height(58.dp).padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Surface(color = blue, shape = RoundedCornerShape(11.dp)) {
-                                    Icon(Icons.Default.Description, "W Reader logo",
-                                        tint = Color.White, modifier = Modifier.padding(9.dp).size(23.dp))
-                                }
+                                Icon(
+                                    painter = androidx.compose.ui.res.painterResource(
+                                        com.blw.documentreader.R.drawable.ic_blw_launcher
+                                    ),
+                                    contentDescription = "W Reader",
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(44.dp)
+                                )
                                 Spacer(Modifier.width(10.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Text("W Reader", fontSize = 17.sp, fontWeight = FontWeight.Bold,
