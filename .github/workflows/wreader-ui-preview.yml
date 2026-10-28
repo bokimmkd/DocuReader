@@ -52,20 +52,17 @@ jobs:
             sleep 10
             adb shell screencap -p /sdcard/wreader-home.png
             adb pull /sdcard/wreader-home.png verification/ui/home.png
-            H=$(adb shell wm size | grep Physical | sed 's/.*x//')
-            W=$(adb shell wm size | grep Physical | sed 's/.*: //' | cut -d'x' -f1)
-            # Tap the CENTER of the 60dp Settings item, not the bottom system inset.
-            adb shell input tap $((W * 5 / 6)) $((H - 170))
+            # pixel_6 emulator has a verified 1080x2400 display; Settings clickable
+            # accessibility bounds: [708,2161][1043,2319].
+            # Each script line runs in its own shell, so do not use cross-line W/H variables.
+            adb shell input tap 875 2250
             sleep 4
             adb shell uiautomator dump /sdcard/wreader-window.xml
             adb pull /sdcard/wreader-window.xml verification/ui/window.xml
             adb shell screencap -p /sdcard/wreader-settings.png
             adb pull /sdcard/wreader-settings.png verification/ui/settings.png
             # The screenshot must actually show Settings, not Home after a missed tap.
-            grep -q 'Appearance' verification/ui/window.xml || {
-              echo 'ERROR: Settings page not visible after navigation tap'
-              exit 1
-            }
+            grep -q 'Appearance' verification/ui/window.xml
       - name: Upload Android emulator UI screenshots
         uses: actions/upload-artifact@v4
         if: always()
