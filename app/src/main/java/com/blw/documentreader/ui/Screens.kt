@@ -58,13 +58,14 @@ private val ExcelGreen = Color(0xFF14895B)
 
 @Composable
 private fun DocumentBadge(type: String) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val (icon, tint) = when (type) {
-        "PDF" -> Icons.Default.PictureAsPdf to PdfRed
-        "Word" -> Icons.Default.Description to WordBlue
-        else -> Icons.Default.TableChart to ExcelGreen
+        "PDF" -> Icons.Default.PictureAsPdf to (if (isDark) Color(0xFFF05C55) else PdfRed)
+        "Word" -> Icons.Default.Description to (if (isDark) Color(0xFF66B6FF) else WordBlue)
+        else -> Icons.Default.TableChart to (if (isDark) Color(0xFF36C77B) else ExcelGreen)
     }
     Box(Modifier.size(38.dp).clip(MaterialTheme.shapes.small)
-        .background(tint.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+        .background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = type, tint = tint, modifier = Modifier.size(23.dp))
     }
 }
@@ -101,6 +102,11 @@ private fun FormatCard(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val accent = if (isDark) when (title) {
+        "PDF" -> Color(0xFFF05C55)
+        "Word" -> Color(0xFF66B6FF)
+        else -> Color(0xFF36C77B)
+    } else tint
     val bg = if (isDark) Color(0xFF252525) else Color(0xFFEDF2F8)
     val labelColor = if (isDark) Color(0xFFF5F6FA) else Color(0xFF152438)
     Card(
@@ -110,7 +116,7 @@ private fun FormatCard(
         colors = CardDefaults.cardColors(containerColor = bg),
         border = androidx.compose.foundation.BorderStroke(
             if (selected) 2.dp else 1.dp,
-            if (selected) tint else if (isDark) Color(0xFF252525) else Color(0xFFE1E7EF)
+            if (selected) accent else if (isDark) Color(0xFF252525) else Color(0xFFE1E7EF)
         )
     ) {
         Column(
@@ -118,7 +124,7 @@ private fun FormatCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(26.dp))
             Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
