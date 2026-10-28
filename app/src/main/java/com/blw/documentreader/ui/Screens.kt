@@ -505,36 +505,99 @@ private fun PdfPageTile(page: ToolPage, index: Int, selected: Boolean, onClick: 
 }
 
 @Composable
+private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector,
+                           title: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .clip(androidx.compose.foundation.shape.RoundedCornerShape(9.dp))
+        .clickable(onClick = onClick).padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, null, modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary)
+        Text(title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
 fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit,
-                   price: String, adFree: Boolean, privacy: () -> Unit, privacyOptions: () -> Unit, feedback: () -> Unit) {
+                   price: String, adFree: Boolean, privacy: () -> Unit,
+                   privacyOptions: () -> Unit, feedback: () -> Unit) {
     var clearDialog by remember { mutableStateOf(false) }
+    val priceAvailable = price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Spacer(Modifier.height(5.dp))
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Icon(Icons.Default.Palette, null, modifier = Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Text("Appearance", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("System", "Light", "Dark").forEachIndexed { index, text ->
-                SegmentedButton(selected = vm.appearance == text, onClick = { vm.updateAppearance(text) },
-                    shape = SegmentedButtonDefaults.itemShape(index, 3)) { Text(text) }
+            listOf("System", "Light", "Dark").forEachIndexed { index, label ->
+                SegmentedButton(selected = vm.appearance == label,
+                    onClick = { vm.updateAppearance(label) },
+                    shape = SegmentedButtonDefaults.itemShape(index, 3)) {
+                    Text(label, fontSize = 12.sp)
+                }
             }
         }
-        HorizontalDivider()
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { Text("Remember last reading position"); Text("Resume PDFs where you left off", style = MaterialTheme.typography.bodySmall) }
+        HorizontalDivider(Modifier.padding(vertical = 5.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Remember reading position", fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium)
+                Text("Continue where you stopped", fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Switch(checked = vm.remember, onCheckedChange = vm::updateRemember)
         }
-        HorizontalDivider()
-        Text("Ads & purchase", style = MaterialTheme.typography.titleMedium)
-        Text(if (adFree) "Ad-free is active" else "Free includes one small banner. No interruptions.")
-        Button(onClick = removeAds, enabled = !adFree) { Text(if (adFree) "Ads removed" else "Remove Ads · $price") }
-        OutlinedButton(onClick = restore) { Text("Restore Purchase") }
-        HorizontalDivider()
-        Text("Data & help", style = MaterialTheme.typography.titleMedium)
-        TextButton(onClick = { clearDialog = true }) { Text("Clear Recent History") }
-        TextButton(onClick = feedback) { Text("Help & Feedback") }
-        TextButton(onClick = privacy) { Text("Privacy Policy") }
-        TextButton(onClick = privacyOptions) { Text("Ad privacy options") }
-        Text("App version 0.1.0 · English", style = MaterialTheme.typography.labelMedium)
-        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(Modifier.padding(vertical = 5.dp))
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Icon(Icons.Default.Block, null, modifier = Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+        Text(if (adFree) "Ad-free is active" else "One small banner · No interruptions",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().heightIn(min = 54.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Remove Ads", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(if (adFree) "Purchased" else if (priceAvailable) "One-time · $price"
+                    else "Available through Google Play",
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick = removeAds, enabled = !adFree && priceAvailable,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandBlue, contentColor = Color.White
+                ), modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (adFree) "Active" else "Buy", fontSize = 13.sp)
+            }
+        }
+        SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
+        HorizontalDivider(Modifier.padding(vertical = 5.dp))
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Icon(Icons.Default.Tune, null, modifier = Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Text("Data & help", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+        SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
+        SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
+        SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
+        SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
+        Text("W Reader 0.1.0 · English", fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = 5.dp, bottom = 12.dp))
     }
     if (clearDialog) AlertDialog(onDismissRequest = { clearDialog = false },
         title = { Text("Clear recent history?") },
