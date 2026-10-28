@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -91,12 +92,35 @@ private fun DocumentRow(doc: DocumentEntry, onFavorite: () -> Unit, onOpen: () -
 }
 
 @Composable
-private fun FormatPill(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color) {
-    Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-        .background(tint.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
-        Text(text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = tint)
+private fun FormatCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val bg = if (isDark) Color(0xFF252525) else Color(0xFFEDF2F8)
+    val labelColor = if (isDark) Color(0xFFF5F6FA) else Color(0xFF152438)
+    Card(
+        onClick = onClick,
+        modifier = modifier.height(97.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp),
+        colors = CardDefaults.cardColors(containerColor = bg),
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) tint else if (isDark) Color(0xFF252525) else Color(0xFFE1E7EF)
+        )
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(vertical = 13.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
+            Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
     }
 }
 
@@ -106,65 +130,84 @@ fun HomeScreen(vm: MainViewModel, openPicker: () -> Unit, reopen: (DocumentEntry
     var showAll by rememberSaveable { mutableStateOf(false) }
     val recent = vm.recent.filter { it.openedAt > 0L && (filter == "All" || it.type == filter) }
     val favorites = vm.recent.filter { it.favorite }
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 10.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 9.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
         item {
-            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
+            Button(
+                onClick = openPicker,
+                modifier = Modifier.fillMaxWidth().height(51.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BrandBlue, contentColor = Color.White
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+            ) {
                 Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(9.dp))
                 Text("Open document", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Recent", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                if (recent.size > 5) TextButton(onClick = { showAll = !showAll }) {
-                    Text(if (showAll) "Show less" else "See all", fontSize = 12.sp)
+                TextButton(onClick = { filter = "All"; showAll = true }) {
+                    Text("All files", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                items(listOf("All", "PDF", "Word", "Excel")) { type ->
-                    FilterChip(selected = filter == type, onClick = { filter = type },
-                        label = { Text(type, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary))
-                }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                FormatCard("PDF", Icons.Default.PictureAsPdf, PdfRed, filter == "PDF",
+                    { filter = if (filter == "PDF") "All" else "PDF" },
+                    modifier = Modifier.weight(1f))
+                FormatCard("Word", Icons.Default.Description, WordBlue, filter == "Word",
+                    { filter = if (filter == "Word") "All" else "Word" },
+                    modifier = Modifier.weight(1f))
+                FormatCard("Excel", Icons.Default.TableChart, ExcelGreen, filter == "Excel",
+                    { filter = if (filter == "Excel") "All" else "Excel" },
+                    modifier = Modifier.weight(1f))
             }
         }
         if (recent.isEmpty()) item {
-            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
-                horizontalAlignment = Alignment.CenterHorizontally) {
-                if (filter == "All") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FormatPill("PDF", Icons.Default.PictureAsPdf, PdfRed)
-                    FormatPill("Word", Icons.Default.Description, WordBlue)
-                    FormatPill("Excel", Icons.Default.TableChart, ExcelGreen)
-                }
-                Text(if (filter == "All") "Your opened files will appear here" else "No $filter files yet",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Text(
+                if (filter == "All") "No recent documents" else "No $filter documents yet",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
         items(if (showAll) recent else recent.take(5), key = { "recent:" + it.uri }) { doc ->
             DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
         }
+        if (recent.size > 5 && !showAll) item {
+            TextButton(onClick = { showAll = true }) { Text("See all recent files", fontSize = 12.sp) }
+        }
         item {
-            Text("Favorites", modifier = Modifier.padding(top = 9.dp),
-                fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Favorites", modifier = Modifier.padding(top = 10.dp),
+                fontSize = 16.sp, fontWeight = FontWeight.Bold
+            )
         }
         if (favorites.isEmpty()) item {
-            Row(Modifier.fillMaxWidth().padding(vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Icon(Icons.Default.StarBorder, null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
-                Text("Star documents for quick access", fontSize = 12.sp,
+                Text("Star a document for quick access", fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
