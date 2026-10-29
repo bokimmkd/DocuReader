@@ -18,7 +18,8 @@ import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,6 +50,9 @@ class MainActivity : ComponentActivity() {
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
+    }
+    private val pickForLibrary = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) { persistIfAvailable(uri); vm.saveToLibrary(uri) }
     }
     private val pickTool = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); vm.beginTool(uri) }
@@ -106,7 +110,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun ApplicationScreen() {
         var tab by rememberSaveable { mutableIntStateOf(0) }
-        BackHandler(enabled = vm.current != null || tab == 1) {
+        var libraryFilter by rememberSaveable { mutableStateOf("All") }
+        BackHandler(enabled = vm.current != null || tab == 2) {
             if (vm.current != null) vm.closeDocument() else tab = 0
         }
         val dark = when (vm.appearance) {
@@ -152,7 +157,7 @@ class MainActivity : ComponentActivity() {
         )) {
             Scaffold(
                 topBar = {
-                    if (vm.current == null && !(tab == 1 && vm.toolReady)) {
+                    if (vm.current == null && !(tab == 2 && vm.toolReady)) {
                         Surface(color = MaterialTheme.colorScheme.background) {
                             Row(
                                 Modifier.fillMaxWidth().statusBarsPadding()
@@ -207,10 +212,11 @@ class MainActivity : ComponentActivity() {
                                     .background(navBackground, RoundedCornerShape(17.dp)),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val labels = listOf("Home", "Tools", "Settings")
+                                val labels = listOf("Home", "Library", "Tools", "Settings")
                                 val icons: List<ImageVector> = listOf(
                                     Icons.Outlined.Home,
-                                    Icons.Outlined.ContentCopy,
+                                    Icons.Outlined.FolderOpen,
+                                    Icons.Outlined.Build,
                                     Icons.Outlined.Settings
                                 )
                                 labels.forEachIndexed { index, label ->
@@ -245,10 +251,20 @@ class MainActivity : ComponentActivity() {
                         ReaderScreen(vm, onBack = { vm.closeDocument() },
                             onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
-                            onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 1; vm.closeDocument() } })
+                            onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } })
                     } else when (tab) {
-                        0 -> HomeScreen(vm, openPicker = ::openPicker, reopen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) })
-                        1 -> if (vm.toolReady) ToolEditor(vm,
+                        0 -> HomeScreen(vm, openPicker = ::openPicker,
+                            reopen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
+                            onLibrary = { libraryFilter = it; tab = 1 })
+                        1 -> LibraryScreen(vm,
+                            onOpen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
+                            onAdd = { pickForLibrary.launch(arrayOf(
+                                "application/pdf",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )) },
+                            initialFilter = libraryFilter)
+                        2 -> if (vm.toolReady) ToolEditor(vm,
                             addPdf = { addTool.launch(arrayOf("application/pdf")) },
                             onSave = { saveTool.launch("WReader_edited.pdf") },
                             onBack = { tab = 0 },
