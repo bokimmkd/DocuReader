@@ -5,6 +5,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.util.UUID
+import androidx.core.content.FileProvider
 
 /** Metadata only. Document contents are never stored here. */
 data class DocumentEntry(
@@ -13,7 +16,10 @@ data class DocumentEntry(
     val type: String,
     val favorite: Boolean = false,
     val lastPage: Int = 0,
-    val openedAt: Long = System.currentTimeMillis()
+    val openedAt: Long = System.currentTimeMillis(),
+    val category: String = "Uncategorized",
+    val tags: String = "",
+    val savedLocally: Boolean = false
 )
 
 object DocumentTypes {
@@ -49,14 +55,19 @@ class DocumentStore(context: Context) {
         (0 until json.length()).map { i ->
             val item = json.getJSONObject(i)
             DocumentEntry(item.getString("uri"), item.getString("name"), item.getString("type"),
-                item.optBoolean("favorite", false), item.optInt("lastPage", 0), item.optLong("openedAt", 0))
+                item.optBoolean("favorite", false), item.optInt("lastPage", 0), item.optLong("openedAt", 0),
+                item.optString("category", "Uncategorized"), item.optString("tags", ""), item.optBoolean("savedLocally", false))
         }
     } catch (_: Exception) { emptyList() }
     fun save(items: List<DocumentEntry>) {
         val out = JSONArray()
-        items.take(100).forEach { item ->
+        // Keep curated Library documents and favorites even when Recent exceeds 100.
+        val curated = items.filter { it.savedLocally || it.favorite }
+        val limit = (curated + items.filterNot { it in curated }.take(100)).distinctBy { it.uri }
+        limit.forEach { item ->
             out.put(JSONObject().put("uri", item.uri).put("name", item.name).put("type", item.type)
-                .put("favorite", item.favorite).put("lastPage", item.lastPage).put("openedAt", item.openedAt))
+                .put("favorite", item.favorite).put("lastPage", item.lastPage).put("openedAt", item.openedAt)
+                .put("category", item.category).put("tags", item.tags).put("savedLocally", item.savedLocally))
         }
         prefs.edit().putString("recent", out.toString()).apply()
     }
@@ -65,4 +76,23 @@ class DocumentStore(context: Context) {
     fun rememberPosition() = prefs.getBoolean("remember", true)
     fun setRememberPosition(on: Boolean) = prefs.edit().putBoolean("remember", on).apply()
     fun clearHistory() = prefs.edit().remove("recent").apply()
+    /** Explicit user-requested offline copy. Does not touch the original document. */
+    fun keepOffline(uri: Uri, originalName: String): Uri {
+        val dir = File(context.filesDir, "library").also { it.mkdirs() }
+        val extension = originalName.substringAfterLast('.', "").lowercase()
+            .takeIf { it in setOf("pdf", "docx", "xlsx") } ?: "pdf"
+        val dest = File(dir, "${UUID.randomUUID()}.$extension")
+        val temp = File(dir, "${dest.name}.part")
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                temp.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+            } ?: error("This document is no longer accessible. Locate it again.")
+            require(temp.length() > 0L) { "The document was empty." }
+            check(temp.renameTo(dest)) { "Unable to save the local copy." }
+            return FileProvider.getUriForFile(context, "${context.packageName}.files", dest)
+        } catch (ex: Exception) {
+            temp.delete(); dest.delete(); throw ex
+        }
+    }
+
 }
