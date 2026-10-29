@@ -111,7 +111,7 @@ private fun FormatCard(
     val labelColor = if (isDark) Color(0xFFF5F6FA) else Color(0xFF152438)
     Card(
         onClick = onClick,
-        modifier = modifier.height(97.dp),
+        modifier = modifier.height(68.dp),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp),
         colors = CardDefaults.cardColors(containerColor = bg),
         border = androidx.compose.foundation.BorderStroke(
@@ -120,106 +120,93 @@ private fun FormatCard(
         )
     ) {
         Column(
-            Modifier.fillMaxSize().padding(vertical = 13.dp),
+            Modifier.fillMaxSize().padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+            verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
         ) {
-            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(26.dp))
-            Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(21.dp))
+            Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
     }
 }
 
 @Composable
-fun HomeScreen(vm: MainViewModel, openPicker: () -> Unit, reopen: (DocumentEntry) -> Unit) {
-    var filter by rememberSaveable { mutableStateOf("All") }
-    var showAll by rememberSaveable { mutableStateOf(false) }
-    val recent = vm.recent.filter { it.openedAt > 0L && (filter == "All" || it.type == filter) }
-    val favorites = vm.recent.filter { it.favorite }
-    LazyColumn(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 9.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
+fun HomeScreen(
+    vm: MainViewModel,
+    openPicker: () -> Unit,
+    reopen: (DocumentEntry) -> Unit,
+    onLibrary: (String) -> Unit
+) {
+    val recents = vm.recent.filter { it.openedAt > 0L }
+        .sortedByDescending { it.openedAt }.take(3)
+    val favorites = vm.recent.filter { it.favorite }.take(2)
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 9.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)) {
         item {
-            Button(
-                onClick = openPicker,
-                modifier = Modifier.fillMaxWidth().height(51.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = BrandBlue, contentColor = Color.White
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
-            ) {
+            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
                 Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(9.dp))
                 Text("Open document", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(top = 8.dp),
+            Row(Modifier.fillMaxWidth().padding(top = 5.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FormatCard("PDF", Icons.Default.PictureAsPdf, PdfRed, false,
+                    { onLibrary("PDF") }, modifier = Modifier.weight(1f))
+                FormatCard("Word", Icons.Default.Description, WordBlue, false,
+                    { onLibrary("Word") }, modifier = Modifier.weight(1f))
+                FormatCard("Excel", Icons.Default.TableChart, ExcelGreen, false,
+                    { onLibrary("Excel") }, modifier = Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                verticalAlignment = Alignment.CenterVertically) {
                 Text("Recent", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { filter = "All"; showAll = true }) {
-                    Text("All files", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                TextButton(onClick = { onLibrary("Recent") }) {
+                    Text("See all", fontSize = 12.sp)
                 }
             }
         }
+        if (recents.isEmpty()) item {
+            Text("Your opened documents will appear here",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp, modifier = Modifier.padding(vertical = 9.dp))
+        }
+        items(recents, key = { "recent:" + it.uri }) { doc ->
+            DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
+        }
         item {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                FormatCard("PDF", Icons.Default.PictureAsPdf, PdfRed, filter == "PDF",
-                    { filter = if (filter == "PDF") "All" else "PDF" },
-                    modifier = Modifier.weight(1f))
-                FormatCard("Word", Icons.Default.Description, WordBlue, filter == "Word",
-                    { filter = if (filter == "Word") "All" else "Word" },
-                    modifier = Modifier.weight(1f))
-                FormatCard("Excel", Icons.Default.TableChart, ExcelGreen, filter == "Excel",
-                    { filter = if (filter == "Excel") "All" else "Excel" },
-                    modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Favorites", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { onLibrary("Favorites") }) {
+                    Text("See all", fontSize = 12.sp)
+                }
             }
         }
-        if (recent.isEmpty()) item {
-            Text(
-                if (filter == "All") "No recent documents" else "No $filter documents yet",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-        items(if (showAll) recent else recent.take(5), key = { "recent:" + it.uri }) { doc ->
-            DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-        }
-        if (recent.size > 5 && !showAll) item {
-            TextButton(onClick = { showAll = true }) { Text("See all recent files", fontSize = 12.sp) }
-        }
-        item {
-            Text(
-                "Favorites", modifier = Modifier.padding(top = 10.dp),
-                fontSize = 16.sp, fontWeight = FontWeight.Bold
-            )
-        }
         if (favorites.isEmpty()) item {
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.StarBorder, null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
-                Text("Star a document for quick access", fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Star documents for quick access",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp)
             }
         }
         items(favorites, key = { "favorite:" + it.uri }) { doc ->
             DocumentRow(doc, onFavorite = { vm.favorite(doc) }, onOpen = { reopen(doc) })
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
         }
     }
 }
