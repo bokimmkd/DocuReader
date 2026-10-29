@@ -27,6 +27,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var recent by mutableStateOf(store.load()); private set
     var current by mutableStateOf<DocumentEntry?>(null); private set
     var pdf by mutableStateOf<PdfSession?>(null); private set
+    var officeUri by mutableStateOf<Uri?>(null); private set
+    var officeName by mutableStateOf(""); private set
+    var officeType by mutableStateOf(""); private set
     var busy by mutableStateOf(false); private set
     var message by mutableStateOf<String?>(null); private set
     var passwordNeeded by mutableStateOf(false); private set
@@ -111,9 +114,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val type = DocumentTypes.detect(appContext, uri, name)
         if (type == null) { message = "Unsupported format. Choose a PDF, DOCX or XLSX file."; return }
         if (type != DocumentTypes.PDF) {
-            message = "$type rendering isn't included in this PDF-first milestone. The original file was not modified."
+            pdf?.close(); pdf = null
+            officeUri = uri
+            officeName = name
+            officeType = type
+            passwordNeeded = false
+            message = null
+            val existing = recent.find { it.uri == uri.toString() }
+            val record = DocumentEntry(
+                uri.toString(), name, type, existing?.favorite ?: false,
+                0, System.currentTimeMillis(), existing?.category ?: "Uncategorized",
+                existing?.tags ?: "", existing?.savedLocally ?: false
+            )
+            current = record
+            recent = listOf(record) + recent.filter { it.uri != record.uri }.take(99)
+            store.save(recent)
             return
         }
+        officeUri = null
         busy = true; passwordNeeded = false; message = null
         viewModelScope.launch {
             try {
@@ -138,7 +156,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } finally { busy = false }
         }
     }
-    fun closeDocument() { pdf?.close(); pdf = null; current = null; passwordNeeded = false }
+    fun closeDocument() {
+        pdf?.close(); pdf = null; officeUri = null
+        current = null; passwordNeeded = false
+    }
     fun searchPdf(query: String) {
         val session = pdf ?: return
         busy = true
