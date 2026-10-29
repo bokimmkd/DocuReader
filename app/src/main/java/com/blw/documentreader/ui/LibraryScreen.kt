@@ -65,16 +65,21 @@ fun LibraryScreen(
         Row(Modifier.fillMaxWidth().height(52.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("Library", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("${vm.recent.size} documents · Stored on this device or linked",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                Text("Library", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${vm.recent.size} ${if (vm.recent.size == 1) "document" else "documents"} · Local or linked",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Button(onClick = onAdd, modifier = Modifier.height(44.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = LibraryBlue, contentColor = Color.White)) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
-                Text("Add", fontSize = 12.sp)
+            IconButton(
+                onClick = onAdd,
+                modifier = Modifier.size(48.dp).background(
+                    LibraryBlue, RoundedCornerShape(14.dp)
+                )
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add document",
+                    modifier = Modifier.size(24.dp), tint = Color.White)
             }
         }
         OutlinedTextField(
