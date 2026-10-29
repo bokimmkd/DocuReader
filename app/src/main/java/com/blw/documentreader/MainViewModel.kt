@@ -56,6 +56,45 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         current = current?.let { if (it.uri == doc.uri) it.copy(favorite = !it.favorite) else it }
         store.save(recent)
     }
+    fun updateLibraryInfo(doc: DocumentEntry, category: String, tags: String) {
+        val label = category.trim().take(45).ifBlank { "Uncategorized" }
+        val keywords = tags.trim().take(180)
+        recent = recent.map { if (it.uri == doc.uri) it.copy(category = label, tags = keywords) else it }
+        current = current?.let { if (it.uri == doc.uri) it.copy(category = label, tags = keywords) else it }
+        store.save(recent)
+    }
+    /** Explicit user opt-in. Keep copies in app-private storage without changing source. */
+    fun saveToLibrary(uri: Uri, document: DocumentEntry? = null) {
+        busy = true
+        viewModelScope.launch {
+            try {
+                val name = document?.name ?: DocumentTypes.displayName(appContext, uri)
+                val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
+                require(type != null) { "Only PDF, DOCX and XLSX are supported." }
+                val savedUri = withContext(Dispatchers.IO) { store.keepOffline(uri, name) }
+                val original = document ?: recent.find { it.uri == uri.toString() }
+                val newEntry = DocumentEntry(
+                    savedUri.toString(), name, type, original?.favorite ?: false,
+                    original?.lastPage ?: 0, System.currentTimeMillis(),
+                    original?.category ?: "Uncategorized", original?.tags ?: "", true
+                )
+                recent = listOf(newEntry) + recent.filter {
+                    it.uri != newEntry.uri && it.uri != uri.toString()
+                }
+                store.save(recent)
+                message = "Saved privately to Library. Original document unchanged."
+            } catch (ex: Exception) {
+                message = "Could not save Library copy: ${ex.message ?: "Check access and storage."}"
+            } finally { busy = false }
+        }
+    }
+    fun removeLibraryEntry(doc: DocumentEntry) {
+        recent = recent.filterNot { it.uri == doc.uri }
+        store.save(recent)
+        // Never delete files from external providers or shared storage.
+        // An app-private copy, if any, stays untouched until explicit file cleanup.
+        message = "Removed from Library list. Original file unchanged."
+    }
     fun pageChanged(page: Int) {
         if (!remember) return
         current?.let { doc ->
@@ -83,7 +122,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 pdf = session
                 val existing = recent.find { it.uri == uri.toString() }
                 val record = DocumentEntry(uri.toString(), name, type, existing?.favorite ?: false,
-                    if (remember) existing?.lastPage ?: 0 else 0)
+                    if (remember) existing?.lastPage ?: 0 else 0,
+                    System.currentTimeMillis(), existing?.category ?: "Uncategorized",
+                    existing?.tags ?: "", existing?.savedLocally ?: false)
                 current = record
                 recent = listOf(record) + recent.filter { it.uri != record.uri }.take(99)
                 store.save(recent)
