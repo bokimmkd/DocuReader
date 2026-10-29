@@ -247,7 +247,21 @@ class MainActivity : ComponentActivity() {
                 }
             ) { insets ->
                 Box(Modifier.fillMaxSize().padding(insets)) {
-                    if (vm.current != null && vm.pdf != null) {
+                    if (vm.current != null && vm.officeUri != null) {
+                        OfficeReaderScreen(
+                            uri = vm.officeUri!!,
+                            name = vm.officeName,
+                            type = vm.officeType,
+                            onBack = { vm.closeDocument() },
+                            onShare = {
+                                vm.current?.let { share(Uri.parse(it.uri), when (vm.officeType) {
+                                    "Word" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    else -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                }) }
+                            },
+                            onPrintOriginal = { }
+                        )
+                    } else if (vm.current != null && vm.pdf != null) {
                         ReaderScreen(vm, onBack = { vm.closeDocument() },
                             onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
