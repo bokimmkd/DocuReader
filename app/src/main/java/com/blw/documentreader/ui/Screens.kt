@@ -405,9 +405,9 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
         }
         HorizontalDivider()
         LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            contentPadding = PaddingValues(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             gridItemsIndexed(pages, key = { index, page -> "${page.file.path}_${page.originalIndex}_${index}" }) { index, page ->
                 PdfPageTile(page, index, index in selected, onClick = {
                     if (index in selected) selected.remove(index) else selected.add(index)
@@ -415,35 +415,41 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
             }
         }
         HorizontalDivider()
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
+        Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically) {
             ToolAction(Icons.Default.AddBox, "Add", addPdf)
             ToolAction(Icons.Default.ContentCut, "Extract", {
-                rangeText = ""; showRange = true
+                if (selected.isNotEmpty()) {
+                    val copies = selected.sorted().mapNotNull { pages.getOrNull(it) }
+                    if (copies.isNotEmpty()) {
+                        pages.clear(); pages.addAll(copies); selected.clear()
+                        vm.report("Selected pages kept. Save as a new PDF.")
+                    }
+                } else {
+                    rangeText = ""; showRange = true
+                }
             })
-            ToolAction(Icons.Default.KeyboardArrowLeft, "Move left", {
+            ToolAction(Icons.Default.KeyboardArrowLeft, "Left", {
                 singleIndex?.let { vm.swap(it, -1); selected.clear(); selected.add(it - 1) }
             }, enabled = singleIndex != null && singleIndex > 0)
-            ToolAction(Icons.Default.KeyboardArrowRight, "Move right", {
+            ToolAction(Icons.Default.KeyboardArrowRight, "Right", {
                 singleIndex?.let { vm.swap(it, 1); selected.clear(); selected.add(it + 1) }
             }, enabled = singleIndex != null && singleIndex < pages.size - 1)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically) {
             ToolAction(Icons.Default.DeleteOutline, "Delete", {
                 if (selected.size >= pages.size) vm.report("A PDF must contain at least one page.")
                 else { selected.sortedDescending().forEach { vm.remove(it) }; selected.clear() }
             }, enabled = selected.isNotEmpty())
-            ToolAction(Icons.Default.RotateRight, "Rotate 90°", {
+            ToolAction(Icons.Default.RotateRight, "Rotate", {
                 selected.forEach { if (it in pages.indices) vm.rotate(it) }
             }, enabled = selected.isNotEmpty())
-            Text("${selected.size} selected", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Button(onClick = { warning = true }, enabled = pages.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(50.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).height(44.dp),
             colors = ButtonDefaults.buttonColors(containerColor = BrandBlue)) {
-            Icon(Icons.Default.SaveAlt, null); Spacer(Modifier.width(8.dp)); Text("Save as New PDF")
+            Icon(Icons.Default.SaveAlt, null, modifier = Modifier.size(19.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Save new PDF", fontSize = 13.sp)
         }
         vm.toolSaveResult?.let { uri ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -510,10 +516,16 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
 @Composable
 private fun ToolAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String,
                        onClick: () -> Unit, enabled: Boolean = true) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        IconButton(onClick = onClick, enabled = enabled) { Icon(icon, label) }
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(
+        modifier = Modifier.widthIn(min = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(44.dp)) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(21.dp))
+        }
+        Text(label, fontSize = 10.sp, maxLines = 1,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
