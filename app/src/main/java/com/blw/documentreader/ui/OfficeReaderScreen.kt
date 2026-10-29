@@ -121,11 +121,16 @@ fun OfficeReaderScreen(
             }
             IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share original") }
-            IconButton(onClick = {
-                val adapter = webView.createPrintDocumentAdapter(name)
-                val printManager = context.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
-                printManager.print(name, adapter, null)
-            }) { Icon(Icons.Default.Print, "Print viewed document") }
+            // A WebView preview is not a faithful print engine for every DOCX/XLSX.
+            // For the first Play closed test, share the original to a compatible
+            // Office app for reliable printing instead of misprinting a zoomed preview.
+            if (com.blw.documentreader.BuildConfig.DEBUG) {
+                IconButton(onClick = {
+                    val adapter = webView.createPrintDocumentAdapter(name)
+                    val printManager = context.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
+                    printManager.print(name, adapter, null)
+                }) { Icon(Icons.Default.Print, "Print preview (layout may differ)") }
+            }
         }
         Row(Modifier.fillMaxWidth().height(42.dp),
             verticalAlignment = Alignment.CenterVertically,
