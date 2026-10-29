@@ -65,7 +65,7 @@ fun OfficeReaderScreen(
     }
     var searchText by remember(uri) { mutableStateOf("") }
     var showSearch by remember(uri) { mutableStateOf(false) }
-    var scale by remember(uri) { mutableFloatStateOf(1f) }
+    var scale by remember(uri) { mutableFloatStateOf(0.5f) }
     DisposableEffect(webView) {
         val loader = WebViewAssetLoader.Builder()
             .setDomain("appassets.androidplatform.net")
@@ -131,12 +131,12 @@ fun OfficeReaderScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center) {
             TextButton(onClick = {
-                scale = (scale - .15f).coerceIn(.65f, 2.4f)
+                scale = (scale - .10f).coerceIn(.25f, 2.5f)
                 webView.evaluateJavascript("window.setOfficeZoom && window.setOfficeZoom($scale)", null)
             }) { Icon(Icons.Default.ZoomOut, "Zoom out") }
             Text("${(scale * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
             TextButton(onClick = {
-                scale = (scale + .15f).coerceIn(.65f, 2.4f)
+                scale = (scale + .10f).coerceIn(.25f, 2.5f)
                 webView.evaluateJavascript("window.setOfficeZoom && window.setOfficeZoom($scale)", null)
             }) { Icon(Icons.Default.ZoomIn, "Zoom in") }
             Text("Layout may differ from Microsoft Office", style = MaterialTheme.typography.labelSmall,
