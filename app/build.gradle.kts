@@ -7,15 +7,24 @@ android {
     namespace = "com.blw.documentreader"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.blw.documentreader"
+        applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.3-office-scroll-preview"
+        versionCode = 5
+        versionName = "0.1.4-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
-        release { isMinifyEnabled = true; isShrinkResources = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") }
+        getByName("debug") {
+            buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
+        }
+        getByName("release") {
+            // First closed testing: no sample AdMob traffic or unverified purchases.
+            buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
