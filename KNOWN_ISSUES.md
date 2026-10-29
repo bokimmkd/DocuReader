@@ -11,3 +11,13 @@ Current 0.1.0 debug APK compiled successfully, but the following issues were rep
 7. **Settings polish:** Compact rows and short explanations; verify localized purchase label and restore flow (not configured for production).
 
 Scope for 0.1.1: these bugs and visual refinement only. No repository changes to other apps, no signing or Play release without separate approval.
+
+## Approved UI structure for next combined update (29 Oct 2026)
+
+- Add a **Library** tab: `Home | Library | Tools | Settings`. This is a design decision, not yet implemented.
+- Home becomes a compact quick-access screen: Open document, PDF/Word/Excel filters, max **3 Recent** + **2 Favorites**, with See all linking to Library.
+- Library uses local-only document organization: all files, Favorites, categories, tags, search/sort. Imported external attachments need explicit durable local save; never silently copy every attachment.
+- PDF Tools screen: more room for page thumbnails, smaller command bar and Save PDF button; show Open/Share only when saved output exists.
+- Settings: reduce gaps between headers, dividers, and actions. A compact code-only spacing patch is committed to the 0.1.1 test branch; **no new APK was built or released for that patch**. Preserve minimum 48dp tap regions.
+- PDF continuous vertical scroll, visual Extract selection, and DOCX/XLSX rendering remain separate unfinished functional requirements.
+- No main-branch merge, Play release, or billing configuration without separate review.
