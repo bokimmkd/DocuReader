@@ -72,14 +72,19 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(
+            Button(
                 onClick = onAdd,
-                modifier = Modifier.size(48.dp).background(
-                    LibraryBlue, RoundedCornerShape(14.dp)
+                modifier = Modifier.height(46.dp).widthIn(min = 84.dp),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 11.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = LibraryBlue, contentColor = Color.White
                 )
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add document",
-                    modifier = Modifier.size(24.dp), tint = Color.White)
+                Icon(Icons.Default.Add, contentDescription = null,
+                    modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(5.dp))
+                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         OutlinedTextField(
