@@ -1,0 +1,47 @@
+name: W Reader 0.1.4 - Google Play Closed Testing AAB (unsigned)
+on:
+  push:
+    branches: [release/wreader-closed-0.1.4]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Package pinned offline Word and Excel engines
+        run: |
+          bash scripts/prepare-office-assets.sh
+          node --check app/src/main/assets/office/reader.js
+      - name: Test and build UNSIGNED closed-test Android App Bundle
+        run: gradle :app:testDebugUnitTest :app:bundleRelease --stacktrace --no-daemon
+      - name: Verify outputs
+        run: |
+          test -s app/build/outputs/bundle/release/app-release.aab
+          unzip -tqq app/build/outputs/bundle/release/app-release.aab
+          echo 'Unsigned AAB created; sign privately off GitHub Actions before Play upload.'
+          sha256sum app/build/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WReader-0.1.4-closed-test-UNSIGNED-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
