@@ -48,7 +48,7 @@ object DocumentTypes {
     }
 }
 
-class DocumentStore(context: Context) {
+class DocumentStore(private val context: Context) {
     private val prefs = context.getSharedPreferences("metadata_only", Context.MODE_PRIVATE)
     fun load(): List<DocumentEntry> = try {
         val json = JSONArray(prefs.getString("recent", "[]"))
