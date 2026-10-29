@@ -596,7 +596,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                    price: String, adFree: Boolean, privacy: () -> Unit,
                    privacyOptions: () -> Unit, feedback: () -> Unit) {
     var clearDialog by remember { mutableStateOf(false) }
-    val priceAvailable = price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
+    val closedTest = price == "Closed test"
+    val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Spacer(Modifier.height(2.dp))
@@ -636,24 +637,26 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 tint = MaterialTheme.colorScheme.primary)
             Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        Text(if (adFree) "Ad-free is active" else "One small banner · No interruptions",
+        Text(if (closedTest) "Closed test · Ads and purchases are disabled"
+            else if (adFree) "Ad-free is active" else "One small banner · No interruptions",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Remove Ads", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text(if (adFree) "Purchased" else if (priceAvailable) "One-time · $price"
+                Text(if (closedTest) "Will be available after testing"
+                    else if (adFree) "Purchased" else if (priceAvailable) "One-time · $price"
                     else "Available through Google Play",
                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = removeAds, enabled = !adFree && priceAvailable,
+            if (!closedTest) Button(onClick = removeAds, enabled = !adFree && priceAvailable,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BrandBlue, contentColor = Color.White
                 ), modifier = Modifier.heightIn(min = 48.dp)) {
                 Text(if (adFree) "Active" else "Buy", fontSize = 13.sp)
             }
         }
-        SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
+        if (!closedTest) SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -664,7 +667,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
-        SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
+        if (!closedTest) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
         Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp))
