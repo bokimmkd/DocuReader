@@ -577,8 +577,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
     var clearDialog by remember { mutableStateOf(false) }
     val priceAvailable = price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Spacer(Modifier.height(5.dp))
+        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Icon(Icons.Default.Palette, null, modifier = Modifier.size(19.dp),
@@ -594,8 +594,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 5.dp))
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        HorizontalDivider(Modifier.padding(vertical = 2.dp))
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary)
@@ -608,7 +608,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             }
             Switch(checked = vm.remember, onCheckedChange = vm::updateRemember)
         }
-        HorizontalDivider(Modifier.padding(vertical = 5.dp))
+        HorizontalDivider(Modifier.padding(vertical = 2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Icon(Icons.Default.Block, null, modifier = Modifier.size(19.dp),
@@ -617,7 +617,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         }
         Text(if (adFree) "Ad-free is active" else "One small banner · No interruptions",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().heightIn(min = 54.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Remove Ads", fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -633,7 +633,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             }
         }
         SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
-        HorizontalDivider(Modifier.padding(vertical = 5.dp))
+        HorizontalDivider(Modifier.padding(vertical = 2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Icon(Icons.Default.Tune, null, modifier = Modifier.size(19.dp),
@@ -646,7 +646,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
         Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, top = 5.dp, bottom = 12.dp))
+            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp))
     }
     if (clearDialog) AlertDialog(onDismissRequest = { clearDialog = false },
         title = { Text("Clear recent history?") },
