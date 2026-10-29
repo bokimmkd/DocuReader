@@ -1,7 +1,7 @@
 /* W Reader offline Office UI. No external URLs, analytics, storage or editing. */
 (function() {
 'use strict';
-const state = { zoom: 1, workbook: null, images: [] };
+const state = { zoom: 0.5, workbook: null, images: [] };
 const status = document.getElementById('status');
 const content = document.getElementById('content');
 const sheetbar = document.getElementById('sheetbar');
@@ -13,7 +13,7 @@ function message(value) { status.textContent = value; status.hidden = false; }
 function info(value) { notice.hidden = false; notice.textContent = value; }
 function clearMessage() { status.hidden = true; }
 window.setOfficeZoom = function(value) {
-    state.zoom = Math.max(0.65, Math.min(2.4, Number(value) || 1));
+    state.zoom = Math.max(0.25, Math.min(2.5, Number(value) || 0.5));
     content.style.zoom = String(state.zoom);
 };
 function cellColor(color) {
@@ -200,7 +200,7 @@ async function loadWord(bytes) {
         message(type==='word'?'Rendering Word document…':'Reading Excel workbook…');
         if(type==='word')await loadWord(bytes); else await loadExcel(bytes);
         clearMessage();
-        window.setOfficeZoom(1);
+        window.setOfficeZoom(0.5);
     }catch(error){
         message('Cannot display document: '+(error.message||String(error)));
         info('The original document was not modified. Try a different file or export to PDF.');
