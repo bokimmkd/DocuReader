@@ -6,7 +6,9 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -33,6 +35,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -313,10 +318,29 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float) {
         Box(Modifier.fillMaxWidth().clipToBounds()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .pointerInput(session, index, zoom) {
-                detectTransformGestures { _, pan, pinch, _ ->
-                    gestureZoom = (gestureZoom * pinch).coerceIn(1f, 4f / zoom)
-                    translateX += pan.x; translateY += pan.y
-                    if (gestureZoom * zoom <= 1.01f) { translateX = 0f; translateY = 0f }
+                // Do NOT consume the one-finger drag: let parent LazyColumn scroll
+                // smoothly across every PDF page. Only two-finger gestures own
+                // the zoom/pan sequence. This fixes the Samsung scroll bug.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var multiTouch = false
+                    do {
+                        val event = awaitPointerEvent()
+                        if (event.changes.count { it.pressed } >= 2) multiTouch = true
+                        if (multiTouch) {
+                            val pinch = event.calculateZoom()
+                            val pan = event.calculatePan()
+                            val next = (gestureZoom * pinch).coerceIn(1f, 4f / zoom)
+                            if (next.isFinite()) gestureZoom = next
+                            translateX += pan.x
+                            translateY += pan.y
+                            if (gestureZoom * zoom <= 1.01f) {
+                                translateX = 0f
+                                translateY = 0f
+                            }
+                            event.changes.forEach { if (it.pressed) it.consume() }
+                        }
+                    } while (event.changes.any { it.pressed })
                 }
             }) {
             if (image == null) Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
