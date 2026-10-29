@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=4.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' blob: data:; connect-src 'self';">
+<title>W Reader · Offline Office</title>
+<link rel="stylesheet" href="reader.css">
+</head>
+<body>
+<div id="status" role="status">Opening document locally…</div>
+<div id="sheetbar" hidden><select id="sheet" aria-label="Worksheet"></select></div>
+<div id="viewport"><div id="content" tabindex="0"></div></div>
+<div id="notice" hidden></div>
+<script src="jszip.min.js"></script>
+<script src="docx-preview.min.js"></script>
+<script src="exceljs.min.js"></script>
+<script src="reader.js"></script>
+</body>
+</html>
