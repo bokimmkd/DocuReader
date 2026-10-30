@@ -13,7 +13,7 @@ object DocumentNames {
         val extension = extension(type)
         val clean = input.trim().replace(Regex("[\\p{Cc}/\\\\:*?\"<>|]"), "_")
         var stem = (if (clean.endsWith(".$extension", ignoreCase = true))
-            clean.dropLast(extension.length + 1) else clean).trim().trimEnd('.', ' ').take(150)
+            clean.dropLast(extension.length + 1) else clean).trim().trimEnd('.', ' ').take(150).trimEnd { it.isHighSurrogate() }
         require(stem.isNotBlank() && stem.any { it != '.' }) { "Enter a file name." }
         // Android file systems limit UTF-8 bytes, not the number of displayed characters.
         while ("$stem.$extension".toByteArray(Charsets.UTF_8).size > 220) {

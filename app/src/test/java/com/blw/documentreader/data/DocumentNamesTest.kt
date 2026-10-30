@@ -27,5 +27,6 @@ class DocumentNamesTest {
         assertTrue(name.toByteArray(Charsets.UTF_8).size <= 220)
         assertTrue(name.endsWith(".txt"))
         assertFalse(name.contains('\uFFFD'))
+        assertEquals("a".repeat(149) + ".txt", DocumentNames.renamed("a".repeat(149) + "📄", "TXT"))
     }
 }
