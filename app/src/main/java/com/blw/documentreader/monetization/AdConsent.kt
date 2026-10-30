@@ -40,13 +40,13 @@ class AdConsent(private val activity: Activity, private val onAllowed: () -> Uni
 }
 
 @Composable
-fun BottomBanner() {
+fun BottomBanner(adUnitId: String) {
     val context = LocalContext.current
     val width = LocalConfiguration.current.screenWidthDp.coerceAtLeast(320)
     var loaded by remember { mutableStateOf(false) }
-    val view = remember(context, width) {
+    val view = remember(context, width, adUnitId) {
         AdView(context).apply {
-            adUnitId = "ca-app-pub-3940256099942544/9214589741" // TEST ONLY
+            this.adUnitId = adUnitId // debug sample or verified production banner unit
             setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, width))
             adListener = object : AdListener() {
                 override fun onAdLoaded() { loaded = true }
