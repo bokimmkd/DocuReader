@@ -39,5 +39,13 @@ The current chat has GitHub/Gmail/Drive connectors but **no authenticated Play C
 - Print fidelity of DOCX/XLSX remains unverified and may differ from original. Do not claim desktop-equivalent rendering or printing.
 - Do not expose tokens, Google credentials, upload keystores, signing passwords or app-user data in handoff.
 
+## Latest AdMob preparation verification (2026-10-30)
+- GitHub Actions workflow `.github/workflows/wreader-admob-0.1.5.yml` **SUCCESS**, run **41050415989**, unsigned AAB artifact **12974143231**.
+- Locally examined artifact `app-release.aab`: ZIP integrity **PASS**, bundled Office scripts included. Manifest string content includes `com.blw.wreader` and `0.1.5-admob-prep`. App Gradle `versionCode=6`.
+- SHA256 of unsigned AAB: `9bb486757cad7d76d54c0dbc250e44c48f19f77e150f32b9f7d1119e6f45478a`.
+- This new **unsigned** 0.1.5 AAB **cannot be used for Play upload** until signed with the authorized, existing correct upload key. Do not replace the already accepted signed 0.1.4 while working on AdMob.
+- No W Reader-specific AdMob app/banner IDs were found in the searched email evidence. This is **not** proof an AdMob entry does not exist: check the AdMob console via the browser during the authorized follow-up.
+- Suspected wrong draft Play app package: `com.blw.documentreader` (historical old test package), **not Console-verified**; confirm exact entries before deletion.
+
 ## Release rule
 Explicit user approval is already to prepare **Closed testing**, not Production. GitHub build status alone cannot prove Play Console review submission. Only announce Play upload/review if verified from the Play Console itself.
