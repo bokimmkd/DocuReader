@@ -27,8 +27,8 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.1.4-closed"
+        versionCode = 6
+        versionName = "0.1.5-admob-prep"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
