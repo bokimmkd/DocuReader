@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var billing: RemoveAdsBilling
     private lateinit var updates: PlayUpdates
     private var updateReady by mutableStateOf(false)
+    private var resumeTick by mutableIntStateOf(0)
     private var preparingShare by mutableStateOf(false)
     private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
         if (::updates.isInitialized) updates.onFlowResult(it.resultCode)
@@ -153,6 +154,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() {
         super.onResume()
+        resumeTick++
         if (::updates.isInitialized) updates.refreshDownloaded()
     }
 
@@ -170,8 +172,8 @@ class MainActivity : ComponentActivity() {
         }
         var password by remember { mutableStateOf("") }
         var showPolicy by remember { mutableStateOf(false) }
-        LaunchedEffect(vm.current?.uri) {
-            if (vm.current == null) { delay(1500); updates.check() }
+        LaunchedEffect(vm.current?.uri, vm.busy, resumeTick) {
+            if (vm.current == null && !vm.busy) { delay(1500); updates.check() }
         }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm.message) {

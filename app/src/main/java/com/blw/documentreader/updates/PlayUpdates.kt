@@ -3,6 +3,7 @@ package com.blw.documentreader.updates
 import android.app.Activity
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -19,6 +20,7 @@ class PlayUpdates(private val activity: ComponentActivity,
                   private val ready: (Boolean) -> Unit) {
     private val manager = AppUpdateManagerFactory.create(activity)
     private val prefs = activity.getSharedPreferences("play_updates", Context.MODE_PRIVATE)
+    private var closed = false
     private var checking = false
     private var flowOpen = false
     private var checkedAutomatically = false
@@ -36,14 +38,19 @@ class PlayUpdates(private val activity: ComponentActivity,
         if (!manual && offerUpdate && checkedAutomatically) return
         checking = true
         if (!manual && offerUpdate) checkedAutomatically = true
-        manager.appUpdateInfo.addOnSuccessListener(activity) { info ->
+        manager.appUpdateInfo.addOnSuccessListener { info ->
             checking = false
+            if (closed) return@addOnSuccessListener
             if (info.installStatus() == InstallStatus.DOWNLOADED) {
                 ready(true)
             } else if (info.installStatus() == InstallStatus.DOWNLOADING || info.installStatus() == InstallStatus.PENDING) {
                 if (manual) message("The update is downloading in Google Play.")
             } else if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                 if (!offerUpdate) return@addOnSuccessListener
+                if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    checkedAutomatically = false
+                    return@addOnSuccessListener
+                }
                 val version = info.availableVersionCode()
                 val lastVersion = prefs.getInt("prompt_version", -1)
                 val lastTime = prefs.getLong("prompt_time", 0L)
@@ -62,10 +69,10 @@ class PlayUpdates(private val activity: ComponentActivity,
                     }
                 } else if (manual) message("An update is available. Open W Reader in Google Play.")
             } else if (manual) message("You're up to date with the version available to your Google Play account.")
-        }.addOnFailureListener(activity) {
+        }.addOnFailureListener {
             checking = false
             // Offline or sideloaded installs must remain usable without an update check.
-            if (manual) message("Couldn't check Google Play. Check your connection and try again.")
+            if (!closed && manual) message("Couldn't check Google Play. Check your connection and try again.")
         }
     }
     fun onFlowResult(resultCode: Int) {
@@ -74,14 +81,14 @@ class PlayUpdates(private val activity: ComponentActivity,
             message("Update couldn't start. You can try again in Settings.")
     }
     fun refreshDownloaded() {
-        manager.appUpdateInfo.addOnSuccessListener(activity) { info ->
-            if (info.installStatus() == InstallStatus.DOWNLOADED) ready(true)
+        manager.appUpdateInfo.addOnSuccessListener { info ->
+            if (!closed && info.installStatus() == InstallStatus.DOWNLOADED) ready(true)
         }
     }
     fun complete() {
-        manager.completeUpdate().addOnFailureListener(activity) {
-            message("Couldn't install the update. Try restarting W Reader or update in Google Play.")
+        manager.completeUpdate().addOnFailureListener {
+            if (!closed) message("Couldn't install the update. Try restarting W Reader or update in Google Play.")
         }
     }
-    fun close() { manager.unregisterListener(listener) }
+    fun close() { closed = true; manager.unregisterListener(listener) }
 }
