@@ -67,10 +67,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         consent = AdConsent(this) { permittedAds = true }
         billing = RemoveAdsBilling(this) { vm.report(it) }
-        if (BuildConfig.MONETIZATION_ENABLED) {
-            consent.start()
-            billing.start()
-        }
+        if (BuildConfig.ADS_ENABLED) consent.start()
+        if (BuildConfig.PURCHASES_ENABLED) billing.start()
         handleIncomingIntent(intent)
         setContent { ApplicationScreen() }
     }
@@ -205,7 +203,7 @@ class MainActivity : ComponentActivity() {
                             .background(MaterialTheme.colorScheme.background)
                             .navigationBarsPadding()
                     ) {
-                        if (BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds) BottomBanner()
+                        if (BuildConfig.ADS_ENABLED && !billing.adFree && permittedAds) BottomBanner(BuildConfig.ADMOB_BANNER_UNIT_ID)
                         if (vm.current == null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
@@ -288,7 +286,7 @@ class MainActivity : ComponentActivity() {
                             shareOutput = { share(it, "application/pdf") })
                         else ToolsStartScreen { pickTool.launch(arrayOf("application/pdf")) }
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
-                            price = if (BuildConfig.MONETIZATION_ENABLED) billing.localizedPrice else "Closed test",
+                            price = if (BuildConfig.PURCHASES_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
                             privacy = { startActivity(Intent(Intent.ACTION_VIEW,
                                 Uri.parse("https://github.com/bokimmkd/DocuReader/blob/main/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
