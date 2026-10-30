@@ -40,3 +40,14 @@ For each completed authorized task, document exact project IDs, repository/branc
 - **Current instruction:** documentation transfer only. No app code change, Android build, Play Console app creation/upload, Firebase deployment, publication, or production promotion.
 - A documentation-only commit to this handoff uses `[skip ci]` to avoid automatic builds.
 - Check current access/capabilities and configuration **at the time of a subsequent concrete task**, not now merely because an OTS procedure mentions them.
+
+## Next upgrade — Library categories persistence (user request, 2026-10-30)
+
+**Reported:** W Reader should remember Library categories across app restarts and updates instead of requiring the user to set them again.
+
+- Persist custom category definitions locally, including categories with currently no files.
+- Persist each document's assigned category (and existing tags) and restore them correctly on reopening the app.
+- Remember the last selected Library category/filter where useful so the user does not have to repeatedly reselect it.
+- Preserve existing category metadata across app version upgrades (migration/compatibility; no data wipe); handle entries originating from temporary attachment URIs.
+- QA: create categories, assign documents, close/force-stop and relaunch, update the APK in place, and verify categories/assignments survive. Also test empty categories and the existing Library search/filter.
+- **Pending only. Do not claim implemented or tested. No code change, build, or release is authorized by this note.**
