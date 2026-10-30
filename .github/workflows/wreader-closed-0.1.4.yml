@@ -1,4 +1,4 @@
-name: W Reader 0.1.5 - Google Play Closed Testing AAB (unsigned)
+name: W Reader 0.1.6 - Google Play Closed Testing AAB (unsigned)
 on:
   push:
     branches: [release/wreader-closed-0.1.4]
@@ -41,7 +41,7 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.5-closed-test-UNSIGNED-aab
+          name: WReader-0.1.6-closed-test-UNSIGNED-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
