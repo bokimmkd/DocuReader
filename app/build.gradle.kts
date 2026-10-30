@@ -7,7 +7,7 @@ android {
     namespace = "com.blw.documentreader"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.blw.documentreader"
+        applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
         versionCode = 5
