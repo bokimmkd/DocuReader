@@ -287,7 +287,7 @@ class MainActivity : ComponentActivity() {
                         else ToolsStartScreen { pickTool.launch(arrayOf("application/pdf")) }
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.PURCHASES_ENABLED) billing.localizedPrice else "Closed test",
-                            adFree = billing.adFree,
+                            adFree = billing.adFree, adsEnabled = BuildConfig.ADS_ENABLED,
                             privacy = { startActivity(Intent(Intent.ACTION_VIEW,
                                 Uri.parse("https://github.com/bokimmkd/DocuReader/blob/main/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
                                 vm.report("Help: Open a document, use PDF Tools to save a new copy. For support, contact the publisher through the Play Store listing.")
