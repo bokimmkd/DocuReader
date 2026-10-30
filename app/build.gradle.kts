@@ -3,6 +3,23 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+// Release AdMob identifiers are supplied only at build time; never commit real IDs.
+val sampleAdMobAppId = "ca-app-pub-3940256099942544~3347511713"
+val sampleBannerId = "ca-app-pub-3940256099942544/9214589741"
+val liveAdMobAppId = providers.gradleProperty("WREADER_ADMOB_APP_ID").orNull.orEmpty().trim()
+val liveAdMobBannerId = providers.gradleProperty("WREADER_ADMOB_BANNER_ID").orNull.orEmpty().trim()
+val enableReleaseAds = providers.gradleProperty("WREADER_ENABLE_RELEASE_ADS").orNull == "true"
+if (enableReleaseAds) {
+    require(Regex("""ca-app-pub-\d{16}~\d{10}""").matches(liveAdMobAppId)) {
+        "Release ads require a valid WREADER_ADMOB_APP_ID."
+    }
+    require(Regex("""ca-app-pub-\d{16}/\d{10}""").matches(liveAdMobBannerId)) {
+        "Release ads require a valid WREADER_ADMOB_BANNER_ID."
+    }
+    require(liveAdMobAppId != sampleAdMobAppId && liveAdMobBannerId != sampleBannerId) {
+        "Real release advertising cannot use AdMob sample IDs."
+    }
+}
 android {
     namespace = "com.blw.documentreader"
     compileSdk = 36
@@ -16,11 +33,18 @@ android {
     }
     buildTypes {
         getByName("debug") {
-            buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
+            manifestPlaceholders["admobAppId"] = sampleAdMobAppId
+            buildConfigField("boolean", "ADS_ENABLED", "true")
+            buildConfigField("boolean", "PURCHASES_ENABLED", "false")
+            buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"" + sampleBannerId + "\"")
         }
         getByName("release") {
-            // First closed testing: no sample AdMob traffic or unverified purchases.
-            buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
+            // Remains ad-free unless explicitly enabled with verified real IDs.
+            manifestPlaceholders["admobAppId"] = if (enableReleaseAds) liveAdMobAppId else sampleAdMobAppId
+            buildConfigField("boolean", "ADS_ENABLED", enableReleaseAds.toString())
+            buildConfigField("boolean", "PURCHASES_ENABLED", "false")
+            buildConfigField("String", "ADMOB_BANNER_UNIT_ID",
+                "\"" + (if (enableReleaseAds) liveAdMobBannerId else sampleBannerId) + "\"")
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
