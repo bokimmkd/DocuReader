@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="saved-documents" path="library/" />
+    <cache-path name="named-shares" path="shared-documents/" />
 </paths>

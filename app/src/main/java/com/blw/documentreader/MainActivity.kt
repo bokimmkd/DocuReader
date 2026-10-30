@@ -2,6 +2,14 @@ package com.blw.documentreader
 
 import android.content.Intent
 import android.content.ClipData
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import com.blw.documentreader.data.DocumentStore
+import com.blw.documentreader.data.DocumentTypes
+import com.blw.documentreader.updates.PlayUpdates
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -47,6 +55,12 @@ class MainActivity : ComponentActivity() {
     private var permittedAds by mutableStateOf(false)
     private lateinit var consent: AdConsent
     private lateinit var billing: RemoveAdsBilling
+    private lateinit var updates: PlayUpdates
+    private var updateReady by mutableStateOf(false)
+    private var preparingShare by mutableStateOf(false)
+    private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
+        if (::updates.isInitialized) updates.onFlowResult(it.resultCode)
+    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
@@ -67,6 +81,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         consent = AdConsent(this) { permittedAds = true }
         billing = RemoveAdsBilling(this) { vm.report(it) }
+        updates = PlayUpdates(this, updateFlow, vm::report) { updateReady = it }
         if (BuildConfig.MONETIZATION_ENABLED) {
             consent.start()
         }
@@ -98,15 +113,47 @@ class MainActivity : ComponentActivity() {
         openDocument.launch(arrayOf("application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/octet-stream"))
+            "text/plain", "application/octet-stream"))
     }
-    private fun share(uri: Uri, mime: String) {
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = mime
-            putExtra(Intent.EXTRA_STREAM, uri)
-            clipData = ClipData.newUri(contentResolver, "document", uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }, "Share document"))
+    private fun share(uri: Uri, mime: String, displayName: String? = null) {
+        if (preparingShare) return
+        val entry = vm.recent.find { it.uri == uri.toString() }
+        val name = displayName ?: entry?.name ?: DocumentTypes.displayName(this, uri)
+        val format = entry?.type ?: when (mime) {
+            "text/plain" -> DocumentTypes.TXT
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> DocumentTypes.WORD
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> DocumentTypes.EXCEL
+            else -> DocumentTypes.PDF
+        }
+        preparingShare = true
+        lifecycleScope.launch {
+            try {
+                val shared = withContext(Dispatchers.IO) { DocumentStore(this@MainActivity).shareCopy(uri, name, format) }
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = mime
+                    putExtra(Intent.EXTRA_STREAM, shared)
+                    putExtra(Intent.EXTRA_TITLE, name)
+                    putExtra(Intent.EXTRA_SUBJECT, name)
+                    clipData = ClipData.newUri(contentResolver, name, shared)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }, "Share $name"))
+            } catch (ex: Exception) {
+                vm.report("Could not share file: ${ex.message ?: "Check access and storage."}")
+            } finally { preparingShare = false }
+        }
+    }
+    private fun shareDocument(doc: com.blw.documentreader.data.DocumentEntry) {
+        val mime = when (doc.type) {
+            DocumentTypes.WORD -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            DocumentTypes.EXCEL -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            DocumentTypes.TXT -> "text/plain"
+            else -> "application/pdf"
+        }
+        share(Uri.parse(doc.uri), mime, doc.name)
+    }
+    override fun onResume() {
+        super.onResume()
+        if (::updates.isInitialized) updates.refreshDownloaded()
     }
 
     @Composable
@@ -123,6 +170,9 @@ class MainActivity : ComponentActivity() {
         }
         var password by remember { mutableStateOf("") }
         var showPolicy by remember { mutableStateOf(false) }
+        LaunchedEffect(vm.current?.uri) {
+            if (vm.current == null) { delay(1500); updates.check() }
+        }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm.message) {
             vm.message?.let { msg ->
@@ -156,6 +206,10 @@ class MainActivity : ComponentActivity() {
             surface = Color.White, background = Color(0xFFF9FBFF),
             surfaceContainer = Color(0xFFF1F5FC), surfaceContainerLow = Color(0xFFF7F9FC),
             onSurface = Color(0xFF172338), onSurfaceVariant = Color(0xFF596C82)
+        ), typography = Typography(
+            bodyLarge = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, lineHeight = 18.sp),
+            bodyMedium = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, lineHeight = 17.sp),
+            bodySmall = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 15.sp)
         )) {
             Scaffold(
                 topBar = {
@@ -163,8 +217,8 @@ class MainActivity : ComponentActivity() {
                         Surface(color = MaterialTheme.colorScheme.background) {
                             Row(
                                 Modifier.fillMaxWidth().statusBarsPadding()
-                                    .padding(horizontal = 14.dp, vertical = 5.dp)
-                                    .height(78.dp)
+                                    .padding(horizontal = 14.dp, vertical = 3.dp)
+                                    .height(60.dp)
                                     .background(
                                         if (dark) Color(0xFF252525) else Color(0xFFE9EFF6),
                                         RoundedCornerShape(17.dp)
@@ -172,22 +226,17 @@ class MainActivity : ComponentActivity() {
                                     .padding(horizontal = 14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    painter = androidx.compose.ui.res.painterResource(
-                                        com.blw.documentreader.R.drawable.ic_wreader_symbol
-                                    ),
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(R.drawable.wreader_launcher_folder),
                                     contentDescription = "W Reader",
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(43.dp)
+                                    modifier = Modifier.size(44.dp)
                                 )
                                 Spacer(Modifier.width(11.dp))
                                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                     Text("W Reader", fontSize = 19.sp, lineHeight = 23.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface)
-                                    Text("PDF · Word · Excel", fontSize = 11.sp, lineHeight = 15.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("Read · Organize · Share", fontSize = 10.sp, lineHeight = 14.sp,
+                                    Text("PDF · Word · Excel · TXT", fontSize = 11.sp, lineHeight = 15.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -205,12 +254,18 @@ class MainActivity : ComponentActivity() {
                             .background(MaterialTheme.colorScheme.background)
                             .navigationBarsPadding()
                     ) {
+                        if (updateReady) Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Update ready", Modifier.weight(1f), fontSize = 12.sp)
+                                TextButton(onClick = { updates.complete() }) { Text("Restart") }
+                            }
+                        }
                         if (BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds) BottomBanner()
                         if (vm.current == null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 7.dp)
-                                    .height(60.dp)
+                                    .padding(horizontal = 14.dp, vertical = 5.dp)
+                                    .height(56.dp)
                                     .background(navBackground, RoundedCornerShape(17.dp)),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -250,7 +305,11 @@ class MainActivity : ComponentActivity() {
             ) { insets ->
                 Box(Modifier.fillMaxSize().padding(insets)) {
                     if (vm.current != null && vm.officeUri != null) {
-                        OfficeReaderScreen(
+                        if (vm.officeType == DocumentTypes.TXT) TextReaderScreen(
+                            uri = vm.officeUri!!, name = vm.officeName,
+                            onBack = { vm.closeDocument() },
+                            onShare = { vm.current?.let(::shareDocument) }
+                        ) else OfficeReaderScreen(
                             uri = vm.officeUri!!,
                             name = vm.officeName,
                             type = vm.officeType,
@@ -274,10 +333,12 @@ class MainActivity : ComponentActivity() {
                             onLibrary = { libraryFilter = it; tab = 1 })
                         1 -> LibraryScreen(vm,
                             onOpen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
+                            onShare = ::shareDocument,
                             onAdd = { pickForLibrary.launch(arrayOf(
                                 "application/pdf",
                                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "text/plain"
                             )) },
                             initialFilter = libraryFilter)
                         2 -> if (vm.toolReady) ToolEditor(vm,
@@ -290,12 +351,13 @@ class MainActivity : ComponentActivity() {
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
+                            checkUpdates = { updates.check(manual = true) },
                             privacy = { startActivity(Intent(Intent.ACTION_VIEW,
                                 Uri.parse("https://github.com/bokimmkd/DocuReader/blob/release/wreader-closed-0.1.4/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
                                 vm.report("Help: Open a document, use PDF Tools to save a new copy. For support, contact the publisher through the Play Store listing.")
                             })
                     }
-                    if (vm.busy) {
+                    if (vm.busy || preparingShare) {
                         Surface(Modifier.align(Alignment.Center), shape = MaterialTheme.shapes.medium,
                             shadowElevation = 6.dp, tonalElevation = 5.dp) {
                             Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -322,6 +384,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onDestroy() {
         billing.close()
+        if (::updates.isInitialized) updates.close()
         super.onDestroy()
     }
 }

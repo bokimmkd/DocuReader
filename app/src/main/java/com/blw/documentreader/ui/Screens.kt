@@ -58,6 +58,7 @@ private val BrandBlue = Color(0xFF0869E8)
 private val PdfRed = Color(0xFFE74742)
 private val WordBlue = Color(0xFF176CE1)
 private val ExcelGreen = Color(0xFF14895B)
+private val TextGrey = Color(0xFF738DAA)
 
 @Composable
 private fun DocumentBadge(type: String) {
@@ -65,7 +66,8 @@ private fun DocumentBadge(type: String) {
     val (icon, tint) = when (type) {
         "PDF" -> Icons.Default.PictureAsPdf to (if (isDark) Color(0xFFF05C55) else PdfRed)
         "Word" -> Icons.Default.Description to (if (isDark) Color(0xFF66B6FF) else WordBlue)
-        else -> Icons.Default.TableChart to (if (isDark) Color(0xFF36C77B) else ExcelGreen)
+        "Excel" -> Icons.Default.TableChart to (if (isDark) Color(0xFF36C77B) else ExcelGreen)
+        else -> Icons.Default.TextSnippet to TextGrey
     }
     Box(Modifier.size(38.dp).clip(MaterialTheme.shapes.small)
         .background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -76,7 +78,7 @@ private fun DocumentBadge(type: String) {
 @Composable
 private fun DocumentRow(doc: DocumentEntry, onFavorite: () -> Unit, onOpen: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-        .clickable(onClick = onOpen).padding(horizontal = 4.dp, vertical = 5.dp),
+        .clickable(onClick = onOpen).padding(horizontal = 4.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically) {
         DocumentBadge(doc.type)
         Spacer(Modifier.width(10.dp))
@@ -87,7 +89,7 @@ private fun DocumentRow(doc: DocumentEntry, onFavorite: () -> Unit, onOpen: () -
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onFavorite) {
+        IconButton(onClick = onFavorite, modifier = Modifier.size(40.dp)) {
             Icon(if (doc.favorite) Icons.Default.Star else Icons.Default.StarBorder,
                 contentDescription = if (doc.favorite) "Remove favorite" else "Add favorite",
                 tint = if (doc.favorite) Color(0xFFF3B900) else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -108,14 +110,15 @@ private fun FormatCard(
     val accent = if (isDark) when (title) {
         "PDF" -> Color(0xFFF05C55)
         "Word" -> Color(0xFF66B6FF)
-        else -> Color(0xFF36C77B)
+        "Excel" -> Color(0xFF36C77B)
+        else -> Color(0xFF9FB5CC)
     } else tint
     val bg = if (isDark) Color(0xFF252525) else Color(0xFFEDF2F8)
     val labelColor = if (isDark) Color(0xFFF5F6FA) else Color(0xFF152438)
     Card(
         onClick = onClick,
-        modifier = modifier.height(68.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp),
+        modifier = modifier.height(56.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = bg),
         border = androidx.compose.foundation.BorderStroke(
             if (selected) 2.dp else 1.dp,
@@ -128,7 +131,7 @@ private fun FormatCard(
             verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
         ) {
             Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(21.dp))
-            Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Text(title, color = labelColor, fontWeight = FontWeight.Bold, fontSize = 11.sp, lineHeight = 14.sp)
         }
     }
 }
@@ -144,10 +147,10 @@ fun HomeScreen(
         .sortedByDescending { it.openedAt }.take(3)
     val favorites = vm.recent.filter { it.favorite }.take(2)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 9.dp, bottom = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        contentPadding = PaddingValues(top = 5.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)) {
         item {
-            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(50.dp),
+            Button(onClick = openPicker, modifier = Modifier.fillMaxWidth().height(44.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) {
                 Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(20.dp))
@@ -164,14 +167,16 @@ fun HomeScreen(
                     { onLibrary("Word") }, modifier = Modifier.weight(1f))
                 FormatCard("Excel", Icons.Default.TableChart, ExcelGreen, false,
                     { onLibrary("Excel") }, modifier = Modifier.weight(1f))
+                FormatCard("TXT", Icons.Default.TextSnippet, TextGrey, false,
+                    { onLibrary("TXT") }, modifier = Modifier.weight(1f))
             }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 10.dp),
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(min = 34.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Recent", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { onLibrary("Recent") }) {
+                TextButton(onClick = { onLibrary("Recent") }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
                     Text("See all", fontSize = 12.sp)
                 }
             }
@@ -186,11 +191,11 @@ fun HomeScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp),
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp).heightIn(min = 34.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Favorites", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { onLibrary("Favorites") }) {
+                TextButton(onClick = { onLibrary("Favorites") }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
                     Text("See all", fontSize = 12.sp)
                 }
             }
@@ -577,7 +582,7 @@ private fun PdfPageTile(page: ToolPage, index: Int, selected: Boolean, onClick: 
 @Composable
 private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector,
                            title: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
         .clip(androidx.compose.foundation.shape.RoundedCornerShape(9.dp))
         .clickable(onClick = onClick).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -594,7 +599,7 @@ private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 @Composable
 fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit,
                    price: String, adFree: Boolean, privacy: () -> Unit,
-                   privacyOptions: () -> Unit, feedback: () -> Unit) {
+                   privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit) {
     var clearDialog by remember { mutableStateOf(false) }
     val closedTest = !com.blw.documentreader.BuildConfig.BILLING_ENABLED
     val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
@@ -607,7 +612,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 tint = MaterialTheme.colorScheme.primary)
             Text("Appearance", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(40.dp)) {
             listOf("System", "Light", "Dark").forEachIndexed { index, label ->
                 SegmentedButton(selected = vm.appearance == label,
                     onClick = { vm.updateAppearance(label) },
@@ -617,7 +622,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             }
         }
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
-        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary)
@@ -640,7 +645,9 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
             else if (adFree) "Ad-free is active" else "One small banner · No interruptions",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
+        if (closedTest) Text("Ad-free purchase available after testing", fontSize = 11.sp, lineHeight = 15.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else Row(Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Remove Ads", fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -665,6 +672,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             Text("Data & help", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
+        SettingsAction(Icons.Default.SystemUpdate, "Check for updates", checkUpdates)
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
         if (com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)

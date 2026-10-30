@@ -26,6 +26,7 @@ object DocumentTypes {
     const val PDF = "PDF"
     const val WORD = "Word"
     const val EXCEL = "Excel"
+    const val TXT = "TXT"
     fun detect(context: Context, uri: Uri, name: String): String? {
         val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
         val ext = name.substringAfterLast('.', "").lowercase()
@@ -33,6 +34,7 @@ object DocumentTypes {
             ext == "pdf" || mime == "application/pdf" -> PDF
             ext == "docx" || mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> WORD
             ext == "xlsx" || mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> EXCEL
+            ext == "txt" || mime == "text/plain" -> TXT
             else -> null
         }
     }
@@ -80,18 +82,38 @@ class DocumentStore(private val context: Context) {
     fun keepOffline(uri: Uri, originalName: String): Uri {
         val dir = File(context.filesDir, "library").also { it.mkdirs() }
         val extension = originalName.substringAfterLast('.', "").lowercase()
-            .takeIf { it in setOf("pdf", "docx", "xlsx") } ?: "pdf"
+            .takeIf { it in setOf("pdf", "docx", "xlsx", "txt") } ?: "pdf"
         val dest = File(dir, "${UUID.randomUUID()}.$extension")
         val temp = File(dir, "${dest.name}.part")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 temp.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
             } ?: error("This document is no longer accessible. Locate it again.")
-            require(temp.length() > 0L) { "The document was empty." }
+            require(temp.length() > 0L || extension == "txt") { "The document was empty." }
             check(temp.renameTo(dest)) { "Unable to save the local copy." }
             return FileProvider.getUriForFile(context, "${context.packageName}.files", dest)
         } catch (ex: Exception) {
             temp.delete(); dest.delete(); throw ex
+        }
+    }
+
+    /** Copy to a unique private share folder so receivers see the Library name,
+     * including on providers that ignore EXTRA_TITLE. Never rename the source. */
+    fun shareCopy(uri: Uri, name: String, type: String): Uri {
+        val root = File(context.cacheDir, "shared-documents").also { it.mkdirs() }
+        val cutoff = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+        root.listFiles()?.filter { it.isDirectory && it.lastModified() < cutoff }
+            ?.forEach { it.deleteRecursively() }
+        val dir = File(root, UUID.randomUUID().toString()).also { check(it.mkdirs()) }
+        val file = File(dir, DocumentNames.renamed(name, type))
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                file.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+            } ?: error("This document is no longer accessible. Locate it again.")
+            return FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        } catch (ex: Exception) {
+            dir.deleteRecursively()
+            throw ex
         }
     }
 

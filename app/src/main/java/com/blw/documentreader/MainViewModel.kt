@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.blw.documentreader.data.DocumentEntry
 import com.blw.documentreader.data.DocumentStore
 import com.blw.documentreader.data.DocumentTypes
+import com.blw.documentreader.data.DocumentNames
 import com.blw.documentreader.pdf.PdfPageTools
 import com.blw.documentreader.pdf.PdfSession
 import com.blw.documentreader.pdf.SourcePdf
@@ -51,7 +52,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateRemember(on: Boolean) { remember = on; store.setRememberPosition(on) }
     fun clearRecent() {
         // Clearing history must not discard separately starred documents.
-        recent = recent.filter { it.favorite }.map { it.copy(openedAt = 0L, lastPage = 0) }
+        recent = recent.filter { it.favorite || it.savedLocally }.map { it.copy(openedAt = 0L, lastPage = 0) }
         store.save(recent)
     }
     fun favorite(doc: DocumentEntry) {
@@ -60,11 +61,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         store.save(recent)
     }
     fun updateLibraryInfo(doc: DocumentEntry, category: String, tags: String) {
+        updateDocumentInfo(doc, doc.name, category, tags)
+    }
+    fun updateDocumentInfo(doc: DocumentEntry, name: String, category: String, tags: String): Boolean {
+        val fileName = try { DocumentNames.renamed(name, doc.type) } catch (ex: IllegalArgumentException) {
+            message = ex.message; return false
+        }
         val label = category.trim().take(45).ifBlank { "Uncategorized" }
-        val keywords = tags.trim().take(180)
-        recent = recent.map { if (it.uri == doc.uri) it.copy(category = label, tags = keywords) else it }
-        current = current?.let { if (it.uri == doc.uri) it.copy(category = label, tags = keywords) else it }
+        val keywords = DocumentNames.tags(tags)
+        recent = recent.map { if (it.uri == doc.uri) it.copy(name = fileName, category = label, tags = keywords) else it }
+        current = current?.let { if (it.uri == doc.uri) it.copy(name = fileName, category = label, tags = keywords) else it }
+        if (current?.uri == doc.uri) officeName = fileName
         store.save(recent)
+        message = "Document saved."
+        return true
     }
     /** Explicit user opt-in. Keep copies in app-private storage without changing source. */
     fun saveToLibrary(uri: Uri, document: DocumentEntry? = null) {
@@ -73,7 +83,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val name = document?.name ?: DocumentTypes.displayName(appContext, uri)
                 val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
-                require(type != null) { "Only PDF, DOCX and XLSX are supported." }
+                require(type != null) { "Only PDF, DOCX, XLSX and TXT are supported." }
                 val savedUri = withContext(Dispatchers.IO) { store.keepOffline(uri, name) }
                 val original = document ?: recent.find { it.uri == uri.toString() }
                 val newEntry = DocumentEntry(
@@ -110,9 +120,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun openDocument(uri: Uri, password: String? = null) {
-        val name = DocumentTypes.displayName(appContext, uri)
-        val type = DocumentTypes.detect(appContext, uri, name)
-        if (type == null) { message = "Unsupported format. Choose a PDF, DOCX or XLSX file."; return }
+        val existingEntry = recent.find { it.uri == uri.toString() }
+        val name = existingEntry?.name ?: DocumentTypes.displayName(appContext, uri)
+        val type = existingEntry?.type ?: DocumentTypes.detect(appContext, uri, name)
+        if (type == null) { message = "Unsupported format. Choose a PDF, DOCX, XLSX or TXT file."; return }
         if (type != DocumentTypes.PDF) {
             pdf?.close(); pdf = null
             officeUri = uri
@@ -127,7 +138,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 existing?.tags ?: "", existing?.savedLocally ?: false
             )
             current = record
-            recent = listOf(record) + recent.filter { it.uri != record.uri }.take(99)
+            recent = listOf(record) + recent.filter { it.uri != record.uri }
             store.save(recent)
             return
         }
@@ -144,7 +155,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     System.currentTimeMillis(), existing?.category ?: "Uncategorized",
                     existing?.tags ?: "", existing?.savedLocally ?: false)
                 current = record
-                recent = listOf(record) + recent.filter { it.uri != record.uri }.take(99)
+                recent = listOf(record) + recent.filter { it.uri != record.uri }
                 store.save(recent)
                 pdfMatches = emptyList()
             } catch (ex: SecurityException) {

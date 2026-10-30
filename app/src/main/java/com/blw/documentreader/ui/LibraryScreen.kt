@@ -3,12 +3,16 @@ package com.blw.documentreader.ui
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,39 +21,69 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blw.documentreader.MainViewModel
 import com.blw.documentreader.data.DocumentEntry
+import com.blw.documentreader.data.DocumentNames
 
 private val LibraryBlue = Color(0xFF0869E8)
 private fun formatColor(type: String) = when (type) {
     "PDF" -> Color(0xFFEF5A54)
     "Word" -> Color(0xFF448EEE)
-    else -> Color(0xFF21AA65)
+    "Excel" -> Color(0xFF21AA65)
+    else -> Color(0xFF7896B7)
 }
 
 @Composable
-fun LibraryScreen(
-    vm: MainViewModel,
-    onOpen: (DocumentEntry) -> Unit,
-    onAdd: () -> Unit,
-    initialFilter: String = "All"
-) {
+private fun LibraryFilter(label: String, values: List<String>, onSelect: (String) -> Unit,
+                          modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().height(40.dp),
+            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+            shape = RoundedCornerShape(8.dp)) {
+            Text(label, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ArrowDropDown, null, Modifier.size(17.dp))
+        }
+        DropdownMenu(expanded, { expanded = false }) {
+            values.forEach { value ->
+                DropdownMenuItem(text = { Text(value) }, onClick = { onSelect(value); expanded = false })
+            }
+        }
+    }
+}
+
+@Composable
+fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () -> Unit,
+                  onShare: (DocumentEntry) -> Unit, initialFilter: String = "All") {
     var filter by remember(initialFilter) { mutableStateOf(initialFilter) }
     var search by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All categories") }
+    var tag by remember { mutableStateOf("All tags") }
     var order by remember { mutableStateOf("Recent") }
     var editing by remember { mutableStateOf<DocumentEntry?>(null) }
+    var newName by remember { mutableStateOf("") }
     var newCategory by remember { mutableStateOf("") }
     var newTags by remember { mutableStateOf("") }
-
+    var editError by remember { mutableStateOf<String?>(null) }
+    fun edit(doc: DocumentEntry) {
+        editing = doc
+        newName = doc.name.substringBeforeLast('.', doc.name)
+        newCategory = doc.category
+        newTags = doc.tags
+        editError = null
+    }
     val data = vm.recent.filter {
         (filter == "All" || filter == "Recent" && it.openedAt > 0L ||
             filter == "Favorites" && it.favorite || filter == it.type) &&
         (category == "All categories" || it.category == category) &&
+        (tag == "All tags" || it.tags.split(',').any { value -> value.trim().equals(tag, true) }) &&
         (search.isBlank() || listOf(it.name, it.type, it.category, it.tags)
             .any { value -> value.contains(search.trim(), ignoreCase = true) })
     }
@@ -58,175 +92,141 @@ fun LibraryScreen(
         "Type" -> data.sortedWith(compareBy({ it.type }, { it.name.lowercase() }))
         else -> data.sortedByDescending { it.openedAt }
     }
-    val categories = listOf("All categories") + vm.recent
-        .map { it.category }.filter { it.isNotBlank() }.distinct().sorted()
+    val categories = listOf("All categories") + vm.recent.map { it.category }
+        .filter { it.isNotBlank() }.distinct().sorted()
+    val tags = listOf("All tags") + vm.recent.flatMap { it.tags.split(',') }
+        .map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.sorted()
 
     Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-        Row(Modifier.fillMaxWidth().height(52.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                Text("Library", fontSize = 18.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${vm.recent.size} ${if (vm.recent.size == 1) "document" else "documents"} · Local or linked",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Library", fontSize = 18.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold)
+                Text("${vm.recent.size} documents · Local or linked", fontSize = 10.sp, lineHeight = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(
-                onClick = onAdd,
-                modifier = Modifier.height(46.dp).widthIn(min = 84.dp),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 11.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = LibraryBlue, contentColor = Color.White
-                )
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null,
-                    modifier = Modifier.size(17.dp))
-                Spacer(Modifier.width(5.dp))
-                Text("Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Button(onClick = onAdd, modifier = Modifier.height(38.dp), shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = LibraryBlue, contentColor = Color.White)) {
+                Icon(Icons.Default.Add, null, Modifier.size(17.dp))
+                Text("Add", fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
-        OutlinedTextField(
-            value = search, onValueChange = { search = it },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(19.dp)) },
-            placeholder = { Text("Search name, category or tags", fontSize = 12.sp) },
-            singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-        )
-        LazyRow(contentPadding = PaddingValues(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            rowItems(listOf("All", "Recent", "Favorites", "PDF", "Word", "Excel")) { item ->
+        // BasicTextField avoids Material's large built-in vertical content padding.
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(9.dp))
+            .padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(8.dp))
+            BasicTextField(search, { search = it }, modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                singleLine = true, textStyle = TextStyle(fontSize = 12.sp, lineHeight = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { inner ->
+                    Box {
+                        if (search.isEmpty()) Text("Search name, category or tags", fontSize = 12.sp, lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        inner()
+                    }
+                })
+            if (search.isNotEmpty()) IconButton(onClick = { search = "" }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Close, "Clear search", Modifier.size(17.dp))
+            }
+        }
+        LazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            rowItems(listOf("All", "Recent", "Favorites", "PDF", "Word", "Excel", "TXT")) { item ->
                 FilterChip(selected = filter == item, onClick = { filter = item },
-                    label = { Text(item, fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
+                    label = { Text(item, fontSize = 11.sp, lineHeight = 14.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            var categoryExpanded by remember { mutableStateOf(false) }
-            Box(Modifier.weight(1f)) {
-                OutlinedButton(onClick = { categoryExpanded = true }, modifier = Modifier.height(40.dp)) {
-                    Text(category, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp)
-                    Icon(Icons.Default.ArrowDropDown, null)
-                }
-                DropdownMenu(expanded = categoryExpanded,
-                    onDismissRequest = { categoryExpanded = false }) {
-                    categories.forEach { value ->
-                        DropdownMenuItem(text = { Text(value) }, onClick = {
-                            category = value
-                            categoryExpanded = false
-                        })
-                    }
-                }
-            }
-            var sortExpanded by remember { mutableStateOf(false) }
-            Box {
-                TextButton(onClick = { sortExpanded = true }) {
-                    Icon(Icons.Default.Sort, null, modifier = Modifier.size(17.dp))
-                    Text(order, fontSize = 11.sp)
-                }
-                DropdownMenu(expanded = sortExpanded,
-                    onDismissRequest = { sortExpanded = false }) {
-                    listOf("Recent", "Name", "Type").forEach { value ->
-                        DropdownMenuItem(text = { Text("Sort: $value") }, onClick = {
-                            order = value; sortExpanded = false
-                        })
-                    }
-                }
-            }
+            LibraryFilter(category, categories, { category = it }, Modifier.weight(1f))
+            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f))
+            LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(82.dp))
         }
         HorizontalDivider()
-        if (entries.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
-                    Text("No matching documents", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Add PDFs, Word or Excel files to organize them here.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                }
+        if (entries.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Default.FolderOpen, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (vm.recent.isEmpty()) "No documents yet" else "No matching documents",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 19.sp)
+                Text("Add PDF, Word, Excel or TXT files.", fontSize = 11.sp, lineHeight = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 10.dp)) {
-                items(entries, key = { it.uri }) { doc ->
-                    Row(Modifier.fillMaxWidth().clickable { onOpen(doc) }
-                        .padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(36.dp).background(formatColor(doc.type).copy(alpha = .12f),
-                            RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
-                            Icon(when(doc.type) {
-                                "PDF" -> Icons.Default.PictureAsPdf
-                                "Word" -> Icons.Default.Description
-                                else -> Icons.Default.TableChart
-                            }, contentDescription = doc.type, tint = formatColor(doc.type),
-                                modifier = Modifier.size(21.dp))
+        } else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
+            items(entries, key = { it.uri }) { doc ->
+                var menu by remember(doc.uri) { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().clickable { onOpen(doc) }.padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(32.dp).background(formatColor(doc.type).copy(alpha = .12f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center) {
+                        Icon(when (doc.type) {
+                            "PDF" -> Icons.Default.PictureAsPdf
+                            "Word" -> Icons.Default.Description
+                            "Excel" -> Icons.Default.TableChart
+                            else -> Icons.Default.TextSnippet
+                        }, doc.type, Modifier.size(19.dp), tint = formatColor(doc.type))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(doc.name, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(buildString {
+                            append(doc.category)
+                            if (doc.tags.isNotBlank()) append(" · ${doc.tags}")
+                            append(if (doc.savedLocally) " · Offline" else " · Linked")
+                        }, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { vm.favorite(doc) }, modifier = Modifier.size(40.dp)) {
+                        Icon(if (doc.favorite) Icons.Default.Star else Icons.Default.StarBorder, "Favorite",
+                            Modifier.size(19.dp), tint = if (doc.favorite) Color(0xFFF3B900) else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Default.MoreVert, "Document actions", Modifier.size(19.dp))
                         }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(doc.name, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                buildString {
-                                    append(doc.category)
-                                    if (doc.tags.isNotBlank()) append(" · ${doc.tags}")
-                                    append(if (doc.savedLocally) " · Offline copy" else " · Linked file")
-                                },
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        IconButton(onClick = { vm.favorite(doc) }, modifier = Modifier.size(39.dp)) {
-                            Icon(if (doc.favorite) Icons.Default.Star else Icons.Default.StarBorder,
-                                "Favorite", tint = if (doc.favorite) Color(0xFFF3B900)
-                                    else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-                        }
-                        IconButton(onClick = {
-                            editing = doc
-                            newCategory = doc.category
-                            newTags = doc.tags
-                        }, modifier = Modifier.size(39.dp)) {
-                            Icon(Icons.Default.Edit, "Edit category and tags", modifier = Modifier.size(19.dp))
+                        DropdownMenu(menu, { menu = false }) {
+                            DropdownMenuItem(text = { Text("Share file") }, onClick = { menu = false; onShare(doc) })
+                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; edit(doc) })
+                            DropdownMenuItem(text = { Text("Category & tags") }, onClick = { menu = false; edit(doc) })
+                            if (!doc.savedLocally) DropdownMenuItem(text = { Text("Keep offline copy") },
+                                onClick = { menu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc) })
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f))
             }
         }
     }
-
     editing?.let { doc ->
-        AlertDialog(onDismissRequest = { editing = null },
-            title = { Text("Organize document", fontSize = 17.sp) },
+        AlertDialog(onDismissRequest = { editing = null }, title = { Text("Edit document", fontSize = 17.sp) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text(doc.name, fontSize = 12.sp, maxLines = 2)
-                    OutlinedTextField(newCategory, { newCategory = it },
-                        label = { Text("Category") }, singleLine = true,
-                        placeholder = { Text("Personal, Work, Finance…") })
-                    OutlinedTextField(newTags, { newTags = it },
-                        label = { Text("Tags (comma separated)") }, singleLine = true)
-                    if (!doc.savedLocally) {
-                        Text("This is a linked document. Save an offline copy so access doesn't expire.",
-                            style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick = {
-                            vm.updateLibraryInfo(doc, newCategory, newTags)
-                            vm.saveToLibrary(Uri.parse(doc.uri), doc.copy(category=newCategory, tags=newTags))
-                            editing = null
-                        }) {
-                            Icon(Icons.Default.SaveAlt, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Keep offline copy")
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(newName, { newName = it; editError = null }, label = { Text("File name") }, singleLine = true,
+                        supportingText = { Text(editError ?: ".${DocumentNames.extension(doc.type)} is kept automatically") },
+                        isError = editError != null)
+                    OutlinedTextField(newCategory, { newCategory = it }, label = { Text("Category") }, singleLine = true,
+                        placeholder = { Text("Work, Personal, Finance…") })
+                    val suggestions = (listOf("Work", "Personal", "Finance") + vm.recent.map { it.category })
+                        .filter { it.isNotBlank() && it != "Uncategorized" }.distinct()
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        rowItems(suggestions) { value ->
+                            SuggestionChip(onClick = { newCategory = value }, label = { Text(value, fontSize = 11.sp) })
                         }
-                    } else Text("Offline copy stored privately on this device.",
-                        style = MaterialTheme.typography.bodySmall)
+                    }
+                    OutlinedTextField(newTags, { newTags = it }, label = { Text("Tags (comma separated)") }, singleLine = true,
+                        placeholder = { Text("invoice, apartment, 2026") })
+                    Text("This name is used in W Reader and when sharing. The original file stays unchanged.",
+                        fontSize = 11.sp, lineHeight = 15.sp)
                 }
             },
             confirmButton = { TextButton(onClick = {
-                vm.updateLibraryInfo(doc, newCategory, newTags)
-                editing = null
-            }) { Text("Save tags") } },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } }
-        )
+                try { DocumentNames.renamed(newName, doc.type) } catch (ex: IllegalArgumentException) {
+                    editError = ex.message; return@TextButton
+                }
+                if (vm.updateDocumentInfo(doc, newName, newCategory, newTags)) editing = null
+            }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } })
     }
 }
