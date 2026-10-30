@@ -1,24 +1,19 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- W Reader launcher: approved overlapping-documents motif, no old page icon. -->
-    <path
-        android:fillColor="#0869E8"
-        android:pathData="M20,6 L88,6 Q102,6 102,20 L102,88 Q102,102 88,102 L20,102 Q6,102 6,88 L6,20 Q6,6 20,6 Z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M27,35 Q27,29 33,29 L64,29 Q70,29 70,35 L70,67 Q70,73 64,73 L33,73 Q27,73 27,67 Z" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M41,48 Q41,42 47,42 L77,42 Q83,42 83,48 L83,78 Q83,84 77,84 L47,84 Q41,84 41,78 Z" />
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- W Reader: silver W requested by the publisher. -->
+    <path android:fillColor="#172231"
+        android:pathData="M20,6 L88,6 Q102,6 102,20 L102,88 Q102,102 88,102 L20,102 Q6,102 6,88 L6,20 Q6,6 20,6 Z"/>
+    <path android:pathData="M20,30 L31,30 L39,65 L49,34 L59,34 L69,65 L77,30 L88,30 L76,80 L64,80 L54,51 L44,80 L32,80 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="30" android:startY="30"
+                android:endX="78" android:endY="80">
+                <item android:offset="0" android:color="#F5F7FA"/>
+                <item android:offset="0.45" android:color="#CDD4DD"/>
+                <item android:offset="0.72" android:color="#8D9AAB"/>
+                <item android:offset="1" android:color="#E8EDF3"/>
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>
