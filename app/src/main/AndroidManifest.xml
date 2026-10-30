@@ -4,9 +4,9 @@
     <application android:name=".ReaderApplication" android:label="@string/app_name" android:icon="@drawable/ic_blw_launcher" android:roundIcon="@drawable/ic_blw_launcher" android:allowBackup="false"
         android:supportsRtl="true" android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
-        <!-- AdMob's documented SAMPLE app ID. Replace before a production release. -->
+        <!-- Debug uses Google's sample app; release uses W Reader's own AdMob app. -->
         <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="${admobAppId}" />
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
             android:exported="false" android:grantUriPermissions="true">

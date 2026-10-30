@@ -1,6 +1,6 @@
 # W Reader — Privacy Policy
 
-**Last updated: October 29, 2026**
+**Last updated: October 30, 2026**
 
 W Reader is an Android document reader for PDF, Word (DOCX) and Excel (XLSX). This policy describes how the application handles information.
 
@@ -17,15 +17,21 @@ Sharing or printing is user-initiated. If you share a document, Android transfer
 
 ## Advertising and in-app purchases
 
-The initial Closed testing release **0.1.4** has advertisements and Google Play in-app purchases disabled. The app includes code for future advertising consent and an optional one-time Remove Ads purchase, but the closed-test release does not request advertising or launch payments. Before enabling these services in an update, this policy and the Google Play Data safety declarations will be reviewed and updated.
+Version **0.1.5** introduces a small Google AdMob banner. There are no full-screen ads before opening a document. The earlier **0.1.4** closed-test build has advertising disabled.
+
+Google Mobile Ads and its partners may collect and share approximate location derived from an IP address, device or other identifiers (including advertising ID when available), interactions with ads and the app, and diagnostics such as crash information. This information supports ad delivery, measurement, analytics, and fraud prevention. These services do not receive your document contents, extracted text, or filenames from W Reader.
+
+Where required, Google's User Messaging Platform asks for your consent before advertising is requested. You can revisit available choices using **Settings → Ad privacy options**. Ad availability and personalization depend on your region, consent choices, device settings, and Google's serving decisions. See [Google's privacy policy](https://policies.google.com/privacy) and [Google advertising controls](https://myadcenter.google.com/).
+
+Google Play in-app purchases remain disabled in this closed-test version. No W Reader account or registration is required.
 
 ## Internet access
 
-W Reader's document-reading tools are designed to work offline. The Android application has an Internet permission for future optional services and for visiting external pages you explicitly open. Document contents are not uploaded by the app.
+Document-reading tools work offline. Advertising, consent messages, and external pages require an Internet connection. If consent or advertising is unavailable, you can continue reading documents. Document contents are not uploaded by W Reader.
 
 ## Diagnostics and analytics
 
-The app has no publisher-hosted analytics or diagnostic upload service in the Closed testing release. Android, Google Play, and the operating system may independently collect crash or installation information under their own policies. W Reader does not deliberately include document text or filenames in diagnostic messages.
+W Reader has no separate publisher-hosted analytics or diagnostic upload service. Google Mobile Ads may process advertising-related usage and diagnostic information as described above. Android, Google Play, and the operating system may independently collect crash or installation information under their own policies. W Reader does not deliberately include document text or filenames in diagnostic messages.
 
 ## Security and third-party components
 
@@ -41,4 +47,4 @@ If we change data handling, we will update this policy before the corresponding 
 
 ## Contact
 
-For privacy questions, contact the publisher through the support contact shown on the W Reader Google Play listing or through [the public W Reader support/issues page](https://github.com/bokimmkd/DocuReader/issues).
+For privacy questions, email **bokimk.ap@gmail.com**, use the support contact shown on the W Reader Google Play listing, or visit [the public W Reader support/issues page](https://github.com/bokimmkd/DocuReader/issues).

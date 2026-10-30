@@ -1,6 +1,7 @@
 package com.blw.documentreader.monetization
 
 import android.app.Activity
+import com.blw.documentreader.BuildConfig
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
@@ -30,8 +31,9 @@ class AdConsent(private val activity: Activity, private val onAllowed: () -> Uni
     private fun maybeEnable() {
         if (info.canRequestAds() && !adsRequested) {
             adsRequested = true
-            MobileAds.initialize(activity) { }
-            onAllowed()
+            MobileAds.initialize(activity) {
+                activity.runOnUiThread { if (!activity.isFinishing && !activity.isDestroyed) onAllowed() }
+            }
         }
     }
     fun showPrivacyOptions() {
@@ -46,7 +48,7 @@ fun BottomBanner() {
     var loaded by remember { mutableStateOf(false) }
     val view = remember(context, width) {
         AdView(context).apply {
-            adUnitId = "ca-app-pub-3940256099942544/9214589741" // TEST ONLY
+            adUnitId = BuildConfig.ADMOB_BANNER_ID
             setAdSize(AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(context, width))
             adListener = object : AdListener() {
                 override fun onAdLoaded() { loaded = true }

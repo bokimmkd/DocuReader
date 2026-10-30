@@ -69,8 +69,8 @@ class MainActivity : ComponentActivity() {
         billing = RemoveAdsBilling(this) { vm.report(it) }
         if (BuildConfig.MONETIZATION_ENABLED) {
             consent.start()
-            billing.start()
         }
+        if (BuildConfig.BILLING_ENABLED) billing.start()
         handleIncomingIntent(intent)
         setContent { ApplicationScreen() }
     }
@@ -288,10 +288,10 @@ class MainActivity : ComponentActivity() {
                             shareOutput = { share(it, "application/pdf") })
                         else ToolsStartScreen { pickTool.launch(arrayOf("application/pdf")) }
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
-                            price = if (BuildConfig.MONETIZATION_ENABLED) billing.localizedPrice else "Closed test",
+                            price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
                             privacy = { startActivity(Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://github.com/bokimmkd/DocuReader/blob/main/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
+                                Uri.parse("https://github.com/bokimmkd/DocuReader/blob/release/wreader-closed-0.1.4/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
                                 vm.report("Help: Open a document, use PDF Tools to save a new copy. For support, contact the publisher through the Play Store listing.")
                             })
                     }

@@ -596,7 +596,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                    price: String, adFree: Boolean, privacy: () -> Unit,
                    privacyOptions: () -> Unit, feedback: () -> Unit) {
     var clearDialog by remember { mutableStateOf(false) }
-    val closedTest = price == "Closed test"
+    val closedTest = !com.blw.documentreader.BuildConfig.BILLING_ENABLED
     val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -637,7 +637,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 tint = MaterialTheme.colorScheme.primary)
             Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        Text(if (closedTest) "Closed test · Ads and purchases are disabled"
+        Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
             else if (adFree) "Ad-free is active" else "One small banner · No interruptions",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -667,7 +667,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
-        if (!closedTest) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
+        if (com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
         Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp))

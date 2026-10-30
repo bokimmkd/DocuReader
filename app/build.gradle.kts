@@ -10,17 +10,23 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.1.4-closed"
+        versionCode = 6
+        versionName = "0.1.5-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         getByName("debug") {
             buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
+            buildConfigField("boolean", "BILLING_ENABLED", "false")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         getByName("release") {
-            // First closed testing: no sample AdMob traffic or unverified purchases.
-            buildConfigField("boolean", "MONETIZATION_ENABLED", "false")
+            // Dedicated W Reader live banner. Purchases stay disabled until configured.
+            buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
+            buildConfigField("boolean", "BILLING_ENABLED", "false")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-1171723950608276/7121071338\"")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-1171723950608276~9122924850"
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
