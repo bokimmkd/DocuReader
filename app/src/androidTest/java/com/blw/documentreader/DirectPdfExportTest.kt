@@ -64,18 +64,19 @@ class DirectPdfExportTest {
                         val f = DirectPdf.create(web.context, source, type in listOf("Excel", "CSV"))
                         val copy = File(output, "${type.lowercase()}-$zoom.pdf"); f.copyTo(copy, overwrite = true); f.delete()
                         val value = info(copy)
-                        assertTrue("Missing first marker $name", value.second.contains(first))
-                        assertTrue("Missing last marker $name", value.second.contains(last))
-                        assertTrue("Missing Cyrillic $name", value.second.contains("Кирилица"))
+                        val compact = value.second.filterNot { it.isWhitespace() }
+                        assertTrue("Missing first marker $name", compact.contains(first.filterNot { it.isWhitespace() }))
+                        assertTrue("Missing last marker $name", compact.contains(last.filterNot { it.isWhitespace() }))
+                        assertTrue("Missing Cyrillic $name", compact.contains("Кирилица"))
                         if (type in listOf("Word", "TXT")) for (symbol in "∈∉∪∩⊂≤≥ℕπΩ∞")
                             assertTrue("Missing math symbol $symbol in $name", value.second.contains(symbol))
                         assertTrue("Not paginated $name", value.first >= 2)
-                        if (type == "Word") for (n in 0 until 35) assertTrue("Missing Word paragraph $n", value.second.contains("Word content $n "))
-                        if (type == "TXT") for (n in 0 until 150) assertTrue("Missing TXT line $n", value.second.contains("Line $n "))
-                        if (type == "CSV") for (n in 0 until 80) assertTrue("Missing CSV row $n", value.second.contains("Line $n"))
+                        if (type == "Word") for (n in 0 until 35) assertTrue("Missing Word paragraph $n", compact.contains("Wordcontent${n}withUnicode:"))
+                        if (type == "TXT") for (n in 0 until 150) assertTrue("Missing TXT line $n", compact.contains("Line${n}Македонски"))
+                        if (type == "CSV") for (n in 0 until 80) assertTrue("Missing CSV row $n", compact.contains("Line${n}${n}Текст"))
                         if (type == "Excel") {
                             assertFalse(value.second.contains("OTHER_SHEET_NOT_SELECTED"))
-                            for (n in 2 until 150) assertTrue("Missing Excel row $n", value.second.contains("Item $n"))
+                            for (n in 2 until 150) assertTrue("Missing Excel row $n", compact.contains("Item${n}${n}"))
                         }
                         PDDocument.load(copy).use { pdf ->
                             for (n in 1..pdf.numberOfPages) {

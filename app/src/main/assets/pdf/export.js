@@ -14,7 +14,7 @@
   const override=document.createElement('style');override.textContent=`
    html,body{background:#fff!important;color:#172338!important;margin:0!important;padding:0!important}
    #document{width:${data.width}px;margin:0;padding:0;overflow:visible}
-   #document,#document *{font-family:WReaderSans!important}
+   #document,#document *,.wreader-pdf-page,.wreader-pdf-page *{font-family:WReaderSans!important}
    #content{zoom:1!important;transform:none!important;min-height:0!important}
    #viewport{overflow:visible!important;width:auto!important}
    .docx-wrapper{padding:0!important;background:#fff!important}
@@ -71,7 +71,7 @@
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
    const maximum=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20)-16;
    holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
-   function page(){box=document.createElement('div');box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
+   function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
    page();
    for(const group of groups){
     const nodes=group.map(r=>r.cloneNode(true));nodes.forEach(n=>body.appendChild(n));

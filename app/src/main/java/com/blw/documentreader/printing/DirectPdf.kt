@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.webkit.*
 import androidx.webkit.WebViewAssetLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -73,7 +74,25 @@ object DirectPdf {
             else html(context, snapshot, landscape, file)
             withContext(Dispatchers.IO) {
                 require(file.length() in 8L..64L * 1024 * 1024) { "The PDF could not be created." }
-                PDDocument.load(file).use { require(it.numberOfPages > 0) { "The PDF has no pages." } }
+                PDDocument.load(file).use { pdf ->
+                    require(pdf.numberOfPages > 0) { "The PDF has no pages." }
+                    if (!snapshot.image) {
+                        val source = Jsoup.parse(snapshot.html).apply {
+                            select("style,script,[hidden],.sheet thead,.sheet .rowhead").remove()
+                        }.text()
+                        fun compact(text: String) = text.filterNot {
+                            it.isWhitespace() || Character.isSpaceChar(it) || Character.getType(it) == Character.FORMAT.toInt()
+                        }
+                        val expected = compact(source)
+                        val actual = compact(PDFTextStripper().getText(pdf))
+                        // PDF layout may add list/page labels; every source character must still occur in order.
+                        var matched = 0
+                        for (ch in actual) if (matched < expected.length && ch == expected[matched]) matched++
+                        require(matched == expected.length) {
+                            "PDF content could not be preserved completely. Use Print and choose Save as PDF for this document."
+                        }
+                    }
+                }
             }
             return file
         } catch (e: Throwable) { file.delete(); throw e }
