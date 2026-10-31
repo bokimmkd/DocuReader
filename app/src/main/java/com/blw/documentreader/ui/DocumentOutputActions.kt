@@ -34,7 +34,7 @@ private val PdfBlue = Color(0xFF0869E8)
 
 /** Saves a real PDF first. Only explicit Print opens Android printing. */
 @Composable
-fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boolean = false,
+fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boolean = false, defaultLandscape: Boolean = excel,
     snapshot: suspend () -> PdfSnapshot,
     prepare: (Boolean, (String?) -> Unit) -> Unit = { _, done -> done(null) },
     autoExport: Boolean = false, onAutoHandled: () -> Unit = {},
@@ -47,7 +47,7 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
     var job by remember(web) { mutableStateOf<Job?>(null) }
     var dialog by remember(web) { mutableStateOf(false) }
     var outputName by rememberSaveable(name) { mutableStateOf(name.substringBeforeLast('.', name) + ".pdf") }
-    var landscape by rememberSaveable(name) { mutableStateOf(excel) }
+    var landscape by rememberSaveable(name) { mutableStateOf(defaultLandscape) }
     var inputError by remember(web) { mutableStateOf<String?>(null) }
     var pendingName by rememberSaveable { mutableStateOf("") }
     var stagedPath by rememberSaveable { mutableStateOf<String?>(null) }

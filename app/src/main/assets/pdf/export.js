@@ -52,9 +52,39 @@
   }
   await document.fonts.ready;
   doc.setFont('WReaderSans','normal');
-  await doc.html(holder,{x:10,y:10,width:doc.internal.pageSize.getWidth()-20,windowWidth:data.width,
+  const options={x:10,y:10,width:doc.internal.pageSize.getWidth()-20,windowWidth:data.width,
    margin:[10,10,10,10],autoPaging:'text',fontFaces:[],
-   html2canvas:{backgroundColor:'#ffffff',logging:false,useCORS:false,allowTaint:false,windowWidth:data.width}});
+   html2canvas:{backgroundColor:'#ffffff',logging:false,useCORS:false,allowTaint:false,windowWidth:data.width}};
+  const sheet=holder.querySelector('table.sheet');
+  if(sheet){
+   // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
+   const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
+   const width=sheet.offsetWidth;const groups=[];
+   for(let start=0;start<rowList.length;){
+    let end=start+1;
+    for(let i=start;i<end;i++)for(const cell of rowList[i].cells)end=Math.min(rowList.length,Math.max(end,i+cell.rowSpan));
+    groups.push(rowList.slice(start,end));start=end;
+   }
+   const template=sheet.cloneNode(false);template.style.width=width+'px';
+   const columns=Array.from(sheet.rows).find(r=>Array.from(r.cells).every(c=>c.colSpan===1));
+   if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
+   const maximum=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20)-16;
+   holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
+   function page(){box=document.createElement('div');box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
+   page();
+   for(const group of groups){
+    const nodes=group.map(r=>r.cloneNode(true));nodes.forEach(n=>body.appendChild(n));
+    if(box.getBoundingClientRect().height>maximum){
+     nodes.forEach(n=>n.remove());if(!body.rows.length)throw Error('A worksheet row is too tall for one PDF page. Use Print and choose Save as PDF.');
+     page();nodes.forEach(n=>body.appendChild(n));
+     if(box.getBoundingClientRect().height>maximum)throw Error('A merged worksheet row is too tall for one PDF page. Use Print and choose Save as PDF.');
+    }
+   }
+   for(let n=0;n<pages.length;n++){
+    if(n)doc.addPage();pages.forEach((p,i)=>p.style.display=i===n?'block':'none');
+    await doc.html(pages[n],Object.assign({},options,{autoPaging:false}));
+   }
+  }else await doc.html(holder,options);
   const bytes=new Uint8Array(doc.output('arraybuffer'));
   if(bytes.length>64*1024*1024)throw Error('The PDF exceeds the 64 MB export limit.');
   window.wReaderPdf={state:'done',bytes:bytes,size:bytes.length,pages:doc.getNumberOfPages()};

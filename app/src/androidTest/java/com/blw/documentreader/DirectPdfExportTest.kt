@@ -107,7 +107,14 @@ class DirectPdfExportTest {
         val d = UiDevice.getInstance(inst)
         val intent = Intent(context, DirectExportTestActivity::class.java).setData(fixture("word.docx"))
         ActivityScenario.launch<DirectExportTestActivity>(intent).use { s ->
+            d.waitForIdle(); Thread.sleep(800)
             click(d, By.desc("Convert to PDF").enabled(true), 90000)
+            val visible = d.wait(Until.hasObject(By.text("Save PDF")), 15000)
+            if (!visible) {
+                d.takeScreenshot(File(output, "missing-save-dialog.png"))
+                d.dumpWindowHierarchy(File(output, "missing-save-dialog.xml"))
+            }
+            assertTrue("Convert button did not open Save dialog", visible)
             d.wait(Until.findObject(By.clazz("android.widget.EditText")), 15000)!!.text = "WReader-direct-export.pdf"
             click(d, By.text("Save PDF"))
             val field = d.wait(Until.findObject(By.clazz("android.widget.EditText")), 120000)

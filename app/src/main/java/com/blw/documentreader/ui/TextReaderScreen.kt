@@ -76,7 +76,7 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
             Text(name, maxLines = 1, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             IconButton(onClick = { showSearch = true }, enabled = loaded) { Icon(Icons.Default.Search, "Search text") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share file") }
-            DocumentOutputActions(web, name, loaded && error == null, excel = type in setOf("CSV","PowerPoint"),
+            DocumentOutputActions(web, name, loaded && error == null, defaultLandscape = type in setOf("CSV","PowerPoint"),
                 snapshot = { com.blw.documentreader.printing.PdfSnapshot.local(sourceHtml, type in com.blw.documentreader.data.DocumentFormats.images) },
                 autoExport = autoExport, onAutoHandled = onAutoHandled, onBusy = onBusy,
                 onSaved = onSaved, onOpenSaved = onOpenSaved, onShareSaved = onShareSaved, report = report)
