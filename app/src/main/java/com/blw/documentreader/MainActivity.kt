@@ -270,7 +270,7 @@ class MainActivity : ComponentActivity() {
                         if ((!BuildConfig.MONETIZATION_ENABLED || consent.settled) && !consent.privacyOpen && !outputBusy) {
                             UpdateBanner(updates.prompt, updates.transfer, updates.installFailed,
                                 enabled = !preparingShare && !vm.busy,
-                                restartEnabled = !preparingShare && !vm.busy && !vm.toolReady,
+                                restartEnabled = !preparingShare && !vm.busy,
                                 onUpdate = updates::download, onLater = updates::later,
                                 onRestart = updates::restart)
                         }

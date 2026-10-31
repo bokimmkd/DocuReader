@@ -16,7 +16,7 @@ These demonstrate code defects; the exact reason for Boki's earlier phone not re
 
 Query the real AppUpdateManager onResume, then after 15 seconds and every 30 seconds while resumed; request timeouts expire after 15 seconds. Ignore responses from an obsolete lifecycle/request or preceding a newer install event. No network check blocks document opening or depends on UMP. UI is deferred during consent/printing and uses retained observable state when safe.
 
-Available (only actual Play availability and higher version) -> Update/Later. Update starts Play flexible consent. Pending/downloading -> real bytes/total progress. Only DOWNLOADED -> Restart to update. Restart invokes completeUpdate only on explicit tap; disabled while saving/PDF tools hold unsaved work. Later suppresses current foreground visit, survives rotation and returns on next foreground opening, matching PTS. Play consent is kept in the same visit. Check/listener failures remain usable; retry on resume/poll/manual check. No permanent success/failure preference, no fake release availability.
+Available (only actual Play availability and higher version) -> Update/Later. Update starts Play flexible consent. Pending/downloading -> real bytes/total progress. Only DOWNLOADED -> Restart to update. Restart invokes completeUpdate only on explicit tap; disabled while saving or printing; save any tool edits before explicitly restarting. Later suppresses current foreground visit, survives rotation and returns on next foreground opening, matching PTS. Play consent is kept in the same visit. Check/listener failures remain usable; retry on resume/poll/manual check. No permanent success/failure preference, no fake release availability.
 
 ## Validation layers
 
