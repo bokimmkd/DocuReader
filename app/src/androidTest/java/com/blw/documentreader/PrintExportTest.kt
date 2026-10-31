@@ -43,7 +43,13 @@ class PrintExportTest {
         inst.uiAutomation.executeShellCommand("rm -f /sdcard/Download/$base").close()
         withContext(Dispatchers.Main) { WebPdf.print(web, name, landscape) {} }
         try {
-            val printButton = device.wait(Until.findObject(By.desc("Save as PDF")), 45_000)
+            val destination = device.wait(Until.findObject(By.res("com.android.printspooler", "destination_spinner")), 30_000)
+            assertNotNull("Printer list did not open", destination)
+            destination!!.click()
+            val pdfDestination = device.wait(Until.findObject(By.text("Save as PDF")), 15_000)
+            assertNotNull("Save as PDF destination unavailable", pdfDestination)
+            pdfDestination!!.click()
+            val printButton = device.wait(Until.findObject(By.res("com.android.printspooler", "print_button")), 30_000)
             assertNotNull("Print preview did not open", printButton)
             withTimeout(45_000) { while(!printButton!!.isEnabled) delay(250) }
             printButton!!.click()
