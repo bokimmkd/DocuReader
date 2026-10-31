@@ -73,3 +73,7 @@ The release source remains `f0999e4cee926f1d05bacad2f964af92e3a825e5`,
 No new release bundle, version bump, upload, review submission or Production action
 was performed for this investigation. The diagnostic workflow builds only the
 debug test installation and uploads logs/screenshots; it has no bundle task.
+
+## User follow-up: Library entries returned
+
+Boki subsequently reported that the files became visible in Library after about one hour. This supersedes the earlier observation that the Library was still empty. At least one Recent file had already been confirmed openable. The return of the Library entries supports a delayed visibility/refresh symptom rather than permanent loss of those entries, but the cause is NOT established. No assumption that a filter was responsible has been confirmed. A one-hour delay is not acceptable expected behavior for the local Library; investigate lifecycle/view state, initial filters and metadata refresh if reproduced. No recovery operation, app data reset, production code change or new AAB was performed.
