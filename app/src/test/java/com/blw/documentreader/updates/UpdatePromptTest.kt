@@ -107,4 +107,11 @@ class UpdatePromptTest {
         assertTrue(gate.complete(fresh))
         assertFalse(gate.complete(old))
     }
+    @Test fun playMustActuallyReportAvailabilityBeforeAnyDownloadOrStoreOffer() {
+        val session=UpdateOfferSession();session.startForeground()
+        assertNull(session.prompt(20,available,false,true))
+        assertNull(session.prompt(20,available.copy(stage=UpdateStage.Stopped),false,true))
+        assertEquals("Available",session.prompt(20,available,true,true))
+        assertEquals("Ready",session.prompt(20,available.copy(stage=UpdateStage.Ready),false,true))
+    }
 }

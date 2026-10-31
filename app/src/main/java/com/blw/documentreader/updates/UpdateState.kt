@@ -31,7 +31,7 @@ class UpdateOfferSession {
         if(consentVersion>0 || version<=maxOf(installed,transfer.completedVersion)) return null
         return when(transfer.stage) {
             UpdateStage.Ready -> if(shouldOfferRestart(version,deferredRestart)) "Ready" else null
-            UpdateStage.Stopped -> if(shouldOfferUpdate(installed,version,deferredUpdate)) "Store" else null
+            UpdateStage.Stopped -> if(available && shouldOfferUpdate(installed,version,deferredUpdate)) "Store" else null
             UpdateStage.Idle -> if(available && shouldOfferUpdate(installed,version,deferredUpdate))
                 if(flexibleAllowed) "Available" else "Store" else null
             else -> null
