@@ -36,22 +36,12 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
     DisposableEffect(Unit) { onDispose { onBusy(false) } }
     BackHandler(working) { }
     fun busy(value: Boolean) { working = value; onBusy(value) }
-    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        if (uri == null) { busy(false) } else {
-            scope.launch {
-                val temp = File.createTempFile("wreader-pdf-", ".pdf", context.cacheDir)
-                try {
-                    WebPdf.export(web, pendingName, temp, landscape)
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri, "wt")?.use { out -> temp.inputStream().use { it.copyTo(out) } }
-                            ?: error("Cannot write to the selected folder.")
-                    }
-                    onSaved(uri, pendingName)
-                    report("PDF saved.")
-                } catch (error: Exception) {
-                    if (error !is CancellationException) report("Could not save PDF: ${error.message ?: "Try again."}")
-                } finally { temp.delete(); busy(false) }
-            }
+    var canAddPdf by remember(web) { mutableStateOf(false) }
+    val addPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
+            onSaved(uri, com.blw.documentreader.data.DocumentTypes.displayName(context, uri))
+            canAddPdf = false
         }
     }
     LaunchedEffect(autoExport, ready) { if (autoExport && ready) { dialog = true; onAutoHandled() } }
@@ -66,10 +56,15 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
             catch (ex: Exception) { busy(false); report("Printing unavailable: ${ex.message}") }
         }
     }) { Icon(Icons.Default.Print, "Print") }
+    if (canAddPdf) AlertDialog(onDismissRequest = { canAddPdf = false }, title = { Text("Add saved PDF?") },
+        text = { Text("If you saved a PDF, select it to keep it in Library and share it from W Reader.") },
+        confirmButton = { TextButton(onClick = { canAddPdf = false; addPdf.launch(arrayOf("application/pdf")) }) { Text("Choose PDF") } },
+        dismissButton = { TextButton(onClick = { canAddPdf = false }) { Text("Done") } })
     if (dialog) AlertDialog(onDismissRequest = { dialog = false }, title = { Text("Save as PDF") },
         text = { Column {
             OutlinedTextField(outputName, { outputName = it }, singleLine = true, label = { Text("File name") })
-            if (excel) Text("Exports the worksheet currently selected in the reader.", style = MaterialTheme.typography.bodySmall)
+            Text("Choose Save as PDF in the printer list, then save to your preferred folder.", style = MaterialTheme.typography.bodySmall)
+            if (excel) Text("Converts the selected worksheet.", style = MaterialTheme.typography.bodySmall)
             Row {
                 FilterChip(selected = !landscape, onClick = { landscape = false }, label = { Text("Portrait") })
                 Spacer(Modifier.width(8.dp))
@@ -82,8 +77,10 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
             dialog = false; busy(true)
             prepare(landscape) { error ->
                 if (error != null) { busy(false); report(error) }
-                else save.launch(pendingName)
+                else try {
+                    WebPdf.print(web, pendingName, landscape) { busy(false); canAddPdf = true }
+                } catch (ex: Exception) { busy(false); report("Could not open PDF preview: ${ex.message}") }
             }
-        }) { Text("Save PDF") } },
+        }) { Text("Continue") } },
         dismissButton = { TextButton(onClick = { dialog = false }) { Text("Cancel") } })
 }

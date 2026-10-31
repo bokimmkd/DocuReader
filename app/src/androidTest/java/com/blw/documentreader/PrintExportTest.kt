@@ -8,6 +8,7 @@ import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.*
 import com.blw.documentreader.data.*
 import com.blw.documentreader.printing.*
 import com.blw.documentreader.ui.OfficeWebView
@@ -35,6 +36,35 @@ class PrintExportTest {
     }
     private fun text(pdf: File): Pair<Int,String> = PDDocument.load(pdf).use {
         it.numberOfPages to PDFTextStripper().getText(it).replace(Regex("\\s+")," ")
+    }
+    private suspend fun saveViaSystemPrint(web: WebView, name: String, file: File, landscape: Boolean) {
+        val device = UiDevice.getInstance(inst)
+        val base = file.name
+        inst.uiAutomation.executeShellCommand("rm -f /sdcard/Download/$base").close()
+        withContext(Dispatchers.Main) { WebPdf.print(web, name, landscape) {} }
+        try {
+            val printButton = device.wait(Until.findObject(By.res("com.android.printspooler", "print_button")), 45_000)
+            assertNotNull("Print preview did not open", printButton)
+            withTimeout(45_000) { while(!printButton!!.isEnabled) delay(250) }
+            printButton!!.click()
+            val title = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 30_000)
+            assertNotNull("PDF filename dialog did not open", title)
+            title!!.text = base
+            device.findObject(By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE))).click()
+            withTimeout(30_000) {
+                while(true) {
+                    val fd=inst.uiAutomation.executeShellCommand("cat /sdcard/Download/$base")
+                    val bytes=android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
+                    if(bytes.size>4 && bytes.take(4).toByteArray().decodeToString()=="%PDF") { file.writeBytes(bytes); break }
+                    delay(500)
+                }
+            }
+            device.waitForIdle()
+        } catch(error: Throwable) {
+            device.dumpWindowHierarchy(File(file.parentFile,"failure-ui.xml"))
+            device.takeScreenshot(File(file.parentFile,"failure-screen.png"))
+            throw error
+        }
     }
     @Test fun officeAndTextPdfKeepAllPagesAtDifferentReaderZooms() = runBlocking {
         val output = File(context.getExternalFilesDir(null),"print-qa").also { it.mkdirs() }
@@ -65,7 +95,7 @@ class PrintExportTest {
                         assertEquals("null",js(web,"window.prepareOfficePrint(${type==DocumentTypes.EXCEL})"))
                     } else withContext(Dispatchers.Main){web.settings.textZoom=(zoom*100).toInt()}
                     val dest=File(output,"${name.substringBeforeLast('.')}-${zoom}.pdf")
-                    WebPdf.export(web,name,dest,type==DocumentTypes.EXCEL)
+                    saveViaSystemPrint(web,name,dest,type==DocumentTypes.EXCEL)
                     val info=text(dest)
                     assertTrue("Missing beginning for $name: ${info.second}",info.second.contains(first))
                     assertTrue("Missing ending for $name",info.second.contains(last))
