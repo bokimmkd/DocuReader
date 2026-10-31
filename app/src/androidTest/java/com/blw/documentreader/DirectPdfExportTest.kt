@@ -66,6 +66,8 @@ class DirectPdfExportTest {
                         assertTrue("Missing first marker $name", value.second.contains(first))
                         assertTrue("Missing last marker $name", value.second.contains(last))
                         assertTrue("Missing Cyrillic $name", value.second.contains("Кирилица"))
+                        if (type != "Excel") for (symbol in "∈∉∪∩⊂≤≥ℕπΩ∞")
+                            assertTrue("Missing math symbol $symbol in $name", value.second.contains(symbol))
                         assertTrue("Not paginated $name", value.first >= 2)
                         if (type == "Word") for (n in 0 until 35) assertTrue("Missing Word paragraph $n", value.second.contains("Word content $n "))
                         if (type == "TXT") for (n in 0 until 150) assertTrue("Missing TXT line $n", value.second.contains("Line $n "))
@@ -106,7 +108,7 @@ class DirectPdfExportTest {
         val intent = Intent(context, DirectExportTestActivity::class.java).setData(fixture("word.docx"))
         ActivityScenario.launch<DirectExportTestActivity>(intent).use { s ->
             click(d, By.desc("Convert to PDF").enabled(true), 90000)
-            d.findObject(By.clazz("android.widget.EditText")).text = "WReader-direct-export.pdf"
+            d.wait(Until.findObject(By.clazz("android.widget.EditText")), 15000)!!.text = "WReader-direct-export.pdf"
             click(d, By.text("Save PDF"))
             val field = d.wait(Until.findObject(By.clazz("android.widget.EditText")), 120000)
             assertNotNull("Expected file-save picker, not a printer dialog", field)
@@ -128,7 +130,7 @@ class DirectPdfExportTest {
             click(d, By.text("Share"))
             s.onActivity { assertEquals(it.saved, it.shared?.first); assertEquals("WReader-direct-export.pdf", it.shared?.second) }
             click(d, By.desc("Convert to PDF").enabled(true))
-            d.findObject(By.clazz("android.widget.EditText")).text = "WReader-open-export.pdf"
+            d.wait(Until.findObject(By.clazz("android.widget.EditText")), 15000)!!.text = "WReader-open-export.pdf"
             click(d, By.text("Save PDF"))
             val nextField = d.wait(Until.findObject(By.clazz("android.widget.EditText")), 120000)
             assertNotNull(nextField); nextField!!.text = "WReader-open-export.pdf"
@@ -137,7 +139,7 @@ class DirectPdfExportTest {
             click(d, By.text("Open"))
             s.onActivity { assertEquals(it.saved, it.opened) }
             click(d, By.desc("Convert to PDF").enabled(true))
-            d.findObject(By.clazz("android.widget.EditText")).text = "WReader-print-export.pdf"
+            d.wait(Until.findObject(By.clazz("android.widget.EditText")), 15000)!!.text = "WReader-print-export.pdf"
             click(d, By.text("Save PDF"))
             val printField = d.wait(Until.findObject(By.clazz("android.widget.EditText")), 120000)
             assertNotNull(printField); printField!!.text = "WReader-print-export.pdf"

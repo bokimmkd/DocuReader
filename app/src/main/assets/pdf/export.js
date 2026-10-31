@@ -47,7 +47,7 @@
    }
    if(run)groups.push([family,run]);
    if(groups.some(g=>g[0]!==0)){
-    const fragment=document.createDocumentFragment();for(const [f,text]of groups){const span=document.createElement('span');span.style.setProperty('font-family',families[f],'important');span.textContent=text;fragment.appendChild(span);}node.replaceWith(fragment);
+    const fragment=document.createDocumentFragment();for(const [f,text]of groups){const span=document.createElement('span');span.style.setProperty('font-family',families[f],'important');if(f){span.style.fontWeight='normal';span.style.fontStyle='normal';}span.textContent=text;fragment.appendChild(span);}node.replaceWith(fragment);
    }
   }
   await document.fonts.ready;
