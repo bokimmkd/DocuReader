@@ -85,7 +85,9 @@ class UpdateFlowTest {
             s.onActivity {fake.setBytesDownloaded(100)}
             await(s){it.updates.transfer.fraction==1f}
             s.onActivity {assertNotEquals("Ready",it.updates.prompt);assertFalse(fake.isInstallSplashScreenVisible);fake.downloadCompletes()}
-            await(s){it.updates.prompt=="Ready"};screenshot("restart-ready")
+            await(s){it.updates.prompt=="Ready"}
+            assertTrue(UiDevice.getInstance(inst).wait(Until.hasObject(By.text("Restart to update")),10000))
+            screenshot("restart-ready")
             click("Restart to update")
             await(s){it.updates.transfer.stage==UpdateStage.Installing}
             s.onActivity {assertTrue(fake.isInstallSplashScreenVisible);fake.installCompletes()}

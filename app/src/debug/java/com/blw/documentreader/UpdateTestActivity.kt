@@ -3,7 +3,9 @@ package com.blw.documentreader
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.blw.documentreader.ui.UpdateBanner
@@ -24,8 +26,8 @@ class UpdateTestActivity:ComponentActivity() {
         updates.allowedToPrompt={UpdateTestEnvironment.canLaunch}
         setContent {
             var documentOpen by remember {mutableStateOf(false)}
-            MaterialTheme {
-                Column {
+            MaterialTheme(colorScheme=lightColorScheme(primary=Color(0xFF0869E8),primaryContainer=Color(0xFFDCEBFF),onPrimaryContainer=Color(0xFF0B3975))) {
+                Column(Modifier.fillMaxSize().systemBarsPadding()) {
                     UpdateBanner(updates.prompt,updates.transfer,updates.installFailed,
                         enabled=UpdateTestEnvironment.canLaunch,
                         onUpdate=updates::download,onLater=updates::later,onRestart=updates::restart)
