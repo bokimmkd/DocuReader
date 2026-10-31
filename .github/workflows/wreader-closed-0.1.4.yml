@@ -55,9 +55,12 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 2048
           script: |
-            gradle :app:connectedDebugAndroidTest --stacktrace --no-daemon
+            test_status=0
+            gradle :app:connectedDebugAndroidTest --stacktrace --no-daemon || test_status=$?
             mkdir -p verification/android-print
-            adb pull /sdcard/Android/data/com.blw.wreader/files/print-qa verification/android-print
+            adb pull /sdcard/Android/data/com.blw.wreader/files/print-qa verification/android-print || true
+            adb logcat -d > verification/android-print/emulator-logcat.txt
+            exit "$test_status"
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4

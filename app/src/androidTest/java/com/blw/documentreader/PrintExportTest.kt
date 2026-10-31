@@ -43,7 +43,7 @@ class PrintExportTest {
         inst.uiAutomation.executeShellCommand("rm -f /sdcard/Download/$base").close()
         withContext(Dispatchers.Main) { WebPdf.print(web, name, landscape) {} }
         try {
-            val printButton = device.wait(Until.findObject(By.res("com.android.printspooler", "print_button")), 45_000)
+            val printButton = device.wait(Until.findObject(By.desc("Save as PDF")), 45_000)
             assertNotNull("Print preview did not open", printButton)
             withTimeout(45_000) { while(!printButton!!.isEnabled) delay(250) }
             printButton!!.click()
