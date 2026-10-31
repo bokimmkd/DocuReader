@@ -35,7 +35,16 @@ class PrintExportTest {
         return FileProvider.getUriForFile(context,"${context.packageName}.files",file)
     }
     private fun text(pdf: File): Pair<Int,String> = PDDocument.load(pdf).use {
-        it.numberOfPages to PDFTextStripper().getText(it).replace(Regex("\\s+")," ")
+        val stripper = object : PDFTextStripper() {
+            override fun processTextPosition(position: com.tom_roush.pdfbox.text.TextPosition) {
+                if (position.unicode.isNotBlank()) {
+                    assertTrue("Text touches the left page edge", position.xDirAdj >= 20f)
+                    assertTrue("Text touches the top page edge", position.yDirAdj >= 20f)
+                }
+                super.processTextPosition(position)
+            }
+        }
+        it.numberOfPages to stripper.getText(it).replace(Regex("\\s+")," ")
     }
     private suspend fun saveViaSystemPrint(web: WebView, name: String, file: File, landscape: Boolean) {
         val device = UiDevice.getInstance(inst)

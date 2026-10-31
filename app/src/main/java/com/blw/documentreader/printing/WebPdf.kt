@@ -21,6 +21,18 @@ object WebPdf {
         .setMinMargins(PrintAttributes.Margins(394, 394, 394, 394))
         .setColorMode(PrintAttributes.COLOR_MODE_COLOR).build()
 
+    private fun safeMargins(value: PrintAttributes?): PrintAttributes? {
+        if (value == null) return null
+        val m = value.minMargins ?: PrintAttributes.Margins.NO_MARGINS
+        val out = PrintAttributes.Builder().setMinMargins(PrintAttributes.Margins(
+            maxOf(m.leftMils, 394), maxOf(m.topMils, 394),
+            maxOf(m.rightMils, 394), maxOf(m.bottomMils, 394)))
+        value.mediaSize?.let { out.setMediaSize(it) }
+        value.resolution?.let { out.setResolution(it) }
+        if (value.colorMode != 0) out.setColorMode(value.colorMode)
+        if (value.duplexMode != 0) out.setDuplexMode(value.duplexMode)
+        return out.build()
+    }
     fun print(web: WebView, name: String, landscape: Boolean, finished: () -> Unit) {
         val zoom = web.settings.textZoom
         web.settings.textZoom = 100
@@ -28,7 +40,9 @@ object WebPdf {
         val wrapper = object : PrintDocumentAdapter() {
             override fun onStart() { delegate.onStart() }
             override fun onLayout(old: PrintAttributes?, new: PrintAttributes?, signal: CancellationSignal?, result: LayoutResultCallback?, extras: Bundle?) {
-                delegate.onLayout(old, new, signal, result, extras)
+                // Virtual PDF printers can replace requested margins with zero.
+                // Preserve physical printer minima and keep text away from every page edge.
+                delegate.onLayout(safeMargins(old), safeMargins(new), signal, result, extras)
             }
             override fun onWrite(pages: Array<out PageRange>?, destination: ParcelFileDescriptor?, signal: CancellationSignal?, result: WriteResultCallback?) {
                 delegate.onWrite(pages, destination, signal, result)
