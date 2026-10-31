@@ -1,7 +1,8 @@
 /* W Reader offline Office UI. No external URLs, analytics, storage or editing. */
 (function() {
 'use strict';
-const state = { zoom: 0.5, workbook: null, images: [] };
+const state = { zoom: 0.5, workbook: null, images: [], truncated: false };
+window.officeReady = false;
 const status = document.getElementById('status');
 const content = document.getElementById('content');
 const sheetbar = document.getElementById('sheetbar');
@@ -89,6 +90,7 @@ function bounds(address) {
 }
 function renderSheet(ws) {
     content.textContent='';
+    state.truncated = ws.rowCount > MAX_SHEET_ROWS || ws.columnCount > MAX_SHEET_COLS;
     const extent = ws.dimensions || {top:1,left:1,bottom:ws.rowCount,right:ws.columnCount};
     const nRows=Math.min(Math.max(ws.rowCount,1),MAX_SHEET_ROWS);
     const nCols=Math.min(Math.max(ws.columnCount,1),MAX_SHEET_COLS);
@@ -187,6 +189,20 @@ async function loadWord(bytes) {
     });
     info('Word preview preserves rich layout where supported; desktop pagination may differ.');
 }
+// Print media ignores reader zoom. Refuse incomplete/truncated worksheets.
+window.prepareOfficePrint = function(landscape) {
+    if (!window.officeReady) return 'Wait for the document to finish loading.';
+    if (state.truncated) return 'This worksheet exceeds the preview limit. Choose a smaller worksheet before printing.';
+    const table = content.querySelector('table.sheet');
+    if (table) {
+        const width = table.offsetWidth;
+        const available = (landscape ? 277 : 190) * 96 / 25.4;
+        const fit = Math.min(1, available / Math.max(1, width));
+        if (fit < 0.35) return 'This sheet is too wide for readable A4 printing. Select a narrower worksheet or export a print area from Excel.';
+        document.documentElement.style.setProperty('--sheet-print-scale', String(fit));
+    }
+    return null;
+};
 (async function main(){
     try{
         const type=new URLSearchParams(location.search).get('type');
@@ -199,8 +215,11 @@ async function loadWord(bytes) {
         const bytes=new Uint8Array(buf);
         message(type==='word'?'Rendering Word document…':'Reading Excel workbook…');
         if(type==='word')await loadWord(bytes); else await loadExcel(bytes);
+        await document.fonts.ready;
+        await Promise.all(Array.from(content.querySelectorAll("img")).map(img => img.decode().catch(() => {})));
         clearMessage();
         window.setOfficeZoom(0.5);
+        window.officeReady = true;
     }catch(error){
         message('Cannot display document: '+(error.message||String(error)));
         info('The original document was not modified. Try a different file or export to PDF.');

@@ -27,6 +27,9 @@ import androidx.webkit.WebViewAssetLoader.PathHandler
 import com.blw.documentreader.data.DocumentTypes
 import android.content.Context
 import java.io.InputStream
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Real offline document-aware Office rendering:
@@ -43,63 +46,29 @@ fun OfficeReaderScreen(
     type: String,
     onBack: () -> Unit,
     onShare: () -> Unit,
-    onPrintOriginal: () -> Unit
+    autoExport: Boolean = false,
+    onAutoHandled: () -> Unit = {},
+    onBusy: (Boolean) -> Unit,
+    onSaved: (Uri, String) -> Unit,
+    onReady: () -> Unit,
+    report: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val webView = remember(uri) {
-        WebView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = false
-            settings.allowFileAccess = false
-            settings.allowContentAccess = false
-            settings.allowFileAccessFromFileURLs = false
-            settings.allowUniversalAccessFromFileURLs = false
-            settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            settings.setSupportZoom(true)
-            settings.builtInZoomControls = true
-            settings.displayZoomControls = false
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
+    val webView = remember(uri) { OfficeWebView.create(context, uri, type) }
+    var ready by remember(uri) { mutableStateOf(false) }
+    LaunchedEffect(webView) {
+        repeat(120) {
+            val loaded = suspendCancellableCoroutine<Boolean> { cont ->
+                webView.evaluateJavascript("window.officeReady === true") { if (cont.isActive) cont.resume(it == "true") }
+            }
+            if (loaded) { ready = true; onReady(); return@LaunchedEffect }
+            delay(500)
         }
     }
     var searchText by remember(uri) { mutableStateOf("") }
     var showSearch by remember(uri) { mutableStateOf(false) }
     var scale by remember(uri) { mutableFloatStateOf(0.5f) }
     DisposableEffect(webView) {
-        val loader = WebViewAssetLoader.Builder()
-            .setDomain("appassets.androidplatform.net")
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
-            .addPathHandler("/document/", PathHandler { relative ->
-                if (relative != "current") null else {
-                    try {
-                        val input = context.contentResolver.openInputStream(uri)
-                        if (input == null) null
-                        else WebResourceResponse("application/octet-stream", null, input)
-                    } catch (_: Exception) {
-                        // Missing URI grant is displayed by the document renderer.
-                        null
-                    }
-                }
-            })
-            .build()
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                val requestUri = request?.url ?: return null
-                if (requestUri.host != "appassets.androidplatform.net") {
-                    // Do not make network requests from document content.
-                    return WebResourceResponse("text/plain", "UTF-8", java.io.ByteArrayInputStream(ByteArray(0)))
-                }
-                return loader.shouldInterceptRequest(requestUri)
-            }
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return request?.url?.host != "appassets.androidplatform.net"
-            }
-        }
-        webView.loadUrl(
-            "https://appassets.androidplatform.net/assets/office/reader.html?type=" +
-                if (type == DocumentTypes.WORD) "word" else "excel"
-        )
         onDispose {
             webView.stopLoading()
             webView.loadUrl("about:blank")
@@ -121,16 +90,13 @@ fun OfficeReaderScreen(
             }
             IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share original") }
-            // A WebView preview is not a faithful print engine for every DOCX/XLSX.
-            // For the first Play closed test, share the original to a compatible
-            // Office app for reliable printing instead of misprinting a zoomed preview.
-            if (com.blw.documentreader.BuildConfig.DEBUG) {
-                IconButton(onClick = {
-                    val adapter = webView.createPrintDocumentAdapter(name)
-                    val printManager = context.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
-                    printManager.print(name, adapter, null)
-                }) { Icon(Icons.Default.Print, "Print preview (layout may differ)") }
-            }
+            DocumentOutputActions(webView, name, ready, excel = type == DocumentTypes.EXCEL,
+                prepare = { landscape, done ->
+                    webView.evaluateJavascript("window.prepareOfficePrint && window.prepareOfficePrint($landscape)") { result ->
+                        done(if (result == "null") null else try { org.json.JSONTokener(result).nextValue().toString() } catch (_: Exception) { "Document is not ready to print." })
+                    }
+                }, autoExport = autoExport, onAutoHandled = onAutoHandled,
+                onBusy = onBusy, onSaved = onSaved, report = report)
         }
         Row(Modifier.fillMaxWidth().height(42.dp),
             verticalAlignment = Alignment.CenterVertically,

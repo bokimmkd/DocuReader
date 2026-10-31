@@ -1,4 +1,4 @@
-name: W Reader 0.1.7 - Google Play Closed Testing AAB (unsigned)
+name: W Reader 0.1.8 - Google Play Closed Testing AAB (unsigned)
 on:
   push:
     branches: [release/wreader-closed-0.1.4]
@@ -31,8 +31,43 @@ jobs:
         run: |
           bash scripts/prepare-office-assets.sh
           node --check app/src/main/assets/office/reader.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate multi-page Office print fixtures
+        run: |
+          python -m pip install python-docx openpyxl pillow
+          python scripts/create-print-fixtures.py
       - name: Test and build UNSIGNED closed-test Android App Bundle
         run: gradle :app:testDebugUnitTest :app:bundleRelease --stacktrace --no-daemon
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify real Android WebView PDF output and Library import
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 2048
+          script: |
+            gradle :app:connectedDebugAndroidTest --stacktrace --no-daemon
+            mkdir -p verification/android-print
+            adb pull /sdcard/Android/data/com.blw.wreader/files/print-qa verification/android-print
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WReader-0.1.8-print-test-evidence
+          path: |
+            app/build/reports/androidTests
+            app/build/outputs/androidTest-results
+            verification/android-print
+          if-no-files-found: warn
       - name: Verify outputs
         run: |
           test -s app/build/outputs/bundle/release/app-release.aab
@@ -41,7 +76,7 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.7-closed-test-UNSIGNED-aab
+          name: WReader-0.1.8-closed-test-UNSIGNED-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30

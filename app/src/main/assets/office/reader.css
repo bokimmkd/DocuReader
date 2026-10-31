@@ -18,3 +18,18 @@ body{margin:0;padding:0;background:#edf2f7;color:#182b43;font:14px/1.4 system-ui
 .sheet td img{max-width:220px;max-height:120px}
 .sheet td a{color:#1b66cc}
 @media (prefers-color-scheme:dark){body{background:#111927;color:#e9f0fb}#sheetbar{background:#1c283a}#status{color:#aab9cf}#notice{background:#45371d;color:#f7d794}}
+
+@media print {
+  :root{color-scheme:light}
+  html,body{background:white!important;color:#111!important;margin:0!important;padding:0!important}
+  #status,#notice,#sheetbar{display:none!important}
+  #viewport{overflow:visible!important;width:auto!important}
+  #content{zoom:1!important;min-height:0!important;transform:none!important}
+  .docx-wrapper{padding:0!important;background:white!important;display:block!important}
+  .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;max-width:100%!important;overflow:visible!important;break-after:page;page-break-after:always}
+  .docx-wrapper>section.docx:last-child{break-after:auto;page-break-after:auto}
+  .sheet{zoom:var(--sheet-print-scale,1);border-collapse:collapse;white-space:normal}
+  .sheet thead,.sheet .rowhead{display:none!important}
+  .sheet td{position:static!important;overflow:visible!important;text-overflow:clip!important;white-space:pre-wrap!important;overflow-wrap:anywhere;max-width:420px}
+  .sheet tr{break-inside:avoid;page-break-inside:avoid}
+}

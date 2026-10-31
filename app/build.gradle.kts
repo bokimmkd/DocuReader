@@ -10,8 +10,8 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.1.7-closed"
+        versionCode = 9
+        versionName = "0.1.8-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -24,7 +24,7 @@ android {
         getByName("release") {
             // Dedicated W Reader live banner. Purchases stay disabled until configured.
             buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
-            buildConfigField("boolean", "BILLING_ENABLED", "false")
+            buildConfigField("boolean", "BILLING_ENABLED", "true")
             buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-1171723950608276/7121071338\"")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-1171723950608276~9122924850"
             isMinifyEnabled = false
@@ -57,6 +57,10 @@ dependencies {
     implementation("com.google.android.ump:user-messaging-platform:3.2.0")
     implementation("com.android.billingclient:billing:9.1.0")
     implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:review:2.0.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

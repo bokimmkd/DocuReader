@@ -26,6 +26,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
     private val store = DocumentStore(appContext)
     var recent by mutableStateOf(store.load()); private set
+    var libraryReveal by mutableStateOf(0); private set
+    var reviewMoment by mutableStateOf(0); private set
+    private var successfullyOpened = false
     var current by mutableStateOf<DocumentEntry?>(null); private set
     var pdf by mutableStateOf<PdfSession?>(null); private set
     var officeUri by mutableStateOf<Uri?>(null); private set
@@ -46,6 +49,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var sourceForSelection by mutableStateOf<SourcePdf?>(null); private set
     var addSource by mutableStateOf(false); private set
 
+    fun consumeLibraryReveal() { libraryReveal = 0 }
     fun dismissMessage() { message = null }
     fun report(text: String) { message = text }
     fun updateAppearance(theme: String) { appearance = theme; store.setAppearance(theme) }
@@ -81,21 +85,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         busy = true
         viewModelScope.launch {
             try {
-                val name = document?.name ?: DocumentTypes.displayName(appContext, uri)
+                val original = document ?: recent.find { it.uri == uri.toString() }
+                val name = original?.name ?: DocumentTypes.displayName(appContext, uri)
                 val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
                 require(type != null) { "Only PDF, DOCX, XLSX and TXT are supported." }
                 val savedUri = withContext(Dispatchers.IO) { store.keepOffline(uri, name) }
-                val original = document ?: recent.find { it.uri == uri.toString() }
                 val newEntry = DocumentEntry(
                     savedUri.toString(), name, type, original?.favorite ?: false,
-                    original?.lastPage ?: 0, System.currentTimeMillis(),
-                    original?.category ?: "Uncategorized", original?.tags ?: "", true
+                    original?.lastPage ?: 0, original?.openedAt ?: 0L,
+                    original?.category ?: "Uncategorized", original?.tags ?: "", true, System.currentTimeMillis()
                 )
                 recent = listOf(newEntry) + recent.filter {
                     it.uri != newEntry.uri && it.uri != uri.toString()
                 }
                 store.save(recent)
-                message = "Saved privately to Library. Original document unchanged."
+                libraryReveal++
+                message = "Saved to Library. Original document unchanged."
             } catch (ex: Exception) {
                 message = "Could not save Library copy: ${ex.message ?: "Check access and storage."}"
             } finally { busy = false }
@@ -120,6 +125,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun openDocument(uri: Uri, password: String? = null) {
+        successfullyOpened = false
         val existingEntry = recent.find { it.uri == uri.toString() }
         val name = existingEntry?.name ?: DocumentTypes.displayName(appContext, uri)
         val type = existingEntry?.type ?: DocumentTypes.detect(appContext, uri, name)
@@ -135,7 +141,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val record = DocumentEntry(
                 uri.toString(), name, type, existing?.favorite ?: false,
                 0, System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                existing?.tags ?: "", existing?.savedLocally ?: false
+                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L
             )
             current = record
             recent = listOf(record) + recent.filter { it.uri != record.uri }
@@ -153,11 +159,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val record = DocumentEntry(uri.toString(), name, type, existing?.favorite ?: false,
                     if (remember) existing?.lastPage ?: 0 else 0,
                     System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                    existing?.tags ?: "", existing?.savedLocally ?: false)
+                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L)
                 current = record
                 recent = listOf(record) + recent.filter { it.uri != record.uri }
                 store.save(recent)
                 pdfMatches = emptyList()
+                successfullyOpened = true
             } catch (ex: SecurityException) {
                 passwordNeeded = true
                 message = "This PDF is protected. Enter its password to open it."
@@ -167,7 +174,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } finally { busy = false }
         }
     }
+    fun markReaderReady() { successfullyOpened = true }
     fun closeDocument() {
+        if (successfullyOpened) reviewMoment++
+        successfullyOpened = false
         pdf?.close(); pdf = null; officeUri = null
         current = null; passwordNeeded = false
     }
@@ -236,7 +246,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         busy = true
         val snapshot = toolPages.toList()
         viewModelScope.launch {
-            try { toolEngine.save(snapshot, uri); toolSaveResult = uri; message = "New PDF saved. The original documents were not changed." }
+            try { toolEngine.save(snapshot, uri); toolSaveResult = uri; reviewMoment++; message = "New PDF saved. The original documents were not changed." }
             catch (_: Exception) { message = "Could not save PDF. Check the destination and free space." }
             finally { busy = false }
         }

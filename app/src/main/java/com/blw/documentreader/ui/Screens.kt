@@ -391,9 +391,10 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
 }
 
 @Composable
-fun ToolsStartScreen(onChoosePdf: () -> Unit) {
+fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ToolChoice(Icons.Default.PictureAsPdf, "Convert to PDF", "Word, Excel or TXT · Save and share", BrandBlue, onConvert)
         Text("PDF Tools", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Edit pages. Keep your original unchanged.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -599,7 +600,7 @@ private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 @Composable
 fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit,
                    price: String, adFree: Boolean, privacy: () -> Unit,
-                   privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit) {
+                   privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit) {
     var clearDialog by remember { mutableStateOf(false) }
     val closedTest = !com.blw.documentreader.BuildConfig.BILLING_ENABLED
     val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
@@ -638,8 +639,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Icon(Icons.Default.Block, null, modifier = Modifier.size(19.dp),
-                tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Diamond, null, modifier = Modifier.size(19.dp),
+                tint = Color(0xFFE5B530))
             Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
@@ -650,9 +651,9 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         else Row(Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Remove Ads", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text("Ad-free Lifetime", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text(if (closedTest) "Will be available after testing"
-                    else if (adFree) "Purchased" else if (priceAvailable) "One-time · $price"
+                    else if (adFree) "Lifetime active" else if (priceAvailable) "One payment · $price · Forever"
                     else "Available through Google Play",
                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -673,6 +674,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         }
         SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
         SettingsAction(Icons.Default.SystemUpdate, "Check for updates", checkUpdates)
+        SettingsAction(Icons.Default.StarRate, "Rate app", rateApp)
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
         if (com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)

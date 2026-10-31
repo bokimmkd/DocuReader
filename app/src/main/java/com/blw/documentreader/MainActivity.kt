@@ -10,6 +10,8 @@ import kotlinx.coroutines.delay
 import com.blw.documentreader.data.DocumentStore
 import com.blw.documentreader.data.DocumentTypes
 import com.blw.documentreader.updates.PlayUpdates
+import com.blw.documentreader.reviews.PlayReview
+import com.blw.documentreader.data.DocumentEntry
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -56,6 +58,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var consent: AdConsent
     private lateinit var billing: RemoveAdsBilling
     private lateinit var updates: PlayUpdates
+    private lateinit var reviews: PlayReview
+    private var outputBusy by mutableStateOf(false)
+    private var convertOnReady by mutableStateOf(false)
     private var updateReady by mutableStateOf(false)
     private var resumeTick by mutableIntStateOf(0)
     private var preparingShare by mutableStateOf(false)
@@ -68,6 +73,9 @@ class MainActivity : ComponentActivity() {
     }
     private val pickForLibrary = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); vm.saveToLibrary(uri) }
+    }
+    private val convertDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; convertOnReady = true; vm.openDocument(uri) }
     }
     private val pickTool = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); vm.beginTool(uri) }
@@ -83,6 +91,9 @@ class MainActivity : ComponentActivity() {
         consent = AdConsent(this) { permittedAds = true }
         billing = RemoveAdsBilling(this) { vm.report(it) }
         updates = PlayUpdates(this, updateFlow, vm::report) { updateReady = it }
+        reviews = PlayReview(this)
+        reviews.observeUse()
+        updates.allowedToPrompt = { !outputBusy && !preparingShare && vm.current == null && !vm.busy && consent.settled }
         if (BuildConfig.MONETIZATION_ENABLED) {
             consent.start()
         }
@@ -96,6 +107,7 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
     private fun handleIncomingIntent(intent: Intent?) {
+        if (outputBusy) { vm.report("Finish printing or saving before opening another document."); return }
         val uri = when (intent?.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
@@ -117,7 +129,7 @@ class MainActivity : ComponentActivity() {
             "text/plain", "application/octet-stream"))
     }
     private fun share(uri: Uri, mime: String, displayName: String? = null) {
-        if (preparingShare) return
+        if (preparingShare || outputBusy) return
         val entry = vm.recent.find { it.uri == uri.toString() }
         val name = displayName ?: entry?.name ?: DocumentTypes.displayName(this, uri)
         val format = entry?.type ?: when (mime) {
@@ -143,6 +155,11 @@ class MainActivity : ComponentActivity() {
             } finally { preparingShare = false }
         }
     }
+    private fun keepExport(uri: Uri, name: String) {
+        val source = vm.current
+        vm.saveToLibrary(uri, DocumentEntry(uri.toString(), name, DocumentTypes.PDF,
+            openedAt = 0L, category = source?.category ?: "Uncategorized", tags = source?.tags ?: ""))
+    }
     private fun shareDocument(doc: com.blw.documentreader.data.DocumentEntry) {
         val mime = when (doc.type) {
             DocumentTypes.WORD -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -156,6 +173,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         resumeTick++
         if (::updates.isInitialized) updates.refreshDownloaded()
+        if (::reviews.isInitialized) reviews.observeUse()
+        if (::billing.isInitialized && BuildConfig.BILLING_ENABLED) billing.restore(silent = true)
     }
 
     @Composable
@@ -163,6 +182,8 @@ class MainActivity : ComponentActivity() {
         var tab by rememberSaveable { mutableIntStateOf(0) }
         var libraryFilter by rememberSaveable { mutableStateOf("All") }
         BackHandler(enabled = vm.current != null || tab == 2) {
+            if (outputBusy) return@BackHandler
+            convertOnReady = false
             if (vm.current != null) vm.closeDocument() else tab = 0
         }
         val dark = when (vm.appearance) {
@@ -172,8 +193,15 @@ class MainActivity : ComponentActivity() {
         }
         var password by remember { mutableStateOf("") }
         var showPolicy by remember { mutableStateOf(false) }
-        LaunchedEffect(vm.current?.uri, vm.busy, resumeTick) {
-            if (vm.current == null && !vm.busy) { delay(1500); updates.check() }
+        LaunchedEffect(vm.current?.uri, vm.busy, outputBusy, resumeTick) {
+            if (vm.current == null && !vm.busy && !outputBusy) { delay(1500); updates.check() }
+        }
+        LaunchedEffect(vm.reviewMoment, vm.current?.uri, vm.busy, outputBusy, tab, resumeTick) {
+            if (vm.reviewMoment > 0 && tab == 0 && vm.current == null && !vm.busy && !outputBusy) {
+                delay(4000)
+                reviews.maybeAsk { tab == 0 && vm.current == null && !vm.busy && !outputBusy &&
+                    !preparingShare && !updates.isBusy && !updateReady && consent.settled && !consent.privacyOpen }
+            }
         }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(vm.message) {
@@ -229,7 +257,7 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 androidx.compose.foundation.Image(
-                                    painter = androidx.compose.ui.res.painterResource(R.drawable.wreader_launcher_folder),
+                                    painter = androidx.compose.ui.res.painterResource(R.drawable.wreader_header_transparent),
                                     contentDescription = "W Reader",
                                     modifier = Modifier.size(44.dp)
                                 )
@@ -309,23 +337,28 @@ class MainActivity : ComponentActivity() {
                     if (vm.current != null && vm.officeUri != null) {
                         if (vm.officeType == DocumentTypes.TXT) TextReaderScreen(
                             uri = vm.officeUri!!, name = vm.officeName,
-                            onBack = { vm.closeDocument() },
-                            onShare = { vm.current?.let(::shareDocument) }
+                            onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
+                            onShare = { vm.current?.let(::shareDocument) },
+                            autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
+                            onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                            onReady = vm::markReaderReady, report = vm::report
                         ) else OfficeReaderScreen(
                             uri = vm.officeUri!!,
                             name = vm.officeName,
                             type = vm.officeType,
-                            onBack = { vm.closeDocument() },
+                            onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
                             onShare = {
                                 vm.current?.let { share(Uri.parse(it.uri), when (vm.officeType) {
                                     "Word" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                     else -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 }) }
                             },
-                            onPrintOriginal = { }
+                            autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
+                            onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                            onReady = vm::markReaderReady, report = vm::report
                         )
                     } else if (vm.current != null && vm.pdf != null) {
-                        ReaderScreen(vm, onBack = { vm.closeDocument() },
+                        ReaderScreen(vm, onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
                             onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
                             onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } })
@@ -349,17 +382,20 @@ class MainActivity : ComponentActivity() {
                             onBack = { tab = 0 },
                             openOutput = { incomingUri = it; vm.openDocument(it) },
                             shareOutput = { share(it, "application/pdf") })
-                        else ToolsStartScreen { pickTool.launch(arrayOf("application/pdf")) }
+                        else ToolsStartScreen(onChoosePdf = { pickTool.launch(arrayOf("application/pdf")) },
+                            onConvert = { convertDocument.launch(arrayOf(
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain")) })
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
-                            checkUpdates = { updates.check(manual = true) },
+                            checkUpdates = { updates.check(manual = true) }, rateApp = { reviews.openStore() },
                             privacy = { startActivity(Intent(Intent.ACTION_VIEW,
                                 Uri.parse("https://github.com/bokimmkd/DocuReader/blob/release/wreader-closed-0.1.4/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
                                 vm.report("Help: Open a document, use PDF Tools to save a new copy. For support, contact the publisher through the Play Store listing.")
                             })
                     }
-                    if (vm.busy || preparingShare) {
+                    if (vm.busy || preparingShare || outputBusy) {
                         Surface(Modifier.align(Alignment.Center), shape = MaterialTheme.shapes.medium,
                             shadowElevation = 6.dp, tonalElevation = 5.dp) {
                             Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {

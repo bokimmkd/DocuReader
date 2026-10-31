@@ -19,7 +19,8 @@ data class DocumentEntry(
     val openedAt: Long = System.currentTimeMillis(),
     val category: String = "Uncategorized",
     val tags: String = "",
-    val savedLocally: Boolean = false
+    val savedLocally: Boolean = false,
+    val addedAt: Long = 0L
 )
 
 object DocumentTypes {
@@ -58,7 +59,8 @@ class DocumentStore(private val context: Context) {
             val item = json.getJSONObject(i)
             DocumentEntry(item.getString("uri"), item.getString("name"), item.getString("type"),
                 item.optBoolean("favorite", false), item.optInt("lastPage", 0), item.optLong("openedAt", 0),
-                item.optString("category", "Uncategorized"), item.optString("tags", ""), item.optBoolean("savedLocally", false))
+                item.optString("category", "Uncategorized"), item.optString("tags", ""), item.optBoolean("savedLocally", false),
+                item.optLong("addedAt", if (item.optBoolean("savedLocally", false)) item.optLong("openedAt", 0) else 0))
         }
     } catch (_: Exception) { emptyList() }
     fun save(items: List<DocumentEntry>) {
@@ -69,7 +71,7 @@ class DocumentStore(private val context: Context) {
         limit.forEach { item ->
             out.put(JSONObject().put("uri", item.uri).put("name", item.name).put("type", item.type)
                 .put("favorite", item.favorite).put("lastPage", item.lastPage).put("openedAt", item.openedAt)
-                .put("category", item.category).put("tags", item.tags).put("savedLocally", item.savedLocally))
+                .put("category", item.category).put("tags", item.tags).put("savedLocally", item.savedLocally).put("addedAt", item.addedAt))
         }
         prefs.edit().putString("recent", out.toString()).apply()
     }

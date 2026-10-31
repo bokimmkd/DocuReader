@@ -59,7 +59,7 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
     }
     fun buy() {
         val product = details
-        if (product == null || offerToken == null) { status("Product unavailable. Configure 'remove_ads' in Play Console."); return }
+        if (product == null || offerToken == null) { status("Ad-free is unavailable right now. Check Google Play and try again."); return }
         val entry = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(product).setOfferToken(offerToken!!).build()
         val response = client.launchBillingFlow(activity, BillingFlowParams.newBuilder()
@@ -84,6 +84,7 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> purchases?.forEach(::processPurchase)
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> restore()
             BillingClient.BillingResponseCode.USER_CANCELED -> status("Purchase canceled.")
             else -> status("Purchase not confirmed. Check Google Play or try Restore Purchase.")
         }

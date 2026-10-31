@@ -25,7 +25,10 @@ import kotlinx.coroutines.withContext
 
 /** Plain text only: escape markup, disable JavaScript and block all network loads. */
 @Composable
-fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> Unit) {
+fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> Unit,
+                     autoExport: Boolean = false, onAutoHandled: () -> Unit = {},
+                     onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
+                     onReady: () -> Unit, report: (String) -> Unit) {
     val context = LocalContext.current
     var error by remember(uri) { mutableStateOf<String?>(null) }
     var loaded by remember(uri) { mutableStateOf(false) }
@@ -43,7 +46,7 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?) = true
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
                     WebResourceResponse("text/plain", "UTF-8", byteArrayOf().inputStream())
-                override fun onPageFinished(view: WebView?, url: String?) { loaded = true }
+                override fun onPageFinished(view: WebView?, url: String?) { loaded = true; onReady() }
             }
         }
     }
@@ -54,9 +57,7 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
                 context.contentResolver.openInputStream(uri)?.use(TextContent::read)
                     ?: error("This file is no longer accessible. Locate it again.")
             }
-            val html = "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>" +
-                "<style>body{margin:12px;color:#172338;background:#fff}pre{font:16px/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere}</style>" +
-                "</head><body><pre>" + Html.escapeHtml(text) + "</pre></body></html>"
+            val html = com.blw.documentreader.printing.TextHtml.document(text)
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html, "text/html", "UTF-8", null)
         } catch (ex: Exception) { error = ex.message ?: "Couldn't open this TXT file." }
     }
@@ -66,10 +67,9 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
             Text(name, maxLines = 1, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             IconButton(onClick = { showSearch = true }, enabled = loaded) { Icon(Icons.Default.Search, "Search text") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share file") }
-            IconButton(onClick = {
-                val printer = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
-                printer.print(name, web.createPrintDocumentAdapter(name), null)
-            }, enabled = loaded && error == null) { Icon(Icons.Default.Print, "Print text") }
+            DocumentOutputActions(web, name, loaded && error == null,
+                autoExport = autoExport, onAutoHandled = onAutoHandled, onBusy = onBusy,
+                onSaved = onSaved, report = report)
         }
         Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center) {

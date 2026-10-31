@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as rowItems
@@ -67,6 +68,14 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     var category by remember { mutableStateOf("All categories") }
     var tag by remember { mutableStateOf("All tags") }
     var order by remember { mutableStateOf("Recent") }
+    val listState = rememberLazyListState()
+    LaunchedEffect(vm.libraryReveal) {
+        if (vm.libraryReveal > 0) {
+            filter = "All"; search = ""; category = "All categories"; tag = "All tags"; order = "Recent"
+            listState.scrollToItem(0)
+            vm.consumeLibraryReveal()
+        }
+    }
     var editing by remember { mutableStateOf<DocumentEntry?>(null) }
     var newName by remember { mutableStateOf("") }
     var newCategory by remember { mutableStateOf("") }
@@ -90,7 +99,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     val entries = when (order) {
         "Name" -> data.sortedBy { it.name.lowercase() }
         "Type" -> data.sortedWith(compareBy({ it.type }, { it.name.lowercase() }))
-        else -> data.sortedByDescending { it.openedAt }
+        else -> data.sortedByDescending { if (filter == "Recent") it.openedAt else maxOf(it.openedAt, it.addedAt) }
     }
     val categories = listOf("All categories") + vm.recent.map { it.category }
         .filter { it.isNotBlank() }.distinct().sorted()
@@ -153,7 +162,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 Text("Add PDF, Word, Excel or TXT files.", fontSize = 11.sp, lineHeight = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        } else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
+        } else LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
             items(entries, key = { it.uri }) { doc ->
                 var menu by remember(doc.uri) { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth().clickable { onOpen(doc) }.padding(vertical = 3.dp),

@@ -21,12 +21,14 @@ import com.google.android.ump.UserMessagingPlatform
 /** Ads aren't initialized or requested before UMP confirms they may be requested. */
 class AdConsent(private val activity: Activity, private val onAllowed: () -> Unit) {
     private val info = UserMessagingPlatform.getConsentInformation(activity)
+    var settled by mutableStateOf(false); private set
+    var privacyOpen by mutableStateOf(false); private set
     private var adsRequested = false
     fun start() {
         info.requestConsentInfoUpdate(activity, ConsentRequestParameters.Builder().build(), {
-            UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { maybeEnable() }
+            UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { settled = true; maybeEnable() }
             maybeEnable()
-        }, { maybeEnable() })
+        }, { settled = true; maybeEnable() })
     }
     private fun maybeEnable() {
         if (info.canRequestAds() && !adsRequested) {
@@ -37,7 +39,8 @@ class AdConsent(private val activity: Activity, private val onAllowed: () -> Uni
         }
     }
     fun showPrivacyOptions() {
-        UserMessagingPlatform.showPrivacyOptionsForm(activity) { }
+        privacyOpen = true
+        UserMessagingPlatform.showPrivacyOptionsForm(activity) { privacyOpen = false }
     }
 }
 

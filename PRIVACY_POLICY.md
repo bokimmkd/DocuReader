@@ -23,7 +23,7 @@ Google Mobile Ads and its partners may collect and share approximate location de
 
 Where required, Google's User Messaging Platform asks for your consent before advertising is requested. You can revisit available choices using **Settings → Ad privacy options**. Ad availability and personalization depend on your region, consent choices, device settings, and Google's serving decisions. See [Google's privacy policy](https://policies.google.com/privacy) and [Google advertising controls](https://myadcenter.google.com/).
 
-Google Play in-app purchases remain disabled in this closed-test version. No W Reader account or registration is required.
+Ad-free Lifetime is an optional one-time purchase processed by Google Play. The app stores purchase entitlement locally, queries Google Play to restore purchases, and acknowledges confirmed purchases. No W Reader account or registration is required. Documents and filenames are not sent to Google Play billing.
 
 ## Internet access
 

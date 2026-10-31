@@ -21,6 +21,8 @@ class PlayUpdates(private val activity: ComponentActivity,
     private val manager = AppUpdateManagerFactory.create(activity)
     private val prefs = activity.getSharedPreferences("play_updates", Context.MODE_PRIVATE)
     private var closed = false
+    var allowedToPrompt: () -> Boolean = { true }
+    val isBusy: Boolean get() = checking || flowOpen
     private var checking = false
     private var flowOpen = false
     private var checkedAutomatically = false
@@ -34,7 +36,7 @@ class PlayUpdates(private val activity: ComponentActivity,
     init { manager.registerListener(listener) }
 
     fun check(manual: Boolean = false, offerUpdate: Boolean = true) {
-        if (checking || flowOpen) return
+        if (checking || flowOpen || !allowedToPrompt()) return
         if (!manual && offerUpdate && checkedAutomatically) return
         checking = true
         if (!manual && offerUpdate) checkedAutomatically = true
@@ -47,7 +49,7 @@ class PlayUpdates(private val activity: ComponentActivity,
                 if (manual) message("The update is downloading in Google Play.")
             } else if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                 if (!offerUpdate) return@addOnSuccessListener
-                if (!activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                if (!allowedToPrompt() || !activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                     checkedAutomatically = false
                     return@addOnSuccessListener
                 }
