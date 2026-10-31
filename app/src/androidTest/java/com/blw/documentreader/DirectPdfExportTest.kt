@@ -107,6 +107,12 @@ class DirectPdfExportTest {
         val d = UiDevice.getInstance(inst)
         val intent = Intent(context, DirectExportTestActivity::class.java).setData(fixture("word.docx"))
         ActivityScenario.launch<DirectExportTestActivity>(intent).use { s ->
+            val readyBy = System.currentTimeMillis() + 90000
+            var loaded = false
+            while (!loaded && System.currentTimeMillis() < readyBy) {
+                s.onActivity { loaded = it.ready }; if (!loaded) Thread.sleep(100)
+            }
+            assertTrue("Office reader was not ready", loaded)
             d.waitForIdle(); Thread.sleep(800)
             click(d, By.desc("Convert to PDF").enabled(true), 90000)
             val visible = d.wait(Until.hasObject(By.text("Save PDF")), 15000)

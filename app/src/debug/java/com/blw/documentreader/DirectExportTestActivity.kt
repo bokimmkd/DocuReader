@@ -17,6 +17,7 @@ class DirectExportTestActivity : ComponentActivity() {
     var opened: Uri? = null
     var shared: Pair<Uri, String>? = null
     var busy = false
+    var ready = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val uri = requireNotNull(intent.data)
@@ -28,7 +29,7 @@ class DirectExportTestActivity : ComponentActivity() {
                 OfficeReaderScreen(uri, "word.docx", "Word", onBack = {}, onShare = {},
                     onBusy = { busy = it }, onSaved = { u, n -> saved = u; savedName = n; vm.registerSavedPdf(u, n) },
                     onOpenSaved = { opened = it }, onShareSaved = { u, n -> shared = u to n },
-                    onReady = {}, report = { message = it })
+                    onReady = { ready = true }, report = { message = it })
             }
         } } }
     }
