@@ -17,7 +17,7 @@ import kotlin.coroutines.resumeWithException
 object WebPdf {
     fun attributes(landscape: Boolean) = PrintAttributes.Builder()
         .setMediaSize(if (landscape) PrintAttributes.MediaSize.ISO_A4.asLandscape() else PrintAttributes.MediaSize.ISO_A4)
-        .setResolution(PrintAttributes.Resolution("pdf", "PDF", 300, 300))
+        .setResolution(PrintAttributes.Resolution("pdf", "PDF", 72, 72))
         .setMinMargins(PrintAttributes.Margins(394, 394, 394, 394))
         .setColorMode(PrintAttributes.COLOR_MODE_COLOR).build()
 
@@ -28,7 +28,10 @@ object WebPdf {
             maxOf(m.leftMils, 394), maxOf(m.topMils, 394),
             maxOf(m.rightMils, 394), maxOf(m.bottomMils, 394)))
         value.mediaSize?.let { out.setMediaSize(it) }
-        value.resolution?.let { out.setResolution(it) }
+        // Chromium emits vector PDF in 72-point coordinates. A printer DPI
+        // carried into its layout can multiply margins; the print service
+        // rasterizes this vector document at its own selected device DPI.
+        out.setResolution(PrintAttributes.Resolution("pdf", "PDF", 72, 72))
         if (value.colorMode != 0) out.setColorMode(value.colorMode)
         if (value.duplexMode != 0) out.setDuplexMode(value.duplexMode)
         return out.build()

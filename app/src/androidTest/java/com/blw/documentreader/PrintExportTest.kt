@@ -46,31 +46,35 @@ class PrintExportTest {
         }
         it.numberOfPages to stripper.getText(it).replace(Regex("\\s+")," ")
     }
+    private suspend fun clickCurrent(device: UiDevice, selector: BySelector) {
+        withTimeout(45_000) {
+            while(true) {
+                try {
+                    val node=device.findObject(selector)
+                    if(node != null && node.isEnabled) { node.click(); return@withTimeout }
+                } catch (_: StaleObjectException) { /* Re-query after system dialog refresh. */ }
+                delay(200)
+            }
+        }
+    }
     private suspend fun saveViaSystemPrint(web: WebView, name: String, file: File, landscape: Boolean) {
         val device = UiDevice.getInstance(inst)
         val base = file.name
         inst.uiAutomation.executeShellCommand("rm -f /sdcard/Download/$base").close()
         withContext(Dispatchers.Main) { WebPdf.print(web, name, landscape) {} }
         try {
-            val destination = device.wait(Until.findObject(By.res("com.android.printspooler", "destination_spinner")), 30_000)
-            assertNotNull("Printer list did not open", destination)
-            destination!!.click()
-            val pdfDestination = device.wait(Until.findObject(By.text("Save as PDF")), 15_000)
-            assertNotNull("Save as PDF destination unavailable", pdfDestination)
-            pdfDestination!!.click()
-            val printButton = device.wait(Until.findObject(By.res("com.android.printspooler", "print_button")), 30_000)
-            assertNotNull("Print preview did not open", printButton)
-            withTimeout(45_000) { while(!printButton!!.isEnabled) delay(250) }
-            printButton!!.click()
+            clickCurrent(device, By.res("com.android.printspooler", "destination_spinner"))
+            clickCurrent(device, By.text("Save as PDF"))
+            clickCurrent(device, By.res("com.android.printspooler", "print_button"))
             val title = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 30_000)
             assertNotNull("PDF filename dialog did not open", title)
             title!!.text = base
-            device.findObject(By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE))).click()
+            clickCurrent(device, By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE)))
             withTimeout(30_000) {
                 while(true) {
                     val fd=inst.uiAutomation.executeShellCommand("cat /sdcard/Download/$base")
                     val bytes=android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
-                    if(bytes.size>4 && bytes.take(4).toByteArray().decodeToString()=="%PDF") { file.writeBytes(bytes); break }
+                    if(bytes.size>4 && bytes.take(4).toByteArray().decodeToString()=="%PDF" && bytes.takeLast(2048).toByteArray().decodeToString().contains("%%EOF")) { file.writeBytes(bytes); break }
                     delay(500)
                 }
             }
