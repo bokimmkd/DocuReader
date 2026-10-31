@@ -61,8 +61,13 @@ class PrintExportTest {
             }
             device.waitForIdle()
         } catch(error: Throwable) {
+            val tree=java.io.ByteArrayOutputStream()
+            device.dumpWindowHierarchy(tree)
+            android.util.Log.e("WREADER_PRINT_UI", tree.toString())
             device.dumpWindowHierarchy(File(file.parentFile,"failure-ui.xml"))
             device.takeScreenshot(File(file.parentFile,"failure-screen.png"))
+            val saveEvidence = "mkdir -p /sdcard/Download/WReaderPrintQA; cp ${file.parentFile!!.absolutePath}/* /sdcard/Download/WReaderPrintQA/"
+            inst.uiAutomation.executeShellCommand(saveEvidence).use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
             throw error
         }
     }
@@ -104,6 +109,7 @@ class PrintExportTest {
                     if(type==DocumentTypes.EXCEL) assertFalse(info.second.contains("OTHER_SHEET_NOT_SELECTED"))
                     if(type==DocumentTypes.TXT) assertTrue(info.second.contains("<tag>"))
                     results.add(info)
+                    inst.uiAutomation.executeShellCommand("mkdir -p /sdcard/Download/WReaderPrintQA; cp ${dest.absolutePath} /sdcard/Download/WReaderPrintQA/").use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
                 }
                 assertEquals("Zoom changed PDF page count: $name",results[0].first,results[1].first)
                 assertEquals("Zoom changed printed content: $name",results[0].second,results[1].second)
