@@ -64,6 +64,8 @@ jobs:
           name: WReader-0.1.10-test-evidence
           path: |
             app/build/reports/androidTests
+            app/build/reports/tests/testDebugUnitTest
+            app/build/test-results/testDebugUnitTest
             app/build/outputs/androidTest-results
             verification/android-print
           if-no-files-found: warn
