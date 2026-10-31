@@ -43,34 +43,36 @@ class DirectPdfExportTest {
         for ((name, type, first, last) in listOf(
             listOf("word.docx", "Word", "WORD_START", "WORD_END"),
             listOf("excel.xlsx", "Excel", "EXCEL_START", "EXCEL_END"),
-            listOf("text.txt", "TXT", "TXT_START", "TXT_END"))) {
+            listOf("text.txt", "TXT", "TXT_START", "TXT_END"),
+            listOf("sample.csv", "CSV", "CSV_START", "CSV_END"))) {
             val uri = fixture(name)
             ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->
                 lateinit var web: WebView
-                scenario.onActivity { a -> web = OfficeWebView.create(a, uri, if (type == "TXT") "Word" else type); a.setContentView(web) }
+                scenario.onActivity { a -> web = OfficeWebView.create(a, uri, if (type in listOf("TXT", "CSV")) "Word" else type); a.setContentView(web) }
                 try {
-                    if (type != "TXT") withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                    if (type !in listOf("TXT", "CSV")) withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
                     val results = mutableListOf<Pair<Int, String>>()
                     for (zoom in listOf(0.5, 2.0)) {
-                        val source = if (type == "TXT") {
+                        val source = if (type in listOf("TXT", "CSV")) {
                             val text = inst.context.assets.open(name).use { TextContent.read(it) }
-                            PdfSnapshot.local(TextHtml.document(text))
+                            PdfSnapshot.local(if(type == "TXT") TextHtml.document(text) else com.blw.documentreader.formats.LocalFormats.wrap(com.blw.documentreader.formats.LocalFormats.csv(text)))
                         } else {
                             js(web, "window.setOfficeZoom($zoom)")
                             assertEquals("null", js(web, "window.prepareOfficePrint(${type=="Excel"})"))
                             DirectPdf.officeSnapshot(web)
                         }
-                        val f = DirectPdf.create(web.context, source, type == "Excel")
+                        val f = DirectPdf.create(web.context, source, type in listOf("Excel", "CSV"))
                         val copy = File(output, "${type.lowercase()}-$zoom.pdf"); f.copyTo(copy, overwrite = true); f.delete()
                         val value = info(copy)
                         assertTrue("Missing first marker $name", value.second.contains(first))
                         assertTrue("Missing last marker $name", value.second.contains(last))
                         assertTrue("Missing Cyrillic $name", value.second.contains("Кирилица"))
-                        if (type != "Excel") for (symbol in "∈∉∪∩⊂≤≥ℕπΩ∞")
+                        if (type in listOf("Word", "TXT")) for (symbol in "∈∉∪∩⊂≤≥ℕπΩ∞")
                             assertTrue("Missing math symbol $symbol in $name", value.second.contains(symbol))
                         assertTrue("Not paginated $name", value.first >= 2)
                         if (type == "Word") for (n in 0 until 35) assertTrue("Missing Word paragraph $n", value.second.contains("Word content $n "))
                         if (type == "TXT") for (n in 0 until 150) assertTrue("Missing TXT line $n", value.second.contains("Line $n "))
+                        if (type == "CSV") for (n in 0 until 80) assertTrue("Missing CSV row $n", value.second.contains("Line $n"))
                         if (type == "Excel") {
                             assertFalse(value.second.contains("OTHER_SHEET_NOT_SELECTED"))
                             for (n in 2 until 150) assertTrue("Missing Excel row $n", value.second.contains("Item $n"))
@@ -80,7 +82,7 @@ class DirectPdfExportTest {
                                 val stripper = PDFTextStripper().apply { startPage = n; endPage = n }
                                 assertTrue("Blank page $n in $name", stripper.getText(pdf).isNotBlank())
                             }
-                            assertEquals(type == "Excel", pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height)
+                            assertEquals(type in listOf("Excel", "CSV"), pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height)
                         }
                         results.add(value)
                     }

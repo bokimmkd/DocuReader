@@ -55,7 +55,8 @@
   const options={x:10,y:10,width:doc.internal.pageSize.getWidth()-20,windowWidth:data.width,
    margin:[10,10,10,10],autoPaging:'text',fontFaces:[],
    html2canvas:{backgroundColor:'#ffffff',logging:false,useCORS:false,allowTaint:false,windowWidth:data.width}};
-  const sheet=holder.querySelector('table.sheet');
+  const tables=holder.querySelectorAll('table');
+  const sheet=holder.querySelector('table.sheet')||(tables.length===1&&holder.textContent.trim()===tables[0].textContent.trim()?tables[0]:null);
   if(sheet){
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
@@ -66,7 +67,7 @@
     groups.push(rowList.slice(start,end));start=end;
    }
    const template=sheet.cloneNode(false);template.style.width=width+'px';
-   const columns=Array.from(sheet.rows).find(r=>Array.from(r.cells).every(c=>c.colSpan===1));
+   const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
    const maximum=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20)-16;
    holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
@@ -75,9 +76,9 @@
    for(const group of groups){
     const nodes=group.map(r=>r.cloneNode(true));nodes.forEach(n=>body.appendChild(n));
     if(box.getBoundingClientRect().height>maximum){
-     nodes.forEach(n=>n.remove());if(!body.rows.length)throw Error('A worksheet row is too tall for one PDF page. Use Print and choose Save as PDF.');
+     nodes.forEach(n=>n.remove());if(!body.rows.length)throw Error('A table row is too tall for one PDF page. Use Print and choose Save as PDF.');
      page();nodes.forEach(n=>body.appendChild(n));
-     if(box.getBoundingClientRect().height>maximum)throw Error('A merged worksheet row is too tall for one PDF page. Use Print and choose Save as PDF.');
+     if(box.getBoundingClientRect().height>maximum)throw Error('A merged table row is too tall for one PDF page. Use Print and choose Save as PDF.');
     }
    }
    for(let n=0;n<pages.length;n++){
