@@ -52,7 +52,7 @@
   }
   await document.fonts.ready;
   doc.setFont('WReaderSans','normal');
-  const options={x:10,y:10,width:doc.internal.pageSize.getWidth()-20,windowWidth:data.width,
+  const options={x:0,y:0,width:doc.internal.pageSize.getWidth()-20,windowWidth:data.width,
    margin:[10,10,10,10],autoPaging:'text',fontFaces:[],
    html2canvas:{backgroundColor:'#ffffff',logging:false,useCORS:false,allowTaint:false,windowWidth:data.width}};
   const tables=holder.querySelectorAll('table');
@@ -60,7 +60,9 @@
   if(sheet){
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
-   const width=sheet.offsetWidth;const groups=[];
+   const width=sheet.offsetWidth;
+   if(width>data.width+1)throw Error('This table is too wide for direct PDF. Choose Landscape or use Print and choose Save as PDF.');
+   const groups=[];
    for(let start=0;start<rowList.length;){
     let end=start+1;
     for(let i=start;i<end;i++)for(const cell of rowList[i].cells)end=Math.min(rowList.length,Math.max(end,i+cell.rowSpan));
@@ -69,7 +71,8 @@
    const template=sheet.cloneNode(false);template.style.width=width+'px';
    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
-   const maximum=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20)-16;
+   const pagePixels=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20);
+   const maximum=pagePixels-16;
    holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
    function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
    page();
@@ -81,10 +84,10 @@
      if(box.getBoundingClientRect().height>maximum)throw Error('A merged table row is too tall for one PDF page. Use Print and choose Save as PDF.');
     }
    }
-   for(let n=0;n<pages.length;n++){
-    if(n)doc.addPage();pages.forEach((p,i)=>p.style.display=i===n?'block':'none');
-    await doc.html(pages[n],Object.assign({},options,{autoPaging:false}));
-   }
+   // One continuous paint preserves jsPDF's page index, fonts and margin transforms.
+   // Empty space after each complete group aligns the next table with the next printable page.
+   pages.forEach((p,n)=>{if(n<pages.length-1)p.style.height=pagePixels+'px';});
+   await doc.html(holder,options);
   }else await doc.html(holder,options);
   const bytes=new Uint8Array(doc.output('arraybuffer'));
   if(bytes.length>64*1024*1024)throw Error('The PDF exceeds the 64 MB export limit.');
