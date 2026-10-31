@@ -209,33 +209,18 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         }
     }
     editing?.let { doc ->
-        AlertDialog(onDismissRequest = { editing = null }, title = { Text("Edit document", fontSize = 17.sp) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(newName, { newName = it; editError = null }, label = { Text("File name") }, singleLine = true,
-                        supportingText = { Text(editError ?: ".${DocumentNames.extension(doc.type)} is kept automatically") },
-                        isError = editError != null)
-                    OutlinedTextField(newCategory, { newCategory = it }, label = { Text("Category") }, singleLine = true,
-                        placeholder = { Text("Work, Personal, Finance…") })
-                    val suggestions = (listOf("Work", "Personal", "Finance") + vm.recent.map { it.category })
-                        .filter { it.isNotBlank() && it != "Uncategorized" }.distinct()
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        rowItems(suggestions) { value ->
-                            SuggestionChip(onClick = { newCategory = value }, label = { Text(value, fontSize = 11.sp) })
-                        }
-                    }
-                    OutlinedTextField(newTags, { newTags = it }, label = { Text("Tags (comma separated)") }, singleLine = true,
-                        placeholder = { Text("invoice, apartment, 2026") })
-                    Text("This name is used in W Reader and when sharing. The original file stays unchanged.",
-                        fontSize = 11.sp, lineHeight = 15.sp)
-                }
-            },
-            confirmButton = { TextButton(onClick = {
+        DocumentEditDialog(
+            name = newName, extension = DocumentNames.extension(doc.type),
+            category = newCategory, tags = newTags,
+            categories = vm.recent.map { it.category }, error = editError,
+            onNameChange = { newName = it; editError = null },
+            onCategoryChange = { newCategory = it }, onTagsChange = { newTags = it },
+            onSave = {
                 try { DocumentNames.renamed(newName, doc.type) } catch (ex: IllegalArgumentException) {
-                    editError = ex.message; return@TextButton
+                    editError = ex.message; return@DocumentEditDialog
                 }
                 if (vm.updateDocumentInfo(doc, newName, newCategory, newTags)) editing = null
-            }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } })
+            }, onDismiss = { editing = null }
+        )
     }
 }
