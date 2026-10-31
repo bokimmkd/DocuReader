@@ -13,7 +13,7 @@ W Reader is an Android document reader for PDF, DOCX, XLSX, TXT, CSV, PPTX, EPUB
 
 ## Sharing and printing
 
-Sharing or printing is user-initiated. If you share a document, Android transfers it to the destination app you choose. If you print, Android or your selected print service may process the document. Those services have their own privacy policies.
+PDF conversion is processed locally using bundled rendering components and fonts. Saving to a location you choose may involve an Android storage provider, including a cloud provider, under that provider's policy. Sharing or printing is user-initiated. If you share a document, Android transfers it to the destination app you choose. If you print, Android or your selected print service may process the document. Those services have their own privacy policies.
 
 ## Advertising and in-app purchases
 

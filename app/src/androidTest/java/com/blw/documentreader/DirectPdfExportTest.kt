@@ -39,6 +39,27 @@ class DirectPdfExportTest {
     private fun info(f: File): Pair<Int, String> = PDDocument.load(f).use { pdf ->
         pdf.numberOfPages to PDFTextStripper().getText(pdf)
     }
+    private fun assertPrintableMargins(file: File) {
+        android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+            android.graphics.pdf.PdfRenderer(fd).use { renderer ->
+                for (n in 0 until renderer.pageCount) renderer.openPage(n).use { page ->
+                    val bmp = android.graphics.Bitmap.createBitmap(page.width, page.height, android.graphics.Bitmap.Config.ARGB_8888)
+                    try {
+                        bmp.eraseColor(android.graphics.Color.WHITE)
+                        page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                        var marks = 0
+                        for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
+                            if (x < 20 || y < 20 || x >= bmp.width-20 || y >= bmp.height-20) {
+                                val color = bmp.getPixel(x,y)
+                                if (android.graphics.Color.red(color)<235 || android.graphics.Color.green(color)<235 || android.graphics.Color.blue(color)<235) marks++
+                            }
+                        }
+                        assertEquals("Content entered outer print margin, ${file.name} page ${n+1}", 0, marks)
+                    } finally { bmp.recycle() }
+                }
+            }
+        }
+    }
     @Test fun directWordExcelAndTextKeepContentCyrillicAndPaginationIndependentOfZoom() = runBlocking {
         for ((name, type, first, last) in listOf(
             listOf("word.docx", "Word", "WORD_START", "WORD_END"),
@@ -63,6 +84,7 @@ class DirectPdfExportTest {
                         }
                         val f = DirectPdf.create(web.context, source, type in listOf("Excel", "CSV"))
                         val copy = File(output, "${type.lowercase()}-$zoom.pdf"); f.copyTo(copy, overwrite = true); f.delete()
+                        assertPrintableMargins(copy)
                         val value = info(copy)
                         val compact = value.second.filterNot { it.isWhitespace() }
                         assertTrue("Missing first marker $name", compact.contains(first.filterNot { it.isWhitespace() }))
@@ -76,7 +98,7 @@ class DirectPdfExportTest {
                         if (type == "CSV") for (n in 0 until 80) assertTrue("Missing CSV row $n", compact.contains("Line${n}${n}Текст"))
                         if (type == "Excel") {
                             assertFalse(value.second.contains("OTHER_SHEET_NOT_SELECTED"))
-                            for (n in 2 until 150) assertTrue("Missing Excel row $n", compact.contains("Item${n}${n}"))
+                            for (n in 2 until 150) assertTrue("Missing Excel row $n", Regex("Item\\s+${n}\\s+${n}\\s").containsMatchIn(value.second))
                         }
                         PDDocument.load(copy).use { pdf ->
                             for (n in 1..pdf.numberOfPages) {

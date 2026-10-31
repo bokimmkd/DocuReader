@@ -8,11 +8,11 @@ From My Files, Downloads or an email/message attachment, choose Open with → W 
 
 ## Home, Library and Recent
 
-Home format buttons open matching Library items; they do not scan the whole phone. Library → Add keeps an offline copy, reveals it and preserves the original. Recent contains opened documents. Clear Recent History retains favorites and saved Library copies. App-private copies can be lost when clearing app storage or uninstalling.
+Home format buttons open matching Library items; they do not scan the whole phone. Library → Add keeps an offline copy, reveals it and preserves the original. Recent contains opened documents. Clear Recent History retains favorites, saved Library copies and PDFs saved from W Reader. App-private copies can be lost when clearing app storage or uninstalling.
 
 ## Names, categories and tags
 
-Use a Library document's menu to rename, choose a category and add comma-separated tags. Search finds names, categories and tags. Sharing uses the name shown in W Reader. Renaming changes the app's title and shared attachment name, not the original source file.
+Use a Library document's menu to rename, choose a category from the dropdown or add a New category, and add comma-separated tags. Choose Uncategorized to remove the category from a document. If Library looks empty, check All, All categories, All tags and the search text. Search finds names, categories and tags. Sharing uses the name shown in W Reader. Renaming changes the app's title and shared attachment name, not the original source file.
 
 ## Read and find text
 
@@ -28,7 +28,9 @@ Tap the printer at the top right of the reader. Android's system print preview o
 
 ## Convert to PDF
 
-Use Tools → Convert to PDF or the PDF icon in a non-PDF reader. Choose a name and portrait/landscape, then Continue. In Android's printer list choose Save as PDF, tap the PDF save button, choose a folder/name and Save. Returning to W Reader offers Add saved PDF: choose the PDF you actually saved to keep it in Library and share it. Cancelling the system dialog does not create a file. Source documents remain unchanged. Images can also be saved or printed as PDF using this flow.
+Use Tools → Convert to PDF or the PDF icon in a non-PDF reader. Choose a name and portrait/landscape, then Save PDF. W Reader creates the PDF locally and opens the Android file-save picker. Choose your folder and Save. A PDF saved dialog then offers Open, Share and Print. The saved PDF is added to Library with its chosen filename; no printer is needed to save. The original document stays unchanged. Canceling the folder picker does not report save success. Keep offline copy creates an additional private copy if you want protection against the destination provider becoming unavailable.
+
+PDF conversion uses bundled portable fonts for Latin, Greek, Cyrillic and common mathematical symbols. Layout may differ from the original Office file. If a character is unsupported or a table cannot fit safely, W Reader reports this instead of silently omitting content; use the separate Print button and choose Save as PDF for that document. Images are fitted onto one PDF page with margins. Print opens Android printing only when explicitly selected.
 
 ## PDF page tools
 

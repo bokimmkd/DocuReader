@@ -1,0 +1,33 @@
+Release name: 0.1.10 - Save PDF, images and category editor
+
+Release notes (en-US):
+- Save PDF directly to your chosen folder, then Open, Share or Print.
+- Fixed blank JPG and PNG previews.
+- Branded document editor with a category dropdown and New category.
+- Updated Help and PDF content checks. Existing Play update prompts remain included.
+
+Full description:
+W Reader helps you read, organize, share and print documents, books and images on your Android device.
+
+OPEN YOUR FILES
+Read PDF, DOCX, XLSX, TXT, CSV, PPTX, EPUB, RTF, ODT, JPG/JPEG, PNG and WebP. Open files from Android's file picker, compatible Open with menus or Share to W Reader. No W Reader account is needed.
+
+ORGANIZE YOUR LIBRARY
+Keep optional offline copies, rename documents inside W Reader, choose or create categories, add tags and mark favorites. Search names, categories and tags. Sharing uses the name shown in the app. Your original source files stay unchanged.
+
+SAVE PDF, SHARE AND PRINT
+Create a PDF locally from a supported non-PDF reading view. Choose its name and orientation, then save it through Android's file picker. After saving, Open, Share and Print are available, and the PDF is added to Library. Saving does not require a printer. Tap the separate printer icon whenever you want Android printing. Excel output uses the selected worksheet.
+
+PDF TOOLS
+Read and search PDFs, remember reading position, and use page tools to add, extract, reorder, rotate or remove pages while saving a new PDF copy. Check your output before sharing important documents.
+
+BUILT FOR EVERYDAY READING
+Choose System, Light or Dark appearance. Help and Privacy Policy are readable inside the app. Google Play update notices offer a flexible download and restart when an eligible newer version is available.
+
+FREE WITH A SMALL BANNER
+Reading and printing are available with a small bottom banner. An optional Ad-free Lifetime purchase removes banners for that valid Google Play purchase. It is a one-time purchase, not a subscription. Restore Purchase uses the same Google Play account.
+
+FORMAT LIMITS
+Office layouts may differ from Microsoft Office. Direct PDF conversion uses portable fonts for Latin, Greek, Cyrillic and common mathematical symbols; unsupported text or output that cannot preserve content shows an error with a Print / Save as PDF fallback. PowerPoint is a reading view rather than full presentation playback. RTF, EPUB and ODT use simplified reading layouts; advanced objects, scripts, interactive content and DRM are not supported. Image previews are optimized to 2048 px; original files remain unchanged. Legacy DOC/XLS/PPT, Adobe Illustrator AI, PSD and CorelDRAW CDR are unsupported. OCR is not included.
+
+Documents are processed locally by W Reader. Locations you choose for saving, sharing or printing may involve another app or storage provider. Offline copies are device-local and can be removed when uninstalling or clearing app data; they are not cloud backups.

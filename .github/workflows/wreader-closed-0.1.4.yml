@@ -1,4 +1,4 @@
-name: W Reader 0.1.9 - Google Play Closed Testing AAB (unsigned)
+name: W Reader 0.1.10 - Google Play Closed Testing AAB (unsigned)
 on:
   push:
     branches: [release/wreader-closed-0.1.4]
@@ -27,10 +27,11 @@ jobs:
           set -euo pipefail
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
           "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Package pinned offline Word and Excel engines
+      - name: Package pinned offline readers, PDF engine and licensed fonts
         run: |
           bash scripts/prepare-office-assets.sh
           node --check app/src/main/assets/office/reader.js
+          node --check app/src/main/assets/pdf/export.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -46,7 +47,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Verify readers, printing, Open with, Settings and update lifecycle
+      - name: Verify readers, direct PDF saving, printing, Open with, Settings and update lifecycle
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -54,13 +55,13 @@ jobs:
           target: google_apis
           profile: pixel_2
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 2048
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 3072
           script: bash scripts/run-print-tests.sh
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.9-test-evidence
+          name: WReader-0.1.10-test-evidence
           path: |
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
@@ -74,7 +75,7 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.9-closed-test-UNSIGNED-aab
+          name: WReader-0.1.10-closed-test-UNSIGNED-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30

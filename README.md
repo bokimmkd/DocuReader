@@ -1,3 +1,7 @@
+## Current closed-test candidate: 0.1.10 / code 12
+
+See [the current release notes](docs/NEXT_UPDATE_DIALOG_PDF.md). This candidate adds direct local Save PDF followed by a destination picker and Open/Share/Print actions, visible JPG/PNG previews, and the branded category editor. DOCX/XLSX/TXT/CSV/PPTX/EPUB/RTF/ODT/JPG/PNG/WebP support, Play flexible updates and the USD 2.99 lifetime ad-free entitlement from previous closed releases remain. AI/PSD/CDR and legacy DOC/XLS/PPT are unsupported. Production and real Play upgrade/purchase/printer acceptance remain outside automated CI evidence. Older implementation notes below are historical where superseded by current release documentation.
+
 # W Reader — Android project, version 0.1.0
 
 **Status: Android debug APK compiled successfully via GitHub Actions on 28 October 2026. Not production-ready or fully device-tested.**

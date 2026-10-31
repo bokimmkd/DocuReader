@@ -60,7 +60,9 @@
   if(sheet){
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
-   const width=sheet.offsetWidth;const groups=[];
+   const width=sheet.offsetWidth;
+   if(width>data.width+1)throw Error('This table is too wide for direct PDF. Choose Landscape or use Print and choose Save as PDF.');
+   const groups=[];
    for(let start=0;start<rowList.length;){
     let end=start+1;
     for(let i=start;i<end;i++)for(const cell of rowList[i].cells)end=Math.min(rowList.length,Math.max(end,i+cell.rowSpan));
@@ -83,7 +85,7 @@
    }
    for(let n=0;n<pages.length;n++){
     if(n)doc.addPage();pages.forEach((p,i)=>p.style.display=i===n?'block':'none');
-    await doc.html(pages[n],Object.assign({},options,{autoPaging:false}));
+    await doc.html(pages[n],Object.assign({},options,{autoPaging:'text'}));
    }
   }else await doc.html(holder,options);
   const bytes=new Uint8Array(doc.output('arraybuffer'));
