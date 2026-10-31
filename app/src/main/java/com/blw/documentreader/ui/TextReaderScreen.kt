@@ -28,9 +28,11 @@ import kotlinx.coroutines.withContext
 fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () -> Unit, onShare: () -> Unit,
                      autoExport: Boolean = false, onAutoHandled: () -> Unit = {},
                      onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
+                     onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
                      onReady: () -> Unit, report: (String) -> Unit) {
     val context = LocalContext.current
     var error by remember(uri) { mutableStateOf<String?>(null) }
+    var sourceHtml by remember(uri) { mutableStateOf("") }
     var notice by remember(uri) { mutableStateOf("") }
     var loaded by remember(uri) { mutableStateOf(false) }
     var showSearch by remember(uri) { mutableStateOf(false) }
@@ -64,6 +66,7 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
             }
             notice = page.notice
             val html = page.html
+            sourceHtml = html
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html, "text/html", "UTF-8", null)
         } catch (ex: Exception) { error = ex.message ?: "Couldn't open this document." }
     }
@@ -74,8 +77,9 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
             IconButton(onClick = { showSearch = true }, enabled = loaded) { Icon(Icons.Default.Search, "Search text") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share file") }
             DocumentOutputActions(web, name, loaded && error == null, excel = type in setOf("CSV","PowerPoint"),
+                snapshot = { com.blw.documentreader.printing.PdfSnapshot.local(sourceHtml, type in com.blw.documentreader.data.DocumentFormats.images) },
                 autoExport = autoExport, onAutoHandled = onAutoHandled, onBusy = onBusy,
-                onSaved = onSaved, report = report)
+                onSaved = onSaved, onOpenSaved = onOpenSaved, onShareSaved = onShareSaved, report = report)
         }
         Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center) {

@@ -50,6 +50,7 @@ fun OfficeReaderScreen(
     onAutoHandled: () -> Unit = {},
     onBusy: (Boolean) -> Unit,
     onSaved: (Uri, String) -> Unit,
+    onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
     onReady: () -> Unit,
     report: (String) -> Unit
 ) {
@@ -91,12 +92,13 @@ fun OfficeReaderScreen(
             IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share original") }
             DocumentOutputActions(webView, name, ready, excel = type == DocumentTypes.EXCEL,
+                snapshot = { com.blw.documentreader.printing.DirectPdf.officeSnapshot(webView) },
                 prepare = { landscape, done ->
                     webView.evaluateJavascript("window.prepareOfficePrint && window.prepareOfficePrint($landscape)") { result ->
                         done(if (result == "null") null else try { org.json.JSONTokener(result).nextValue().toString() } catch (_: Exception) { "Document is not ready to print." })
                     }
                 }, autoExport = autoExport, onAutoHandled = onAutoHandled,
-                onBusy = onBusy, onSaved = onSaved, report = report)
+                onBusy = onBusy, onSaved = onSaved, onOpenSaved = onOpenSaved, onShareSaved = onShareSaved, report = report)
         }
         Row(Modifier.fillMaxWidth().height(42.dp),
             verticalAlignment = Alignment.CenterVertically,

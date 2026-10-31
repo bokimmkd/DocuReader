@@ -146,9 +146,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun keepExport(uri: Uri, name: String) {
-        val source = vm.current
-        vm.saveToLibrary(uri, DocumentEntry(uri.toString(), name, DocumentTypes.PDF,
-            openedAt = 0L, category = source?.category ?: "Uncategorized", tags = source?.tags ?: ""))
+        vm.registerSavedPdf(uri, name)
     }
     private fun shareDocument(doc: com.blw.documentreader.data.DocumentEntry) {
         val mime = DocumentFormats.mimeByType[doc.type] ?: "application/octet-stream"
@@ -325,6 +323,8 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                            onOpenSaved = { incomingUri = it; convertOnReady = false; vm.openDocument(it) },
+                            onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
                             onReady = vm::markReaderReady, report = vm::report
                         ) else OfficeReaderScreen(
                             uri = vm.officeUri!!,
@@ -334,6 +334,8 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                            onOpenSaved = { incomingUri = it; convertOnReady = false; vm.openDocument(it) },
+                            onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
                             onReady = vm::markReaderReady, report = vm::report
                         )
                     } else if (vm.current != null && vm.pdf != null) {

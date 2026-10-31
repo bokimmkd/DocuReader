@@ -36,29 +36,17 @@ fun DocumentEditDialog(
     var creatingCategory by remember { mutableStateOf(false) }
     val choices = (listOf("Uncategorized", "Work", "Personal", "Finance") + categories + category)
         .map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
+    val accent = MaterialTheme.colorScheme.primary
     val fields = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = EditorBlue, focusedLabelColor = EditorBlue,
-        cursorColor = EditorBlue, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+        focusedBorderColor = accent, focusedLabelColor = accent,
+        cursorColor = accent, unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
     )
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(22.dp),
         containerColor = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.size(42.dp).background(EditorBlue.copy(alpha = .08f), RoundedCornerShape(11.dp)),
-                    contentAlignment = Alignment.Center) {
-                    Image(painterResource(R.drawable.wreader_header_transparent), null, Modifier.size(34.dp))
-                }
-                Column {
-                    Text("W Reader", color = EditorBlue, fontSize = 11.sp, lineHeight = 14.sp,
-                        fontWeight = FontWeight.Bold)
-                    Text("Edit document", fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        },
+        title = { WReaderDialogTitle("Edit document") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(name, onNameChange, Modifier.fillMaxWidth(),
@@ -86,12 +74,12 @@ fun DocumentEditDialog(
                             DropdownMenuItem(text = { Text(value) }, onClick = {
                                 onCategoryChange(value); expanded = false
                             }, trailingIcon = {
-                                if (value.equals(category, true)) Icon(Icons.Default.Check, null, tint = EditorBlue)
+                                if (value.equals(category, true)) Icon(Icons.Default.Check, null, tint = accent)
                             })
                         }
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text("New category", color = EditorBlue) },
-                            leadingIcon = { Icon(Icons.Default.Add, null, tint = EditorBlue) },
+                        DropdownMenuItem(text = { Text("New category", color = accent) },
+                            leadingIcon = { Icon(Icons.Default.Add, null, tint = accent) },
                             onClick = { expanded = false; creatingCategory = true; onCategoryChange("") })
                     }
                 }
@@ -116,4 +104,20 @@ fun DocumentEditDialog(
             TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
         }
     )
+}
+
+@Composable
+internal fun WReaderDialogTitle(title: String) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.size(42.dp).background(EditorBlue.copy(alpha = .08f), RoundedCornerShape(11.dp)),
+            contentAlignment = Alignment.Center) {
+            Image(painterResource(R.drawable.wreader_header_transparent), null, Modifier.size(34.dp))
+        }
+        Column {
+            Text("W Reader", color = accent, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
+            Text(title, fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold)
+        }
+    }
 }

@@ -10,7 +10,7 @@ t=doc.add_table(rows=3,cols=2);t.style='Table Grid'
 for i,row in enumerate(t.rows):
     row.cells[0].text='Cell '+str(i);row.cells[1].text='Табела '+str(i)
 for i in range(35):doc.add_paragraph('Word content '+str(i)+' with Unicode: Македонски текст')
-doc.add_page_break();doc.add_paragraph('WORD_END Крај')
+doc.add_paragraph('Math ∈ ∉ ∪ ∩ ⊂ ≤ ≥ ℕ π Ω ∞');doc.add_page_break();doc.add_paragraph('WORD_END Крај')
 doc.save(root/'word.docx')
 wb=Workbook();ws=wb.active;ws.title='Invoices'
 ws.append(['EXCEL_START','Qty','Price','Total','Status','Кирилица'])
@@ -20,5 +20,5 @@ for col in 'ABCDEF':ws.column_dimensions[col].width=16
 wb.create_sheet('Do not print')['A1']='OTHER_SHEET_NOT_SELECTED'
 wb.create_sheet('Too large')['A801']='TRUNCATED_END'
 wb.save(root/'excel.xlsx')
-(root/'text.txt').write_text('TXT_START <tag> Кирилица\n'+'\n'.join('Line '+str(i)+' Македонски текст' for i in range(150))+'\nTXT_END Крај',encoding='utf-8')
+(root/'text.txt').write_text('TXT_START <tag> Кирилица\n'+'\n'.join('Line '+str(i)+' Македонски текст' for i in range(150))+'\nMath ∈ ∉ ∪ ∩ ⊂ ≤ ≥ ℕ π Ω ∞\nTXT_END Крај',encoding='utf-8')
 print('Print fixtures created')

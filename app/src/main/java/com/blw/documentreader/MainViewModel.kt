@@ -56,7 +56,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateRemember(on: Boolean) { remember = on; store.setRememberPosition(on) }
     fun clearRecent() {
         // Clearing history must not discard separately starred documents.
-        recent = recent.filter { it.favorite || it.savedLocally }.map { it.copy(openedAt = 0L, lastPage = 0) }
+        recent = recent.filter { it.favorite || it.savedLocally || it.addedAt > 0L }.map { it.copy(openedAt = 0L, lastPage = 0) }
         store.save(recent)
     }
     fun favorite(doc: DocumentEntry) {
@@ -105,6 +105,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 message = "Could not save Library copy: ${ex.message ?: "Check access and storage."}"
             } finally { busy = false }
         }
+    }
+    /** Register the successfully written destination without making a duplicate private copy. */
+    fun registerSavedPdf(uri: Uri, name: String) {
+        val existing = recent.find { it.uri == uri.toString() }
+        val source = current
+        val record = DocumentEntry(uri.toString(), DocumentNames.renamed(name, DocumentTypes.PDF), DocumentTypes.PDF,
+            existing?.favorite ?: false, existing?.lastPage ?: 0, existing?.openedAt ?: 0L,
+            existing?.category ?: source?.category ?: "Uncategorized", existing?.tags ?: source?.tags ?: "",
+            existing?.savedLocally ?: false, existing?.addedAt?.takeIf { it > 0L } ?: System.currentTimeMillis())
+        recent = listOf(record) + recent.filterNot { it.uri == record.uri }
+        store.save(recent); libraryReveal++; message = "PDF saved to Library."
     }
     fun removeLibraryEntry(doc: DocumentEntry) {
         recent = recent.filterNot { it.uri == doc.uri }

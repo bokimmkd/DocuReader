@@ -226,3 +226,28 @@ window.prepareOfficePrint = function(landscape) {
     }
 })();
 })();
+
+// Capture rendered content into a bounded local snapshot for the independent PDF engine.
+window.captureWReaderPdfSnapshot = function() {
+    window.wReaderSnapshotReady=false;window.wReaderSnapshotError='';window.wReaderSnapshotHtml='';
+    (async function(){try {
+        if(!window.officeReady)throw Error('Wait for the document to finish loading.');
+        const source=document.getElementById('content');const clone=source.cloneNode(true);
+        const originals=source.querySelectorAll('img');const copies=clone.querySelectorAll('img');
+        for(let i=0;i<originals.length;i++){
+            const img=originals[i];if(!img.complete)await img.decode();
+            if(!img.naturalWidth)throw Error('A document image could not be exported.');
+            if(img.src.startsWith('data:'))copies[i].src=img.src;
+            else {
+                const blob=await(await fetch(img.src)).blob();
+                copies[i].src=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)});
+            }
+        }
+        clone.querySelectorAll('script,iframe,object,embed').forEach(n=>n.remove());
+        clone.style.zoom='1';clone.style.transform='none';
+        const scale=getComputedStyle(document.documentElement).getPropertyValue('--sheet-print-scale').trim();
+        if(scale&&clone.querySelector('table.sheet'))clone.querySelector('table.sheet').style.zoom=scale;
+        const html=clone.outerHTML;if(html.length>24*1024*1024)throw Error('Document is too large to export.');
+        window.wReaderSnapshotHtml=html;window.wReaderSnapshotReady=true;
+    }catch(e){window.wReaderSnapshotError=String(e&&e.message||e)}})();
+};

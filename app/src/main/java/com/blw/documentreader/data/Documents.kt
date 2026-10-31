@@ -58,7 +58,7 @@ class DocumentStore(private val context: Context) {
     fun save(items: List<DocumentEntry>) {
         val out = JSONArray()
         // Keep curated Library documents and favorites even when Recent exceeds 100.
-        val curated = items.filter { it.savedLocally || it.favorite }
+        val curated = items.filter { it.savedLocally || it.favorite || it.addedAt > 0L }
         val limit = (curated + items.filterNot { it in curated }.take(100)).distinctBy { it.uri }
         limit.forEach { item ->
             out.put(JSONObject().put("uri", item.uri).put("name", item.name).put("type", item.type)

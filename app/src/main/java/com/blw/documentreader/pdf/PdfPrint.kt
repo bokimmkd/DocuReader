@@ -12,9 +12,10 @@ import android.print.PrintManager
 import android.print.PageRange
 
 object PdfPrint {
-    fun print(context: Context, uri: Uri, fileName: String) {
+    fun print(context: Context, uri: Uri, fileName: String, finished: () -> Unit = {}) {
         val manager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         manager.print("W Reader - $fileName", object : PrintDocumentAdapter() {
+            override fun onFinish() { finished() }
             override fun onLayout(oldAttributes: PrintAttributes?, newAttributes: PrintAttributes?,
                 cancellationSignal: CancellationSignal, callback: LayoutResultCallback, extras: Bundle?) {
                 if (cancellationSignal.isCanceled) { callback.onLayoutCancelled(); return }
