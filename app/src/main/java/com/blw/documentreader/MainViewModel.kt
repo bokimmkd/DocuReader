@@ -88,7 +88,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val original = document ?: recent.find { it.uri == uri.toString() }
                 val name = original?.name ?: DocumentTypes.displayName(appContext, uri)
                 val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
-                require(type != null) { "Only PDF, DOCX, XLSX and TXT are supported." }
+                require(type != null) { "Supported: ${com.blw.documentreader.data.DocumentFormats.supported}." }
                 val savedUri = withContext(Dispatchers.IO) { store.keepOffline(uri, name) }
                 val newEntry = DocumentEntry(
                     savedUri.toString(), name, type, original?.favorite ?: false,
@@ -129,7 +129,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val existingEntry = recent.find { it.uri == uri.toString() }
         val name = existingEntry?.name ?: DocumentTypes.displayName(appContext, uri)
         val type = existingEntry?.type ?: DocumentTypes.detect(appContext, uri, name)
-        if (type == null) { message = "Unsupported format. Choose a PDF, DOCX, XLSX or TXT file."; return }
+        if (type == null) { message = "Unsupported format. Choose ${com.blw.documentreader.data.DocumentFormats.supported}."; return }
         if (type != DocumentTypes.PDF) {
             pdf?.close(); pdf = null
             officeUri = uri

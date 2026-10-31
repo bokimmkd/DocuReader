@@ -25,12 +25,13 @@ import kotlinx.coroutines.withContext
 
 /** Plain text only: escape markup, disable JavaScript and block all network loads. */
 @Composable
-fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> Unit,
+fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () -> Unit, onShare: () -> Unit,
                      autoExport: Boolean = false, onAutoHandled: () -> Unit = {},
                      onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
                      onReady: () -> Unit, report: (String) -> Unit) {
     val context = LocalContext.current
     var error by remember(uri) { mutableStateOf<String?>(null) }
+    var notice by remember(uri) { mutableStateOf("") }
     var loaded by remember(uri) { mutableStateOf(false) }
     var showSearch by remember(uri) { mutableStateOf(false) }
     var query by remember(uri) { mutableStateOf("") }
@@ -42,10 +43,11 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.blockNetworkLoads = true
+            settings.setSupportZoom(true); settings.builtInZoomControls = true; settings.displayZoomControls = false
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?) = true
                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?) =
-                    WebResourceResponse("text/plain", "UTF-8", byteArrayOf().inputStream())
+                    if (request?.url?.scheme == "data") null else WebResourceResponse("text/plain", "UTF-8", byteArrayOf().inputStream())
                 override fun onPageFinished(view: WebView?, url: String?) { loaded = true; onReady() }
             }
         }
@@ -53,13 +55,17 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
     DisposableEffect(web) { onDispose { web.stopLoading(); web.destroy() } }
     LaunchedEffect(uri) {
         try {
-            val text = withContext(Dispatchers.IO) {
-                context.contentResolver.openInputStream(uri)?.use(TextContent::read)
-                    ?: error("This file is no longer accessible. Locate it again.")
+            val page = withContext(Dispatchers.IO) {
+                if (type in com.blw.documentreader.data.DocumentFormats.images) com.blw.documentreader.formats.ImageDocument.read(context,uri)
+                else context.contentResolver.openInputStream(uri)?.use { input ->
+                    if(type == "TXT") com.blw.documentreader.formats.LocalFormats.Page(com.blw.documentreader.printing.TextHtml.document(TextContent.read(input)))
+                    else com.blw.documentreader.formats.LocalFormats.read(type,input)
+                } ?: error("This file is no longer accessible. Locate it again.")
             }
-            val html = com.blw.documentreader.printing.TextHtml.document(text)
+            notice = page.notice
+            val html = page.html
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html, "text/html", "UTF-8", null)
-        } catch (ex: Exception) { error = ex.message ?: "Couldn't open this TXT file." }
+        } catch (ex: Exception) { error = ex.message ?: "Couldn't open this document." }
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -67,7 +73,7 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
             Text(name, maxLines = 1, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             IconButton(onClick = { showSearch = true }, enabled = loaded) { Icon(Icons.Default.Search, "Search text") }
             IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share file") }
-            DocumentOutputActions(web, name, loaded && error == null,
+            DocumentOutputActions(web, name, loaded && error == null, excel = type in setOf("CSV","PowerPoint"),
                 autoExport = autoExport, onAutoHandled = onAutoHandled, onBusy = onBusy,
                 onSaved = onSaved, report = report)
         }
@@ -76,11 +82,12 @@ fun TextReaderScreen(uri: Uri, name: String, onBack: () -> Unit, onShare: () -> 
             IconButton(onClick = { zoom = (zoom - 20).coerceAtLeast(60); web.settings.textZoom = zoom }) {
                 Icon(Icons.Default.ZoomOut, "Smaller text")
             }
-            Text("TXT · $zoom%", style = MaterialTheme.typography.labelMedium)
+            Text("$type · $zoom%", style = MaterialTheme.typography.labelMedium)
             IconButton(onClick = { zoom = (zoom + 20).coerceAtMost(240); web.settings.textZoom = zoom }) {
                 Icon(Icons.Default.ZoomIn, "Larger text")
             }
         }
+        if (notice.isNotBlank()) Text(notice, Modifier.padding(horizontal=12.dp,vertical=3.dp), style=MaterialTheme.typography.labelSmall)
         if (error != null) Text(error!!, Modifier.padding(16.dp))
         else {
             if (!loaded) LinearProgressIndicator(Modifier.fillMaxWidth())

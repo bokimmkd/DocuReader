@@ -6,5 +6,6 @@ gradle :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksIn
 mkdir -p verification/android-print
 adb pull /sdcard/Android/data/com.blw.wreader/files/print-qa verification/android-print || true
 adb pull /sdcard/Download/WReaderPrintQA verification/android-print || true
+adb pull /sdcard/Download/WReaderSettingsQA verification/android-print || true
 adb logcat -d > verification/android-print/emulator-logcat.txt
 exit "$test_status"

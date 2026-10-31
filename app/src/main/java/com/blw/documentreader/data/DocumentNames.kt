@@ -2,12 +2,7 @@ package com.blw.documentreader.data
 
 /** A Library title is also the exact, safe attachment name. */
 object DocumentNames {
-    fun extension(type: String) = when (type) {
-        "Word" -> "docx"
-        "Excel" -> "xlsx"
-        "TXT" -> "txt"
-        else -> "pdf"
-    }
+    fun extension(type: String) = DocumentFormats.extension(type)
 
     fun renamed(input: String, type: String): String {
         val extension = extension(type)

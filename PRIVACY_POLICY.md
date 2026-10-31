@@ -1,8 +1,8 @@
 # W Reader — Privacy Policy
 
-**Last updated: October 30, 2026**
+**Last updated: October 31, 2026**
 
-W Reader is an Android document reader for PDF, Word (DOCX) and Excel (XLSX). This policy describes how the application handles information.
+W Reader is an Android document reader for PDF, DOCX, XLSX, TXT, CSV, PPTX, EPUB, RTF, ODT and JPG/PNG/WebP images. This policy describes how the application handles information.
 
 ## Files and local data
 

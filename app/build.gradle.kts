@@ -10,8 +10,8 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.1.8-closed"
+        versionCode = 10
+        versionName = "0.1.9-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -58,6 +58,7 @@ dependencies {
     implementation("com.android.billingclient:billing:9.1.0")
     implementation("com.google.android.play:app-update:2.1.0")
     implementation("com.google.android.play:review:2.0.2")
+    implementation("org.jsoup:jsoup:1.22.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core-ktx:1.6.1")

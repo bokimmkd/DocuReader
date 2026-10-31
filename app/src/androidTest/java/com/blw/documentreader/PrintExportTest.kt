@@ -61,7 +61,7 @@ class PrintExportTest {
             }
         }
     }
-    private suspend fun saveViaSystemPrint(web: WebView, name: String, file: File, landscape: Boolean) {
+    internal suspend fun saveViaSystemPrint(web: WebView, name: String, file: File, landscape: Boolean) {
         val device = UiDevice.getInstance(inst)
         val base = file.name
         inst.uiAutomation.executeShellCommand("rm -f /sdcard/Download/$base").close()

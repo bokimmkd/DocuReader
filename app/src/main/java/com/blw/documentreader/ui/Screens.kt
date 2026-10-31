@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blw.documentreader.MainViewModel
 import com.blw.documentreader.data.DocumentEntry
+import com.blw.documentreader.data.DocumentFormats
 import com.blw.documentreader.pdf.PdfSession
 import com.blw.documentreader.pdf.ToolPage
 import com.blw.documentreader.pdf.thumbnail
@@ -169,6 +170,13 @@ fun HomeScreen(
                     { onLibrary("Excel") }, modifier = Modifier.weight(1f))
                 FormatCard("TXT", Icons.Default.TextSnippet, TextGrey, false,
                     { onLibrary("TXT") }, modifier = Modifier.weight(1f))
+            }
+        }
+        item {
+            LazyRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                items(listOf("CSV","PowerPoint","EPUB","RTF","ODT","Images")) { label ->
+                    AssistChip(onClick={onLibrary(label)},label={Text(label,fontSize=11.sp)})
+                }
             }
         }
         item {
@@ -394,7 +402,7 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
 fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ToolChoice(Icons.Default.PictureAsPdf, "Convert to PDF", "Word, Excel or TXT · Save and share", BrandBlue, onConvert)
+        ToolChoice(Icons.Default.PictureAsPdf, "Convert to PDF", "Documents, books or images · Save as PDF", BrandBlue, onConvert)
         Text("PDF Tools", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Edit pages. Keep your original unchanged.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -583,7 +591,7 @@ private fun PdfPageTile(page: ToolPage, index: Int, selected: Boolean, onClick: 
 @Composable
 private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector,
                            title: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 36.dp)
         .clip(androidx.compose.foundation.shape.RoundedCornerShape(9.dp))
         .clickable(onClick = onClick).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -600,12 +608,13 @@ private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 @Composable
 fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit,
                    price: String, adFree: Boolean, privacy: () -> Unit,
-                   privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit) {
+                   privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit,
+                   billingAvailable: Boolean = com.blw.documentreader.BuildConfig.BILLING_ENABLED) {
     var clearDialog by remember { mutableStateOf(false) }
-    val closedTest = !com.blw.documentreader.BuildConfig.BILLING_ENABLED
+    val closedTest = !billingAvailable
     val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -660,8 +669,13 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             if (!closedTest) Button(onClick = removeAds, enabled = !adFree && priceAvailable,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BrandBlue, contentColor = Color.White
-                ), modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(if (adFree) "Active" else "Buy", fontSize = 13.sp)
+                ), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal=16.dp,vertical=0.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation=2.dp),
+                modifier = Modifier.height(42.dp)) {
+                Icon(Icons.Default.Diamond, null, tint=Color(0xFFFFD768), modifier=Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (adFree) "Active" else "Buy", fontSize = 13.sp, fontWeight=FontWeight.Bold)
             }
         }
         if (!closedTest) SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)

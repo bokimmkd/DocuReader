@@ -90,7 +90,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     }
     val data = vm.recent.filter {
         (filter == "All" || filter == "Recent" && it.openedAt > 0L ||
-            filter == "Favorites" && it.favorite || filter == it.type) &&
+            filter == "Favorites" && it.favorite || com.blw.documentreader.data.DocumentFormats.matches(filter,it.type)) &&
         (category == "All categories" || it.category == category) &&
         (tag == "All tags" || it.tags.split(',').any { value -> value.trim().equals(tag, true) }) &&
         (search.isBlank() || listOf(it.name, it.type, it.category, it.tags)
@@ -142,7 +142,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
             }
         }
         LazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            rowItems(listOf("All", "Recent", "Favorites", "PDF", "Word", "Excel", "TXT")) { item ->
+            rowItems(listOf("All", "Recent", "Favorites", "PDF", "Word", "Excel", "TXT", "CSV", "PowerPoint", "EPUB", "RTF", "ODT", "Images")) { item ->
                 FilterChip(selected = filter == item, onClick = { filter = item },
                     label = { Text(item, fontSize = 11.sp, lineHeight = 14.sp) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
@@ -159,7 +159,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 Icon(Icons.Default.FolderOpen, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(if (vm.recent.isEmpty()) "No documents yet" else "No matching documents",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 19.sp)
-                Text("Add PDF, Word, Excel or TXT files.", fontSize = 11.sp, lineHeight = 15.sp,
+                Text("Add documents, books or images.", fontSize = 11.sp, lineHeight = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {

@@ -29,15 +29,7 @@ object DocumentTypes {
     const val EXCEL = "Excel"
     const val TXT = "TXT"
     fun detect(context: Context, uri: Uri, name: String): String? {
-        val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
-        val ext = name.substringAfterLast('.', "").lowercase()
-        return when {
-            ext == "pdf" || mime == "application/pdf" -> PDF
-            ext == "docx" || mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> WORD
-            ext == "xlsx" || mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> EXCEL
-            ext == "txt" || mime == "text/plain" -> TXT
-            else -> null
-        }
+        return DocumentFormats.detect(name, context.contentResolver.getType(uri).orEmpty())
     }
     fun displayName(context: Context, uri: Uri): String {
         if (uri.scheme == "content") {
@@ -84,7 +76,7 @@ class DocumentStore(private val context: Context) {
     fun keepOffline(uri: Uri, originalName: String): Uri {
         val dir = File(context.filesDir, "library").also { it.mkdirs() }
         val extension = originalName.substringAfterLast('.', "").lowercase()
-            .takeIf { it in setOf("pdf", "docx", "xlsx", "txt") } ?: "pdf"
+            .takeIf { it in DocumentFormats.byExtension.keys } ?: "pdf"
         val dest = File(dir, "${UUID.randomUUID()}.$extension")
         val temp = File(dir, "${dest.name}.part")
         try {

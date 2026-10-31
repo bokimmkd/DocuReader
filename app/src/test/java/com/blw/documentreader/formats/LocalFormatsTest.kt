@@ -1,0 +1,22 @@
+package com.blw.documentreader.formats
+
+import org.junit.Assert.*
+import org.junit.Test
+import com.blw.documentreader.data.*
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+
+class LocalFormatsTest {
+    private fun zip(vararg entries:Pair<String,String>):ByteArray {val out=ByteArrayOutputStream();ZipOutputStream(out).use{z->entries.forEach{(name,text)->z.putNextEntry(ZipEntry(name));z.write(text.toByteArray());z.closeEntry()}};return out.toByteArray()}
+    private fun rejected(action:()->Unit){try{action();fail("Expected invalid input to be refused")}catch(_:IllegalArgumentException){}}
+    @Test fun typesAndRenamedSharedNamesRetainNewExtensions(){for((ext,type)in DocumentFormats.byExtension){assertEquals(type,DocumentFormats.detect("file.$ext","application/octet-stream"));assertEquals("New.$ext",DocumentNames.renamed("New",type))};assertTrue(DocumentFormats.matches("Images","PNG"));assertNull(DocumentFormats.detect("art.psd","application/octet-stream"))}
+    @Test fun csvQuotedDelimitersNewlinesAndHtmlArePreservedAsText(){val html=LocalFormats.csv("Name;Text\r\n\"A;B\";\"one\ntwo\"\r\n<evil>;\"a\"\"b\"");assertTrue(html.contains("A;B"));assertTrue(html.contains("one\ntwo"));assertTrue(html.contains("&lt;evil&gt;"));assertTrue(html.contains("a&quot;b"))}
+    @Test fun csvTabAndEmptyAndLimits(){assertTrue(LocalFormats.csv("a\tb\n1\t2").contains("<td>2</td>"));assertEquals("<table></table>",LocalFormats.csv(""));rejected{LocalFormats.csv("\"unterminated")};rejected{LocalFormats.csv((1..101).joinToString(","))}}
+    @Test fun rtfUnicodeCodepageAndHiddenDestinations(){val raw="{\\rtf1\\ansi\\ansicpg1251 {\\fonttbl HIDDEN}Hello \\u1040? \\'c1\\par End}";val text=LocalFormats.rtf(raw.toByteArray(Charsets.ISO_8859_1));assertTrue(text.contains("А Б"));assertFalse(text.contains("HIDDEN"));assertTrue(text.contains("\nEnd"))}
+    @Test fun rtfBinaryPayloadIsSkippedAndEscapedBracesRead(){assertEquals("Hi{}End",LocalFormats.rtf("{\\rtf1 Hi\\{\\}\\bin3 xyzEnd}".toByteArray()));rejected{LocalFormats.rtf("not RTF".toByteArray())}}
+    @Test fun archiveTraversalAndSizeAreRefused(){rejected{LocalFormats.archive(zip("../bad" to "x").inputStream())};rejected{LocalFormats.bounded("1234".byteInputStream(),3)}}
+    @Test fun odtReadsTablesAndRefusesEntitiesAndExpansion(){val text="<root xmlns:t='urn:t'><t:text><t:p>ODT Кирилица</t:p><t:table><t:table-row><t:table-cell><t:p>Cell</t:p></t:table-cell></t:table-row></t:table></t:text></root>";val page=LocalFormats.read("ODT",zip("content.xml" to text).inputStream());assertTrue(page.html.contains("Кирилица"));assertTrue(page.html.contains("<table>"));rejected{LocalFormats.read("ODT",zip("content.xml" to "<!DOCTYPE x [<!ENTITY a 'bad'>]><root/>").inputStream())};rejected{LocalFormats.read("ODT",zip("content.xml" to text.replace("<t:table-row>","<t:table-row t:number-rows-repeated='999999'>")).inputStream())}}
+    @Test fun epubUsesSpineOrderAndDropsScriptsAndExternalResources(){val z=zip("META-INF/container.xml" to "<container><rootfile full-path='OPS/book.opf'/></container>","OPS/book.opf" to "<package><item id='b' href='b.xhtml'/><item id='a' href='a.xhtml'/><itemref idref='a'/><itemref idref='b'/></package>","OPS/a.xhtml" to "<html><body><p>FIRST Кирилица</p><script>LEAK</script><iframe src='https://evil'/><img src='https://evil/p'/></body></html>","OPS/b.xhtml" to "<p>SECOND</p>");val html=LocalFormats.read("EPUB",z.inputStream()).html;assertTrue(html.indexOf("FIRST")<html.indexOf("SECOND"));assertFalse(html.contains("LEAK"));assertFalse(html.contains("https://evil"));assertFalse(html.contains("<script"))}
+    @Test fun pptxFollowsPresentationRelationshipsInsteadOfAlphabeticalNames(){val z=zip("ppt/presentation.xml" to "<p:presentation xmlns:p='p' xmlns:r='http://schemas.openxmlformats.org/officeDocument/2006/relationships'><p:sldId r:id='one'/><p:sldId r:id='two'/></p:presentation>","ppt/_rels/presentation.xml.rels" to "<Relationships><Relationship Id='one' Target='slides/slide2.xml'/><Relationship Id='two' Target='slides/slide1.xml'/></Relationships>","ppt/slides/slide2.xml" to "<s><spTree><sp><p><t>FIRST Кирилица</t></p></sp></spTree></s>","ppt/slides/slide1.xml" to "<s><spTree><sp><p><t>SECOND</t></p></sp></spTree></s>");val page=LocalFormats.read("PowerPoint",z.inputStream());assertTrue(page.landscape);assertTrue(page.html.indexOf("FIRST")<page.html.indexOf("SECOND"))}
+}

@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import com.blw.documentreader.data.DocumentStore
 import com.blw.documentreader.data.DocumentTypes
+import com.blw.documentreader.data.DocumentFormats
 import com.blw.documentreader.updates.PlayUpdates
 import com.blw.documentreader.reviews.PlayReview
 import com.blw.documentreader.data.DocumentEntry
@@ -120,21 +121,13 @@ class MainActivity : ComponentActivity() {
         catch (_: IllegalArgumentException) { /* non-persistable provider */ }
     }
     private fun openPicker() {
-        openDocument.launch(arrayOf("application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/plain", "application/octet-stream"))
+        openDocument.launch(DocumentFormats.pickerTypes)
     }
     private fun share(uri: Uri, mime: String, displayName: String? = null) {
         if (preparingShare || outputBusy) return
         val entry = vm.recent.find { it.uri == uri.toString() }
         val name = displayName ?: entry?.name ?: DocumentTypes.displayName(this, uri)
-        val format = entry?.type ?: when (mime) {
-            "text/plain" -> DocumentTypes.TXT
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> DocumentTypes.WORD
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> DocumentTypes.EXCEL
-            else -> DocumentTypes.PDF
-        }
+        val format = entry?.type ?: DocumentFormats.detect(name,mime) ?: DocumentTypes.PDF
         preparingShare = true
         lifecycleScope.launch {
             try {
@@ -158,12 +151,7 @@ class MainActivity : ComponentActivity() {
             openedAt = 0L, category = source?.category ?: "Uncategorized", tags = source?.tags ?: ""))
     }
     private fun shareDocument(doc: com.blw.documentreader.data.DocumentEntry) {
-        val mime = when (doc.type) {
-            DocumentTypes.WORD -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            DocumentTypes.EXCEL -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            DocumentTypes.TXT -> "text/plain"
-            else -> "application/pdf"
-        }
+        val mime = DocumentFormats.mimeByType[doc.type] ?: "application/octet-stream"
         share(Uri.parse(doc.uri), mime, doc.name)
     }
     override fun onResume() {
@@ -188,7 +176,9 @@ class MainActivity : ComponentActivity() {
             else -> androidx.compose.foundation.isSystemInDarkTheme()
         }
         var password by remember { mutableStateOf("") }
-        var showPolicy by remember { mutableStateOf(false) }
+        var infoPage by rememberSaveable { mutableStateOf<String?>(null) }
+        BackHandler(infoPage != null) { infoPage = null }
+        LaunchedEffect(vm.current?.uri) { if(vm.current != null) infoPage = null }
         LaunchedEffect(vm.reviewMoment, vm.current?.uri, vm.busy, outputBusy, tab, resumeTick) {
             if (vm.reviewMoment > 0 && tab == 0 && vm.current == null && !vm.busy && !outputBusy) {
                 delay(4000)
@@ -259,7 +249,7 @@ class MainActivity : ComponentActivity() {
                                     Text("W Reader", fontSize = 19.sp, lineHeight = 23.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface)
-                                    Text("PDF · Word · Excel · TXT", fontSize = 11.sp, lineHeight = 15.sp,
+                                    Text("Documents · Books · Images", fontSize = 11.sp, lineHeight = 15.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
@@ -329,8 +319,8 @@ class MainActivity : ComponentActivity() {
             ) { insets ->
                 Box(Modifier.fillMaxSize().padding(insets)) {
                     if (vm.current != null && vm.officeUri != null) {
-                        if (vm.officeType == DocumentTypes.TXT) TextReaderScreen(
-                            uri = vm.officeUri!!, name = vm.officeName,
+                        if (vm.officeType !in setOf(DocumentTypes.WORD,DocumentTypes.EXCEL)) TextReaderScreen(
+                            uri = vm.officeUri!!, name = vm.officeName, type = vm.officeType,
                             onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
                             onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
@@ -341,12 +331,7 @@ class MainActivity : ComponentActivity() {
                             name = vm.officeName,
                             type = vm.officeType,
                             onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
-                            onShare = {
-                                vm.current?.let { share(Uri.parse(it.uri), when (vm.officeType) {
-                                    "Word" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                    else -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                }) }
-                            },
+                            onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
                             onReady = vm::markReaderReady, report = vm::report
@@ -363,12 +348,7 @@ class MainActivity : ComponentActivity() {
                         1 -> LibraryScreen(vm,
                             onOpen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onShare = ::shareDocument,
-                            onAdd = { pickForLibrary.launch(arrayOf(
-                                "application/pdf",
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                "text/plain"
-                            )) },
+                            onAdd = { pickForLibrary.launch(DocumentFormats.pickerTypes) },
                             initialFilter = libraryFilter)
                         2 -> if (vm.toolReady) ToolEditor(vm,
                             addPdf = { addTool.launch(arrayOf("application/pdf")) },
@@ -377,17 +357,13 @@ class MainActivity : ComponentActivity() {
                             openOutput = { incomingUri = it; vm.openDocument(it) },
                             shareOutput = { share(it, "application/pdf") })
                         else ToolsStartScreen(onChoosePdf = { pickTool.launch(arrayOf("application/pdf")) },
-                            onConvert = { convertDocument.launch(arrayOf(
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain")) })
+                            onConvert = { convertDocument.launch(DocumentFormats.pickerTypes.filterNot { it == "application/pdf" }.toTypedArray()) })
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
                             checkUpdates = { updates.check(manual = true) }, rateApp = { reviews.openStore() },
-                            privacy = { startActivity(Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://github.com/bokimmkd/DocuReader/blob/release/wreader-closed-0.1.4/PRIVACY_POLICY.md"))) }, privacyOptions = { consent.showPrivacyOptions() }, feedback = {
-                                vm.report("Help: Open a document, use PDF Tools to save a new copy. For support, contact the publisher through the Play Store listing.")
-                            })
+                            privacy = { infoPage = "Privacy Policy" }, privacyOptions = { consent.showPrivacyOptions() },
+                            feedback = { infoPage = "Help & Feedback" })
                     }
                     if (vm.busy || preparingShare || outputBusy) {
                         Surface(Modifier.align(Alignment.Center), shape = MaterialTheme.shapes.medium,
@@ -408,10 +384,8 @@ class MainActivity : ComponentActivity() {
                     incomingUri?.let { vm.openDocument(it, password) }; password = ""
                 }) { Text("Unlock") } },
                 dismissButton = { TextButton(onClick = { vm.closeDocument() }) { Text("Cancel") } })
-            if (showPolicy) AlertDialog(onDismissRequest = { showPolicy = false },
-                title = { Text("Privacy overview") },
-                text = { Text("Documents are opened and processed locally. No document contents or filenames are sent to ads, billing or diagnostic services. AdMob may process device and advertising data subject to your consent. Before publishing, replace this overview with your publisher's complete public privacy policy URL and Play Data safety declarations.") },
-                confirmButton = { TextButton(onClick = { showPolicy = false }) { Text("Close") } })
+            if (infoPage != null) InfoScreen(infoPage!!, onBack = { infoPage = null })
+
         }
     }
     override fun onDestroy() {
