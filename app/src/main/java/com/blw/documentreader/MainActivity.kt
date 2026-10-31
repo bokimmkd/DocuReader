@@ -61,12 +61,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var reviews: PlayReview
     private var outputBusy by mutableStateOf(false)
     private var convertOnReady by mutableStateOf(false)
-    private var updateReady by mutableStateOf(false)
     private var resumeTick by mutableIntStateOf(0)
     private var preparingShare by mutableStateOf(false)
-    private val updateFlow = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) {
-        if (::updates.isInitialized) updates.onFlowResult(it.resultCode)
-    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
@@ -90,10 +86,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         consent = AdConsent(this) { permittedAds = true }
         billing = RemoveAdsBilling(this) { vm.report(it) }
-        updates = PlayUpdates(this, updateFlow, vm::report) { updateReady = it }
+        updates = PlayUpdates(this, vm::report)
         reviews = PlayReview(this)
         reviews.observeUse()
-        updates.allowedToPrompt = { !outputBusy && !preparingShare && vm.current == null && !vm.busy && consent.settled }
+        updates.allowedToPrompt = { !outputBusy && !preparingShare && !vm.busy &&
+            (!BuildConfig.MONETIZATION_ENABLED || consent.settled) && !consent.privacyOpen }
         if (BuildConfig.MONETIZATION_ENABLED) {
             consent.start()
         }
@@ -172,7 +169,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeTick++
-        if (::updates.isInitialized) updates.refreshDownloaded()
         if (::reviews.isInitialized) reviews.observeUse()
         if (::billing.isInitialized && BuildConfig.BILLING_ENABLED) billing.restore(silent = true)
     }
@@ -193,14 +189,11 @@ class MainActivity : ComponentActivity() {
         }
         var password by remember { mutableStateOf("") }
         var showPolicy by remember { mutableStateOf(false) }
-        LaunchedEffect(vm.current?.uri, vm.busy, outputBusy, resumeTick) {
-            if (vm.current == null && !vm.busy && !outputBusy) { delay(1500); updates.check() }
-        }
         LaunchedEffect(vm.reviewMoment, vm.current?.uri, vm.busy, outputBusy, tab, resumeTick) {
             if (vm.reviewMoment > 0 && tab == 0 && vm.current == null && !vm.busy && !outputBusy) {
                 delay(4000)
                 reviews.maybeAsk { tab == 0 && vm.current == null && !vm.busy && !outputBusy &&
-                    !preparingShare && !updates.isBusy && !updateReady && consent.settled && !consent.privacyOpen }
+                    !preparingShare && !updates.isBusy && !updates.hasNotice && consent.settled && !consent.privacyOpen }
             }
         }
         val snackbar = remember { SnackbarHostState() }
@@ -284,11 +277,12 @@ class MainActivity : ComponentActivity() {
                             .background(MaterialTheme.colorScheme.background)
                             .navigationBarsPadding()
                     ) {
-                        if (updateReady) Surface(color = MaterialTheme.colorScheme.primaryContainer) {
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Update ready", Modifier.weight(1f), fontSize = 12.sp)
-                                TextButton(onClick = { updates.complete() }) { Text("Restart") }
-                            }
+                        if ((!BuildConfig.MONETIZATION_ENABLED || consent.settled) && !consent.privacyOpen && !outputBusy) {
+                            UpdateBanner(updates.prompt, updates.transfer, updates.installFailed,
+                                enabled = !preparingShare && !vm.busy,
+                                restartEnabled = !preparingShare && !vm.busy && !vm.toolReady,
+                                onUpdate = updates::download, onLater = updates::later,
+                                onRestart = updates::restart)
                         }
                         if (BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds) BottomBanner()
                         if (vm.current == null) {
@@ -422,7 +416,6 @@ class MainActivity : ComponentActivity() {
     }
     override fun onDestroy() {
         billing.close()
-        if (::updates.isInitialized) updates.close()
         super.onDestroy()
     }
 }
