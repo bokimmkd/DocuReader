@@ -35,6 +35,10 @@ class PrintExportTest {
         return FileProvider.getUriForFile(context,"${context.packageName}.files",file)
     }
     private fun text(pdf: File): Pair<Int,String> = PDDocument.load(pdf).use {
+        for (page in 1..it.numberOfPages) {
+            val content = PDFTextStripper().apply { startPage=page; endPage=page }.getText(it)
+            assertTrue("Unexpected empty page $page in ${pdf.name}", content.isNotBlank())
+        }
         val stripper = object : PDFTextStripper() {
             override fun processTextPosition(position: com.tom_roush.pdfbox.text.TextPosition) {
                 if (position.unicode.isNotBlank()) {

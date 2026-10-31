@@ -26,7 +26,7 @@ body{margin:0;padding:0;background:#edf2f7;color:#182b43;font:14px/1.4 system-ui
   #viewport{overflow:visible!important;width:auto!important}
   #content{zoom:1!important;min-height:0!important;transform:none!important}
   .docx-wrapper{padding:0!important;background:white!important;display:block!important}
-  .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;max-width:100%!important;overflow:visible!important;break-after:page;page-break-after:always}
+  .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;max-width:100%!important;min-height:0!important;height:auto!important;overflow:visible!important;break-after:page;page-break-after:always}
   .docx-wrapper>section.docx:last-child{break-after:auto;page-break-after:auto}
   .sheet{zoom:var(--sheet-print-scale,1);border-collapse:collapse;white-space:normal}
   .sheet thead,.sheet .rowhead{display:none!important}
