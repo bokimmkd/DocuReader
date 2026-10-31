@@ -65,6 +65,7 @@ class ExtendedFormatsTest {
                 val updates=d.findObject(By.text("Check for updates"))!!
                 val density=context.resources.displayMetrics.density
                 assertTrue("Settings rows too far apart",(rate.visibleCenter.y-updates.visibleCenter.y)/density<=42f)
+                assertTrue(d.wait(Until.hasObject(By.text("Buy")),10000));d.waitForIdle();Thread.sleep(800)
                 val dir=File("/sdcard/Download/WReaderSettingsQA").also{it.mkdirs()};d.takeScreenshot(File(dir,if(dark)"settings-dark.png" else "settings-light.png"))
                 d.findObject(By.text("Help & Feedback")).click()
                 assertTrue(d.wait(Until.hasObject(By.text("Open documents and attachments")),10000))
