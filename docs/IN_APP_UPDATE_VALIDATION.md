@@ -34,6 +34,10 @@ Available (only actual Play availability and higher version) -> Update/Later. Up
 - Update -> genuine Play consent -> background progress while reading documents -> Ready -> explicit Restart to update -> check higher installed version and data retained.
 - Background/rotate during consent/download; reopen after completed download; no duplicate dialogs/listeners or lost restart offer. Test cancellation and network/download failure.
 
-## Release constraint
+## Release authorization and remaining acceptance
 
-User: Ne praj nov aab bez dogovor. No new AAB, no version bump, no Play submission, no Production publishing. Source is isolated on fix/wreader-play-updates-20261031. CI runs unit tests and debug Android instrumentation only and uploads test evidence, not an installable release bundle. Do not merge to release/wreader-closed-0.1.4 without agreement because that branch automatically builds an AAB. Formats/Help/in-app Privacy remain queued and excluded from this focused fix.
+The earlier "Ne praj nov aab bez dogovor" constraint was superseded by the explicit request "Data i help proredot zbij go i buy dugmeto napraj mu dizajnce i praj aab". The agreed 0.1.9-closed release includes this update fix, compact Settings/Buy, new local formats and in-app Help/Privacy. VersionCode11 is the final candidate. Closed Alpha only; Production is excluded.
+
+A final integration audit removed `!vm.toolReady` from Restart enablement: the flag survives leaving PDF Tools and could permanently disable the action. Active printing/saving/share/import and consent remain guarded. Code10 was uploaded only to a draft and excluded before review; it must not be released.
+
+Real Play upgrade acceptance remains pending a tester device and a later higher eligible Play version. Source/SDK tests and AAB acceptance are not a substitute. Instrumentation reacquires accessibility nodes during Compose transitions and waits for the document UI to render before asserting usability.

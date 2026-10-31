@@ -56,8 +56,17 @@ class UpdateFlowTest {
     }
     private fun click(text:String) {
         val d=UiDevice.getInstance(inst)
-        val node=d.wait(Until.findObject(By.text(text)),10000)
-        assertNotNull("Missing UI: $text",node);node!!.click();d.waitForIdle()
+        val end=System.currentTimeMillis()+10000
+        do {
+            val node=d.wait(Until.findObject(By.text(text)),1000)
+            if(node!=null) try {
+                node.click();d.waitForIdle();return
+            } catch(_:StaleObjectException) {
+                // Compose can replace the accessibility node between lookup and tap.
+                // Reacquire it; never retain a node across a state transition.
+            }
+        } while(System.currentTimeMillis()<end)
+        fail("Missing or stale UI: $text")
     }
     private fun screenshot(name:String) {
         val f=File("/sdcard/Download/WReaderUpdateQA").also{it.mkdirs()}
@@ -80,7 +89,7 @@ class UpdateFlowTest {
             begin(s)
             await(s){it.updates.transfer.fraction==0.25f}
             click("Open sample document")
-            assertTrue(UiDevice.getInstance(inst).hasObject(By.text("Document remains usable")))
+            assertTrue(UiDevice.getInstance(inst).wait(Until.hasObject(By.text("Document remains usable")),10000))
             screenshot("downloading")
             s.onActivity {fake.setBytesDownloaded(100)}
             await(s){it.updates.transfer.fraction==1f}
