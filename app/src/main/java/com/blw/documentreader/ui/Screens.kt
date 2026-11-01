@@ -691,7 +691,9 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                    billingAvailable: Boolean = com.blw.documentreader.BuildConfig.BILLING_ENABLED) {
     var clearDialog by remember { mutableStateOf(false) }
     val closedTest = !billingAvailable
-    val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
+    val priceLoading = price.contains("Loading", ignoreCase = true)
+    val priceAvailable = !closedTest && !priceLoading && price.isNotBlank() &&
+        !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Spacer(Modifier.height(2.dp))
@@ -742,10 +744,10 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 Text("Ad-free Lifetime", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text(if (closedTest) "Will be available after testing"
                     else if (adFree) "Lifetime active" else if (priceAvailable) "One payment · $price · Forever"
-                    else "Available through Google Play",
+                    else if (priceLoading) "Checking Play Store price…" else "Tap Retry to check Google Play",
                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (!closedTest) Button(onClick = removeAds, enabled = !adFree && priceAvailable,
+            if (!closedTest) Button(onClick = removeAds, enabled = !adFree && !priceLoading,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BrandBlue, contentColor = Color.White
                 ), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
@@ -754,7 +756,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 modifier = Modifier.height(42.dp)) {
                 Icon(Icons.Default.Diamond, null, tint=Color(0xFFFFD768), modifier=Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (adFree) "Active" else "Buy", fontSize = 13.sp, fontWeight=FontWeight.Bold)
+                Text(if (adFree) "Active" else if (priceAvailable) "Buy" else "Retry", fontSize = 13.sp, fontWeight=FontWeight.Bold)
             }
         }
         if (!closedTest) SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
