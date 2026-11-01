@@ -48,7 +48,7 @@ def open_file(name):
  tap('Open document');await_node('Show roots');tap('Search')
  end=time.monotonic()+15
  while time.monotonic()<end:
-  field=next((n for n in dump().iter('node') if n.get('class')=='android.widget.EditText'),None)
+  field=next((n for n in dump().iter('node') if n.get('resource-id')=='com.google.android.documentsui:id/search_src_text'),None)
   if field is not None:break
  else:raise AssertionError('System picker search field missing')
  adb('shell','input','keycombination','113','29') # Ctrl+A, including a restored search query.
