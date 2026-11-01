@@ -227,7 +227,7 @@ class WorkflowFeaturesTest {
         }} finally {store.save(before)}
     }
     @Test fun zoomedPdfRerendersFineTextInsteadOfEnlargingPreview() = runBlocking {
-        val file=File(context.filesDir,"zoom-sharpness.pdf")
+        val file=File(context.filesDir,"library/zoom-sharpness.pdf").also { it.parentFile!!.mkdirs() }
         val pdf=PdfDocument()
         try {
             val page=pdf.startPage(PdfDocument.PageInfo.Builder(600,800,1).create())
