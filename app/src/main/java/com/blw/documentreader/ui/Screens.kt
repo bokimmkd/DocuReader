@@ -381,7 +381,7 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Fl
     var translateY by remember(session, index) { mutableFloatStateOf(0f) }
     val currentZoom by rememberUpdatedState(zoom)
     val changeZoom by rememberUpdatedState(onZoom)
-    val scale = zoom.coerceIn(1f, 4f)
+    val scale = zoom.coerceIn(1f, 8f)
     val x = translateX.coerceIn(-bounds.width * (scale - 1f) / 2f, bounds.width * (scale - 1f) / 2f)
     val y = translateY.coerceIn(-bounds.height * (scale - 1f) / 2f, bounds.height * (scale - 1f) / 2f)
     val viewport = PdfViewport(bounds.width, bounds.height, scale, x, y)
@@ -406,7 +406,7 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Fl
                         if (multiTouch) {
                             val pinch = event.calculateZoom()
                             val pan = event.calculatePan()
-                            val next = (currentZoom * pinch).coerceIn(1f, 4f)
+                            val next = (currentZoom * pinch).coerceIn(1f, 8f)
                             if (next.isFinite()) changeZoom(next)
                             translateX = (translateX + pan.x).coerceIn(-bounds.width * (next - 1f) / 2f, bounds.width * (next - 1f) / 2f)
                             translateY = (translateY + pan.y).coerceIn(-bounds.height * (next - 1f) / 2f, bounds.height * (next - 1f) / 2f)
