@@ -124,13 +124,29 @@ class MainActivity : ComponentActivity() {
                 else intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
             else -> null
         } ?: intent?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
-        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; bookModeOnOpen = false; vm.openDocument(uri) }
+        if (uri != null) {
+            bookModeOnOpen = false
+            incomingUri = uri
+            if (persistIfAvailable(uri)) {
+                vm.openDocument(uri)
+            } else {
+                // Non-SAF messaging attachment: keep a durable copy while the one-time
+                // grant still exists; use the local URI for password prompts and shares.
+                vm.openTransientAttachment(uri) { saved -> incomingUri = saved }
+            }
+        }
     }
-    private fun persistIfAvailable(uri: Uri) {
-        // Persist only grants actually offered by SAF; attachment grants may be temporary.
-        try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        catch (_: SecurityException) { /* temporary attachment permission; report expiration on reopen */ }
-        catch (_: IllegalArgumentException) { /* non-persistable provider */ }
+    private fun persistIfAvailable(uri: Uri): Boolean {
+        // SAF documents may be persisted; Viber/WhatsApp grants often cannot.
+        if (uri.scheme != "content" || uri.authority == "${packageName}.files") return true
+        return try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            true
+        } catch (_: SecurityException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
     }
     private fun openPicker() {
         openDocument.launch(DocumentFormats.pickerTypes)
