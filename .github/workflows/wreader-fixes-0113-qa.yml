@@ -1,7 +1,6 @@
 name: W Reader targeted fixes QA (no release)
 on:
-  push:
-    branches: [fix/wreader-0113-viber-billing-zoom-excel]
+  # Full release workflow now runs all of these tests on branch pushes.
   workflow_dispatch:
 concurrency:
   group: wreader-0113-qa-${{ github.ref }}

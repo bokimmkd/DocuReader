@@ -79,12 +79,16 @@ class DirectPdfExportTest {
             for (landscape in listOf(false, true)) {
                 val file = withTimeout(120000) { DirectPdf.create(host, snapshot, landscape) }
                 try {
+                    file.copyTo(File(output, "wide-invoice-${if (landscape) "landscape" else "portrait"}.pdf"), overwrite = true)
                     assertPrintableMargins(file)
                     PDDocument.load(file).use { pdf ->
                         assertTrue("Wide worksheet produced an empty PDF", pdf.numberOfPages > 0)
                         val text = PDFTextStripper().getText(pdf).filterNot { it.isWhitespace() }
                         assertTrue("First column lost", text.contains("ROW1_COLUMN1_END"))
                         assertTrue("Last column lost", text.contains("ROW40_COLUMN14_END"))
+                        for (row in 1..40) for (col in 1..14)
+                            assertTrue("Missing cell $row/$col", text.contains("ROW${row}_COLUMN${col}_END"))
+                        for (col in 1..14) assertTrue("Missing header $col", text.contains("HEADER$col"))
                         assertEquals("Orientation mismatch", landscape,
                             pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height)
                     }

@@ -60,33 +60,31 @@
   if(sheet){
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
-   const width=sheet.offsetWidth;
-   if(!Number.isFinite(width)||width<=0)throw Error('This worksheet has no printable width.');
-   // Fit all columns into the selected A4 printable area instead of discarding
-   // the right edge. CSS zoom affects table layout height as well as paint size,
-   // so the merged-row pagination below measures the fitted groups.
-   const fit=Math.min(1,(data.width-4)/width);
-   if(fit<0.12)throw Error('The worksheet has too many columns to fit readably on one PDF page.');
+   const width=Math.ceil(Math.max(sheet.scrollWidth,sheet.getBoundingClientRect().width));
+   // Wide spreadsheets must fit the *full set of columns* to the selected A4
+   // page width; a smaller page in CSS pixels does not mean dropped columns.
+   // Keep the page orientation (portrait/landscape) the user selected.
+   const fitWidth=Math.max(data.width,width);
+   if(!Number.isFinite(width)||width<=0||fitWidth>8192)
+    throw Error('This sheet exceeds the safe 8192-pixel PDF export width.');
+   holder.style.width=fitWidth+'px';
+   options.windowWidth=fitWidth;
+   options.html2canvas.windowWidth=fitWidth;
    const groups=[];
    for(let start=0;start<rowList.length;){
     let end=start+1;
     for(let i=start;i<end;i++)for(const cell of rowList[i].cells)end=Math.min(rowList.length,Math.max(end,i+cell.rowSpan));
     groups.push(rowList.slice(start,end));start=end;
    }
-   const template=sheet.cloneNode(false);
-   template.style.width=width+'px';
-   // Do not set CSS zoom for normal-width tables. Even zoom:1 changes
-   // html2canvas table origin on Android WebView, breaking print margins.
-   if(fit<0.999) {
-    template.style.zoom=String(fit);
-    template.style.transformOrigin='top left';
-   }
+   const template=sheet.cloneNode(false);template.style.width=width+'px';
    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
-   const pagePixels=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20);
+   // Retain worksheet headers on every page; the paginated body excludes THEAD.
+   if(sheet.tHead)template.appendChild(sheet.tHead.cloneNode(true));
+   const pagePixels=(doc.internal.pageSize.getHeight()-20)*fitWidth/(doc.internal.pageSize.getWidth()-20);
    const maximum=pagePixels-16;
    holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
-   function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
+   function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=fitWidth+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
    page();
    for(const group of groups){
     const nodes=group.map(r=>r.cloneNode(true));nodes.forEach(n=>body.appendChild(n));

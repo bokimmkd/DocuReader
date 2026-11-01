@@ -1,7 +1,7 @@
-name: W Reader 0.1.12 - Books, Library and PDF tools (unsigned)
+name: W Reader 0.1.13 - Attachment, billing and PDF fixes (unsigned)
 on:
   push:
-    branches: [release/wreader-closed-0.1.4]
+    branches: [release/wreader-closed-0.1.4, fix/wreader-0113-viber-billing-zoom-excel]
   workflow_dispatch:
 concurrency:
   group: wreader-closed-${{ github.ref }}
@@ -99,7 +99,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.12-test-evidence
+          name: WReader-0.1.13-test-evidence
           path: |
             app/build/reports/androidTests
             app/build/reports/tests/testDebugUnitTest
@@ -119,7 +119,7 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.12-closed-test-UNSIGNED-aab
+          name: WReader-0.1.13-closed-test-UNSIGNED-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
