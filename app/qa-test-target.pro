@@ -4,6 +4,7 @@
 -keep class kotlinx.coroutines.** { *; }
 # APIs called directly by the instrumentation APK, rather than by production UI.
 -keep class com.blw.documentreader.*TestActivity { *; }
+-keep class com.blw.documentreader.UpdateTestEnvironment { *; }
 -keep class com.blw.documentreader.MainViewModel { *; }
 -keep class com.blw.documentreader.data.** { *; }
 -keep class com.blw.documentreader.printing.** { *; }

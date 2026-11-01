@@ -39,7 +39,9 @@ class DocumentDialogTest {
             while (System.currentTimeMillis() < end)
             fail("Category was not saved: $category")
         }
-        for (dark in listOf(false, true)) {
+        val original = store.load(); val originalCategories = store.categories()
+        store.categories(listOf("Work", "Personal"))
+        try { for (dark in listOf(false, true)) {
             val source = File(context.filesDir, "library/dialog-$dark.txt").also {
                 it.parentFile!!.mkdirs(); it.writeText("Original content Кирилица")
             }
@@ -49,10 +51,11 @@ class DocumentDialogTest {
             val intent = Intent(context, DocumentDialogTestActivity::class.java).putExtra("dark", dark)
             ActivityScenario.launch<DocumentDialogTestActivity>(intent).use {
                 edit(); click("Personal")
-                assertTrue(d.wait(Until.hasObject(By.text("New category")), 10000))
                 val output = File(context.getExternalFilesDir(null), "dialog-qa").also { it.mkdirs() }
                 d.waitForIdle(); Thread.sleep(800)
                 d.takeScreenshot(File(output, if (dark) "category-menu-dark.png" else "category-menu-light.png"))
+                d.dumpWindowHierarchy(File(output, if (dark) "category-menu-dark.xml" else "category-menu-light.xml"))
+                assertTrue("New category menu missing",d.wait(Until.hasObject(By.text("New category")), 10000))
                 click("Work")
                 d.waitForIdle(); Thread.sleep(800)
                 d.takeScreenshot(File(output, if (dark) "edit-dark.png" else "edit-light.png"))
@@ -72,6 +75,6 @@ class DocumentDialogTest {
                 assertEquals(uri.toString(), store.load().single().uri)
                 assertEquals("Original content Кирилица", source.readText())
             }
-        }
+        } } finally { store.save(original); store.categories(originalCategories) }
     }
 }

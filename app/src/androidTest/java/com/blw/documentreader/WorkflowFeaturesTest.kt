@@ -50,12 +50,14 @@ class WorkflowFeaturesTest {
         val out=PdfCopies.stamp(context,uri(source),PdfStamp("APPROVED",position="Diagonal",allPages=false,page=1))
         try {
             assertArrayEquals(bytes,source.readBytes())
+            val evidence=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()};out.copyTo(File(evidence,"stamp-rotated.pdf"),true)
             PDDocument.load(out).use{doc->
                 assertEquals(2,doc.numberOfPages);assertEquals(90,doc.getPage(1).rotation)
                 val strip=PDFTextStripper();strip.startPage=1;strip.endPage=1;assertFalse(strip.getText(doc).contains("APPROVED"))
-                strip.startPage=2;strip.endPage=2;val text=strip.getText(doc);assertTrue(text.contains("ORIGINAL PAGE 2"));assertTrue(text.contains("APPROVED"))
+                strip.startPage=2;strip.endPage=2;val text=strip.getText(doc);val compact=text.filterNot{it.isWhitespace()}
+                assertTrue("Original text missing: $text",compact.contains("ORIGINALPAGE2"));assertTrue("Stamp text missing: $text",compact.contains("APPROVED"))
             }
-            val evidence=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()};out.copyTo(File(evidence,"stamp-rotated.pdf"),true);Unit
+            Unit
         } finally {out.delete()}
     }
     private fun click(text:String){assertTrue(device.wait(Until.hasObject(By.text(text)),10000));device.findObject(By.text(text)).click();device.waitForIdle()}
@@ -68,7 +70,7 @@ class WorkflowFeaturesTest {
             it.onActivity{a->androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].updateRemember(false)}
             click("workflow-source.pdf")
             assertTrue(device.wait(Until.hasObject(By.desc("Print")),10000))
-            click("Go to");device.findObject(By.clazz("android.widget.EditText")).text="2";click("Go")
+            click("Go to");val pageInput=device.wait(Until.findObject(By.clazz("android.widget.EditText")),10000);assertNotNull("Page dialog input",pageInput);pageInput!!.text="2";click("Go")
             assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000));click("Tools");click("Stamp PDF")
             assertTrue(device.wait(Until.hasObject(By.text("Page 2")),10000));click("Cancel");device.pressBack()
             assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000))

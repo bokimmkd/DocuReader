@@ -38,6 +38,10 @@ android {
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
+            // White-box instrumentation needs the app APIs intact. The separate
+            // universal APK smoke test uses the actual optimized release AAB.
+            isMinifyEnabled = false
+            isShrinkResources = false
             // AndroidX instrumentation calls shared Kotlin APIs outside the app's R8 graph.
             // These extra retention rules are QA-only; release optimization is unchanged.
             proguardFile("qa-test-target.pro")
