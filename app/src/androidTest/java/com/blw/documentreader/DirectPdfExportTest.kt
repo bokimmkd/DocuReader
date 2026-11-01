@@ -120,6 +120,43 @@ class DirectPdfExportTest {
             f.copyTo(File(output, name + ".pdf"), overwrite = true); f.delete()
         }
     }
+    @Test fun wideExcelUsesFitToPageInPortraitAndLandscape() = runBlocking {
+        val uri = fixture("wide-excel.xlsx")
+        ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->
+            lateinit var web: WebView
+            scenario.onActivity { a ->
+                web = OfficeWebView.create(a, uri, "Excel")
+                a.setContentView(web)
+            }
+            try {
+                withTimeout(90000) {
+                    while (js(web, "window.officeReady===true") != "true") delay(150)
+                }
+                assertEquals("null", js(web, "window.prepareOfficePrint(true)"))
+                val source = DirectPdf.officeSnapshot(web)
+                for (landscape in listOf(false, true)) {
+                    val file = DirectPdf.create(web.context, source, landscape)
+                    try {
+                        val copy = File(output, "wide-excel-${if (landscape) "landscape" else "portrait"}.pdf")
+                        file.copyTo(copy, overwrite = true)
+                        assertPrintableMargins(copy)
+                        val rendered = info(copy)
+                        val compact = rendered.second.filterNot { it.isWhitespace() }
+                        assertTrue("First worksheet column missing", compact.contains("WIDE_START"))
+                        assertTrue("Rightmost worksheet column missing", compact.contains("COL_12_LAST"))
+                        assertTrue("Last worksheet row missing", compact.contains("WIDE_END"))
+                        assertTrue("Bottom-right cell missing", compact.contains("R36C12"))
+                        assertTrue("No exported pages", rendered.first > 0)
+                        PDDocument.load(copy).use { pdf ->
+                            val isLandscape = pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height
+                            assertEquals("Selected orientation ignored", landscape, isLandscape)
+                        }
+                    } finally { file.delete() }
+                }
+            } finally { scenario.onActivity { web.destroy() } }
+        }
+    }
+
     private fun click(d: UiDevice, selector: BySelector, timeout: Long = 15000) {
         val end = System.currentTimeMillis() + timeout
         do {
