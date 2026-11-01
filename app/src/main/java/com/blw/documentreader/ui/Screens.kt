@@ -685,7 +685,7 @@ private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 }
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit, retryPrice: () -> Unit,
+fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit, retryPrice: () -> Unit = {},
                    price: String, adFree: Boolean, privacy: () -> Unit,
                    privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit,
                    billingAvailable: Boolean = com.blw.documentreader.BuildConfig.BILLING_ENABLED) {
