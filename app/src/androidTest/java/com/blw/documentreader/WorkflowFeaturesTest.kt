@@ -228,12 +228,13 @@ class WorkflowFeaturesTest {
     }
     @Test fun zoomedPdfRerendersFineTextInsteadOfEnlargingPreview() = runBlocking {
         val file=File(context.filesDir,"zoom-sharpness.pdf")
-        PdfDocument().use { pdf ->
+        val pdf=PdfDocument()
+        try {
             val page=pdf.startPage(PdfDocument.PageInfo.Builder(600,800,1).create())
             page.canvas.drawColor(Color.WHITE);val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK;textSize=4f}
             for(y in 302..498 step 8)page.canvas.drawText("SHARP TEXT 1234567890",230f,y.toFloat(),paint)
             pdf.finishPage(page);file.outputStream().use{pdf.writeTo(it)}
-        }
+        } finally { pdf.close() }
         val session=PdfSession.open(context,uri(file))
         try {
             val base=session.render(0,600);val sharp=session.renderViewport(0,600,800,4f,0f,0f)

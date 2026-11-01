@@ -338,7 +338,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             pageText.toIntOrNull()?.let { if (it in 1..session.pageCount) scope.launch { listState.animateScrollToItem(it - 1) } }
             goDialog = false
         }) { DialogActionLabel("Go", Icons.Default.ArrowForward) } }, dismissButton = { TextButton(onClick = { goDialog = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
-    if (searchDialog) WReaderAlertDialog(onDismissRequest = { searchDialog = false }, title = { WReaderDialogTitle("Search selectable text") },
+    if (searchDialog) WReaderAlertDialog(onDismissRequest = { searchDialog = false }, title = { WReaderDialogTitle("Search PDF") },
         text = {
             Column {
                 OutlinedTextField(query, { query = it }, singleLine = true, label = { Text("Search PDF") })
