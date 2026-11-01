@@ -4,6 +4,12 @@
 The user explicitly requested another AAB for the pending fixes and to wait for release. Continue Closed testing ONLY, using the same accepted upload key. Production remains excluded.
 User physically confirmed Viber opening, Buy (completed a purchase), and expanded PDF zoom on 0.1.13. Restore has not been separately confirmed. Reported failures: a new single-finger gesture cannot pan a zoomed PDF, and Excel invoice export changes column proportions/wraps text across six pages. Home Favorites should show three entries like Recents. The original customer workbook has not been provided; do not claim exact-file acceptance.
 
+## Device acceptance update — 2026-11-01
+User tested 0.1.14-closed and confirmed Favorites are OK and PDF zoom followed by one-finger panning is OK. Their screenshot shows 0.1.14-closed installed. Actual Excel invoice testing is still pending. User considers this close to a release candidate; confirm the invoice before treating acceptance as complete. This feedback does not authorize Production publication.
+
+## Next update backlog
+User requested visual icons for the Appearance choices: Light (sun), Dark (moon), System (device/system). Keep the three modes and clear selected-state/accessibility labels. This is recorded for the next update, not a request for another AAB now.
+
 ## 0.1.14 implementation
 - Version `0.1.14-closed`, versionCode `16`, package `com.blw.wreader`.
 - Working branch `fix/wreader-0113-viber-billing-zoom-excel`; tested candidate `fadd8f4d17337ca81da4ea0f1cfb2acba8bfa068`, tree `131a0ff2f9650630bb003c649544f0831e04416c`.
@@ -26,7 +32,7 @@ Artifact provenance:
 - Saved artifact `libfile_d247c23eb27c8191b6d5f0d18507814e`.
 
 ## Next physical acceptance
-Test the user's actual invoice for full first/last columns, totals, images and intended page count; test Fit enabled and disabled. On Samsung, pinch then release and drag horizontally with one finger, and check vertical scrolling at the page edge. Verify three Favorites on Home. Purchase succeeded per user; check ad removal/Restore separately with the owned purchase, without charging again.
+Test the user's actual invoice for full first/last columns, totals, images and intended page count; test Fit enabled and disabled. Favorites and PDF zoom/pan are now physically confirmed by the user on 0.1.14. Purchase succeeded per earlier user feedback; ad removal/Restore has not been separately confirmed. Use the owned purchase for any later check, without charging again.
 
 ---
 
