@@ -60,6 +60,38 @@ class DirectPdfExportTest {
             }
         }
     }
+    @Test fun veryWideExcelInvoiceFitsPortraitAndLandscapeWithoutDroppingRightColumns() = runBlocking {
+        val columns = (1..14).joinToString("") { "<th>HEADER$it</th>" }
+        val rows = (1..40).joinToString("") { row ->
+            "<tr>" + (1..14).joinToString("") { col ->
+                "<td>ROW${row}_COLUMN${col}_END</td>"
+            } + "</tr>"
+        }
+        val snapshot = PdfSnapshot.local(
+            "<style>table.sheet{border-collapse:collapse;table-layout:fixed}" +
+                ".sheet th,.sheet td{min-width:118px;padding:6px;border:1px solid #777;" +
+                "white-space:nowrap;font-size:13px}</style>" +
+                "<table class='sheet'><thead><tr>$columns</tr></thead><tbody>$rows</tbody></table>"
+        )
+        ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->
+            lateinit var host: android.content.Context
+            scenario.onActivity { host = it }
+            for (landscape in listOf(false, true)) {
+                val file = withTimeout(120000) { DirectPdf.create(host, snapshot, landscape) }
+                try {
+                    PDDocument.load(file).use { pdf ->
+                        assertTrue("Wide worksheet produced an empty PDF", pdf.numberOfPages > 0)
+                        val text = PDFTextStripper().getText(pdf).filterNot { it.isWhitespace() }
+                        assertTrue("First column lost", text.contains("ROW1_COLUMN1_END"))
+                        assertTrue("Last column lost", text.contains("ROW40_COLUMN14_END"))
+                        assertEquals("Orientation mismatch", landscape,
+                            pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height)
+                    }
+                } finally { file.delete() }
+            }
+        }
+    }
+
     @Test fun directWordExcelAndTextKeepContentCyrillicAndPaginationIndependentOfZoom() = runBlocking {
         for ((name, type, first, last) in listOf(
             listOf("word.docx", "Word", "WORD_START", "WORD_END"),
