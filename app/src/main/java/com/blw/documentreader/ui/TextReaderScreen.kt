@@ -135,7 +135,7 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
         if (error != null) Text(error!!, Modifier.padding(16.dp))
         else {
             if (!loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
-            AndroidView(factory = { web }, modifier = Modifier.weight(1f).fillMaxWidth())
+            key(web) { AndroidView(factory = { web }, modifier = Modifier.weight(1f).fillMaxWidth()) }
         }
     }
     if (showSearch) AlertDialog(onDismissRequest = { showSearch = false }, title = { Text("Find in text") },

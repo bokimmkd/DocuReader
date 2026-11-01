@@ -145,7 +145,16 @@ class WorkflowFeaturesTest {
         try {ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{s->
             assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].showLibrary("Images")};click("Library");click("gallery-2.png")
             assertTrue(device.wait(Until.hasObject(By.text("1 / 2")),15000));device.findObject(By.desc("Next image")).click()
-            assertTrue(device.wait(Until.hasObject(By.text("gallery-1.png")),10000));assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000));device.pressBack()
+            assertTrue(device.wait(Until.hasObject(By.text("gallery-1.png")),10000));assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000))
+            var pixels=0;val deadline=android.os.SystemClock.uptimeMillis()+10000
+            do {
+                val bitmap=inst.uiAutomation.takeScreenshot();pixels=0
+                for(y in bitmap.height*35/100 until bitmap.height*70/100 step 4) for(x in bitmap.width/4 until bitmap.width*3/4 step 4) {
+                    val c=bitmap.getPixel(x,y);if(Color.blue(c)>180 && Color.red(c)<70 && Color.green(c)<70)pixels++
+                }
+                bitmap.recycle();if(pixels<1000)Thread.sleep(150)
+            }while(pixels<1000 && android.os.SystemClock.uptimeMillis()<deadline)
+            assertTrue("Next image title changed but its blue bitmap was not rendered",pixels>=1000);device.pressBack()
             var state:LibraryState?=null;s.onActivity{state=androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].libraryState};assertEquals("Images",state!!.type)
         }}finally{store.save(old)}
     }
