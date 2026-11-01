@@ -61,14 +61,22 @@
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
    const width=sheet.offsetWidth;
-   if(width>data.width+1)throw Error('This table is too wide for direct PDF. Choose Landscape or use Print and choose Save as PDF.');
+   if(!Number.isFinite(width)||width<=0)throw Error('This worksheet has no printable width.');
+   // Fit all columns into the selected A4 printable area instead of discarding
+   // the right edge. CSS zoom affects table layout height as well as paint size,
+   // so the merged-row pagination below measures the fitted groups.
+   const fit=Math.min(1,(data.width-4)/width);
+   if(fit<0.12)throw Error('The worksheet has too many columns to fit readably on one PDF page.');
    const groups=[];
    for(let start=0;start<rowList.length;){
     let end=start+1;
     for(let i=start;i<end;i++)for(const cell of rowList[i].cells)end=Math.min(rowList.length,Math.max(end,i+cell.rowSpan));
     groups.push(rowList.slice(start,end));start=end;
    }
-   const template=sheet.cloneNode(false);template.style.width=width+'px';
+   const template=sheet.cloneNode(false);
+   template.style.width=width+'px';
+   template.style.zoom=String(fit);
+   template.style.transformOrigin='top left';
    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
    const pagePixels=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20);
