@@ -7,16 +7,20 @@ import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,6 +32,37 @@ import com.blw.documentreader.pdf.PdfStamp
 import com.blw.documentreader.pdf.PdfPrint
 import kotlinx.coroutines.*
 import java.io.File
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StampDropdown(label: String, value: String, choices: List<String>, icon: ImageVector,
+    enabled: Boolean, onSelect: (String) -> Unit, colors: Map<String, Color> = emptyMap()) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded && enabled,
+        onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(value, {}, Modifier.fillMaxWidth().menuAnchor(), readOnly = true,
+            enabled = enabled, singleLine = true, label = { Text(label) },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            leadingIcon = {
+                colors[value]?.let { Box(Modifier.size(18.dp).background(it, CircleShape)) }
+                    ?: Icon(icon, null, Modifier.size(19.dp))
+            }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded && enabled) })
+        ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 280.dp)) {
+            choices.forEach { choice ->
+                DropdownMenuItem(text = { Text(choice, style = MaterialTheme.typography.bodyMedium) },
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    leadingIcon = {
+                        colors[choice]?.let { Box(Modifier.size(18.dp).background(it, CircleShape)) }
+                            ?: Icon(icon, null, Modifier.size(18.dp))
+                    }, trailingIcon = {
+                        if (choice == value) Icon(Icons.Default.Check, null, Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary)
+                    }, onClick = { expanded = false; onSelect(choice) })
+            }
+        }
+    }
+}
 
 @Composable
 fun PdfPasswordDialog(uri: Uri, name: String, onDismiss: () -> Unit, onBusy: (Boolean) -> Unit,
@@ -91,21 +126,36 @@ fun PdfStampDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit, onB
             finally { working = false; onBusy(false) }
         }
     }
-    if (saved == null) AlertDialog(onDismissRequest = { if (!working) { clearPreview(); onDismiss() } },
-        title = { WReaderDialogTitle("Stamp PDF") }, containerColor = MaterialTheme.colorScheme.background,
-        text = { Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    val presets = listOf("CONFIDENTIAL", "COPY", "PAID", "APPROVED", "DRAFT", "VOID", "RECEIVED")
+    val stampColors = linkedMapOf("Red" to 0xffa21c27.toInt(), "Blue" to 0xff1c57be.toInt(),
+        "Teal" to 0xff00899e.toInt(), "Green" to 0xff1f8454.toInt(), "Purple" to 0xff76439f.toInt(),
+        "Orange" to 0xffc66515.toInt(), "Charcoal" to 0xff313e4d.toInt())
+    if (saved == null) WReaderCompactDialog(onDismissRequest = { if (!working) { clearPreview(); onDismiss() } },
+        title = "Stamp PDF", content = {
             Text("Saves a new copy. Original unchanged.", style = MaterialTheme.typography.bodySmall)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                listOf("CONFIDENTIAL","COPY","PAID","APPROVED","DRAFT","VOID","RECEIVED").forEach { value -> item { FilterChip(text == value, { clearPreview(); text = value }, label = { Text(value) }, enabled = !working) } }
-            }
-            OutlinedTextField(text, { clearPreview(); text = it.take(64) }, label = { Text("Stamp text") }, singleLine = true, enabled = !working, modifier = Modifier.fillMaxWidth())
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                listOf("Red" to 0xffa21c27, "Blue" to 0xff1c57be, "Teal" to 0xff00899e, "Green" to 0xff1f8454, "Purple" to 0xff76439f, "Orange" to 0xffc66515, "Charcoal" to 0xff313e4d).forEach { (label, value) -> item { FilterChip(color == value.toInt(), { clearPreview(); color = value.toInt() }, label = { Text(label) }, enabled = !working) } }
-            }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) { listOf("Center","Top","Bottom","Left","Right","Diagonal").forEach { value -> item { FilterChip(position == value, { clearPreview(); position = value }, label = { Text(value) }, enabled = !working) } } }
+            StampDropdown("Stamp type", presets.firstOrNull { it == text } ?: "Custom text", presets + "Custom text",
+                Icons.Default.Edit, !working, { value ->
+                    clearPreview()
+                    if (value != "Custom text") text = value else if (text in presets) text = ""
+                })
+            OutlinedTextField(text, { clearPreview(); text = it.take(64) }, label = { Text("Stamp text") },
+                textStyle = MaterialTheme.typography.bodyMedium,
+                leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(19.dp)) },
+                singleLine = true, enabled = !working, modifier = Modifier.fillMaxWidth())
+            StampDropdown("Color", stampColors.entries.firstOrNull { it.value == color }?.key ?: "Red",
+                stampColors.keys.toList(), Icons.Default.Palette, !working,
+                { value -> clearPreview(); color = stampColors.getValue(value) }, stampColors.mapValues { Color(it.value) })
+            StampDropdown("Position", position, listOf("Center", "Top", "Bottom", "Left", "Right", "Diagonal"),
+                Icons.Default.OpenWith, !working, { value -> clearPreview(); position = value })
             Row { FilterChip(!all, { clearPreview(); all = false }, label = { Text("Page ${page+1}") }, enabled = !working); Spacer(Modifier.width(6.dp)); FilterChip(all, { clearPreview(); all = true }, label = { Text("All pages") }, enabled = !working) }
-            Row { Checkbox(date, { clearPreview(); date = it }, enabled = !working); Text("Include date", Modifier.padding(top=12.dp)) }
-            OutlinedTextField(filename, { filename = it }, label = { Text("New PDF name") }, singleLine = true, enabled = !working, modifier = Modifier.fillMaxWidth())
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(date, { clearPreview(); date = it }, enabled = !working)
+                Text("Include date", style = MaterialTheme.typography.bodyMedium)
+            }
+            OutlinedTextField(filename, { filename = it }, label = { Text("New PDF name") },
+                textStyle = MaterialTheme.typography.bodyMedium,
+                leadingIcon = { Icon(Icons.Default.PictureAsPdf, null, Modifier.size(19.dp)) },
+                singleLine = true, enabled = !working, modifier = Modifier.fillMaxWidth())
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
             preview?.let { Image(it.asImageBitmap(), "Stamp preview for page ${page+1}", Modifier.fillMaxWidth().heightIn(max=260.dp)) }
@@ -123,11 +173,17 @@ fun PdfStampDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit, onB
                     catch (_: Exception) { clearPreview(); error = "Could not stamp this PDF. Use supported text and an unprotected document." }
                     finally { working = false; onBusy(false) }
                 }
-            }) { Text("Preview") }
-        } }, confirmButton = { Button(enabled = staged != null && !working, onClick = {
-            try { filename = DocumentNames.renamed(filename,"PDF"); working = true; onBusy(true); destination.launch(filename) }
-            catch (ex: Exception) { working = false; onBusy(false); error = ex.message }
-        }) { Text("Save copy") } }, dismissButton = { TextButton(enabled = !working, onClick = { clearPreview(); onDismiss() }) { Text("Cancel") } })
+            }) { Icon(Icons.Default.Visibility, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Preview") }
+        }, buttons = {
+            TextButton(enabled = !working, onClick = { clearPreview(); onDismiss() }) {
+                Icon(Icons.Default.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text("Cancel")
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(enabled = staged != null && !working, onClick = {
+                try { filename = DocumentNames.renamed(filename,"PDF"); working = true; onBusy(true); destination.launch(filename) }
+                catch (ex: Exception) { working = false; onBusy(false); error = ex.message }
+            }) { Icon(Icons.Default.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Save copy") }
+        })
     saved?.let { value -> AlertDialog(onDismissRequest = onDismiss, title = { WReaderDialogTitle("PDF saved") }, text = { Column {
         Text(savedName)
         Row { TextButton(onClick = { onDismiss(); onOpen(Uri.parse(value)) }) { Text("Open") }; TextButton(onClick = { onDismiss(); onShare(Uri.parse(value),savedName) }) { Text("Share") }; TextButton(onClick = { onDismiss(); PdfPrint.print(context,Uri.parse(value),savedName) }) { Text("Print") } }
