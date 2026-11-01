@@ -1,3 +1,35 @@
+# W Reader 0.1.14 — Excel layout and PDF pan follow-up
+
+## Latest user authorization and device feedback
+The user explicitly requested another AAB for the pending fixes and to wait for release. Continue Closed testing ONLY, using the same accepted upload key. Production remains excluded.
+User physically confirmed Viber opening, Buy (completed a purchase), and expanded PDF zoom on 0.1.13. Restore has not been separately confirmed. Reported failures: a new single-finger gesture cannot pan a zoomed PDF, and Excel invoice export changes column proportions/wraps text across six pages. Home Favorites should show three entries like Recents. The original customer workbook has not been provided; do not claim exact-file acceptance.
+
+## 0.1.14 implementation
+- Version `0.1.14-closed`, versionCode `16`, package `com.blw.wreader`.
+- Working branch `fix/wreader-0113-viber-billing-zoom-excel`; tested candidate `fadd8f4d17337ca81da4ea0f1cfb2acba8bfa068`, tree `131a0ff2f9650630bb003c649544f0831e04416c`.
+- Freeze actual unzoomed Excel header widths in a colgroup before print CSS hides column coordinates. Preserve original wrapping, merged cells, column proportions and image anchors when rows contain merged cells.
+- Excel PDF dialog defaults to `Fit sheet to one page`. Turning it off fits every column to page width and continues long sheets onto additional pages. Portrait/Landscape remain explicit. Direct export validates preview completeness independently from the Android Print fit threshold.
+- Normalize valid internal OOXML drawing namespace prefixes and package-absolute relationships in memory for ExcelJS; never fetch external relationships or modify the original workbook. The merged invoice with an embedded image exposed this existing reader limitation.
+- Zoomed PDFs accept a fresh one-finger pan gesture. Native 8x sharp rendering and bounds remain; at pan limits, vertical list scrolling can continue.
+- Home shows up to three Favorites, matching Recents (prior small commit `f4f0346`).
+- Viber retention, billing/purchase recovery, live ad IDs, signing identity and existing tools are retained.
+
+## 0.1.14 verification and release
+CI `41345418447` on the candidate above: SUCCESS: 55 unit tests and 32 Android tests passed with zero failures/errors/skips. Actual optimized release-AAB APK black-box smoke passed cold start/resume pixels, EPUB appearance, Word/Excel/image controls, and Library removal/Undo. Downloaded evidence XML independently verified all 87 tests. All text/table PDF pages passed raster checks for visible content and clear outer 20pt margins. The merged invoice renders were visually inspected in portrait and landscape, with all 12 columns, 43 rows, totals and the embedded image on one page; CSV was also visually inspected.
+Prior attempt `41344010850` / `b789da4` was rejected after the new invoice fixture timed out opening an unprefixed OOXML drawing. It must not be released. Local DOM/ExcelJS reproduction confirmed the corrected invoice opens all 43 rows and its image. The Android regression additionally checks both PDF orientations at reader zoom 25% and 200%, one page, rightmost column/totals, model text without reflow, embedded image, visible content and clear margins. A separate UI test pinches, releases all fingers, and asserts visible page movement after a new one-finger horizontal drag.
+Play Alpha draft release `11`, name `0.1.14 - Excel fit to page and PDF pan`, prior version 15 excluded. Submission confirmed on 2026-11-01: Publishing overview shows `Changes in review` for the sole change `Closed testing - Alpha` / `0.1.14 - Excel fit to page and PDF pan` / `Start full rollout`. Google quick checks were still running; review dispatch proceeds when they complete successfully. This is not approval or tester availability yet. No device support loss. Only non-blocking warning is missing native debug symbols for bundled native libraries; ReTrace mapping is included. Managed publishing remains off. Production and signing keys were unchanged.
+Artifact provenance:
+- Unsigned artifact `13100025611`, ZIP SHA-256 `1d09d62bd90cf1b61e08987b57d9c9b0bec76061d7c4a0de10fc641cde3d1b1c`.
+- Evidence artifact `13099746938`, ZIP SHA-256 `a321271d4d72413271d90eb7550287c59d871f89656fe0b99cf93ac5b6ef0c60`.
+- Signed file `WReader-0.1.14-closed-v16-signed.aab`, 19,119,264 bytes, SHA-256 `a9381e49199fe2b60ffe4ce7fa702eba546bad23161ece8c97a6eab5c461cfb6`.
+- Signature verified against the same accepted upload certificate `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`. Every unsigned payload entry is byte-identical after signing. Release manifest, all four ABIs, ReTrace mapping and ZIP integrity passed.
+- Saved artifact `libfile_d247c23eb27c8191b6d5f0d18507814e`.
+
+## Next physical acceptance
+Test the user's actual invoice for full first/last columns, totals, images and intended page count; test Fit enabled and disabled. On Samsung, pinch then release and drag horizontally with one finger, and check vertical scrolling at the page edge. Verify three Favorites on Home. Purchase succeeded per user; check ad removal/Restore separately with the owned purchase, without charging again.
+
+---
+
 # W Reader 0.1.13 — reconciled four-fix Closed Alpha handoff
 
 ## Current authorization
