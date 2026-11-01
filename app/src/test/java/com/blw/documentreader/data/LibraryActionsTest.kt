@@ -14,6 +14,12 @@ class LibraryActionsTest {
     @Test fun removeTagsDoesNotEraseUnrelatedTags() {
         assertEquals("home, 2026",LibraryActions.tags("Invoice, home, 2026","invoice",true))
     }
+    @Test fun editingAfterBulkTaggingKeepsEveryAcceptedTag() {
+        val tags = LibraryActions.tags("", (1..20).joinToString(", ") { "Tag $it" }, false)
+        assertEquals(tags, DocumentNames.tags(tags))
+        val longTag = "a".repeat(40)
+        assertEquals(longTag, DocumentNames.tags(longTag))
+    }
     @Test fun clearingCategoryDoesNotChangeFileIdentity() {
         val d=DocumentEntry("content://a","a.pdf","PDF",category="Work")
         val out=LibraryActions.change(listOf(d),setOf(d.uri),category="Uncategorized").single()

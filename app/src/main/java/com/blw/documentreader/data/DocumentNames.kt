@@ -19,6 +19,5 @@ object DocumentNames {
         return "$stem.$extension"
     }
 
-    fun tags(input: String): String = input.split(',').map { it.trim().take(35) }
-        .filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.take(12).joinToString(", ")
+    fun tags(input: String): String = LibraryActions.tags("", input, false)
 }

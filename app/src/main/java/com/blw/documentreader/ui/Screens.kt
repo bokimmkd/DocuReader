@@ -662,7 +662,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
         Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
-            else if (adFree) "Ad-free is active" else "One small banner · No interruptions",
+            else if (adFree) "Ad-free is active" else "Banner ads · No interruptions",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (closedTest) Text("Ad-free purchase available after testing", fontSize = 11.sp, lineHeight = 15.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
