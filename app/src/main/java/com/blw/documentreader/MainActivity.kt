@@ -198,7 +198,10 @@ class MainActivity : ComponentActivity() {
         resumeTick++
         vm.refreshAvailability()
         if (::reviews.isInitialized) reviews.observeUse()
-        if (::billing.isInitialized && BuildConfig.BILLING_ENABLED && optionalServicesReady) billing.restore(silent = true)
+        if (::billing.isInitialized && BuildConfig.BILLING_ENABLED && optionalServicesReady) {
+            billing.refreshOffer()
+            billing.restore(silent = true)
+        }
     }
 
     @Composable
@@ -434,6 +437,7 @@ class MainActivity : ComponentActivity() {
                         else ToolsStartScreen(onChoosePdf = { pendingPdfAction = null; toolFromLibrary = false; pickTool.launch(arrayOf("application/pdf")) },
                             onConvert = { convertDocument.launch(DocumentFormats.pickerTypes.filterNot { it == "application/pdf" }.toTypedArray()) })
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
+                            retryPrice = { billing.refreshOffer() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
                             adFree = billing.adFree,
                             checkUpdates = { updates.check(manual = true) }, rateApp = { reviews.openStore() },
