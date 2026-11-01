@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.blw.documentreader.data.DocumentNames
 import com.blw.documentreader.data.DocumentTypes
@@ -39,8 +41,10 @@ fun PdfPasswordDialog(uri: Uri, name: String, onDismiss: () -> Unit, onBusy: (Bo
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Creates a protected PDF copy. The original stays unchanged.")
             OutlinedTextField(password, { password = it; error = null }, label = { Text("Password (6–64 characters)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), enabled = !working)
             OutlinedTextField(confirmation, { confirmation = it; error = null }, label = { Text("Confirm password") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), enabled = !working)
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (working) LinearProgressIndicator(Modifier.fillMaxWidth())
