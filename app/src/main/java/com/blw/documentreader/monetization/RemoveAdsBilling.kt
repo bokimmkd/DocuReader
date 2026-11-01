@@ -36,6 +36,7 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
     private var connecting = false
     private var closed = false
     private var manualRestorePending = false
+    private var priceLoading = false
     private val recovery = PurchaseRecovery(object : AdFreeGateway {
         override suspend fun query(): OwnedQuery = suspendCancellableCoroutine { continuation ->
             client.queryPurchasesAsync(QueryPurchasesParams.newBuilder()
@@ -73,20 +74,34 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             override fun onBillingServiceDisconnected() { connecting = false }
         })
     }
+    /** Retries a stale/failed product query, e.g. after Play connection or resume. */
+    fun refreshOffer() {
+        if (closed) return
+        if (!client.isReady) { start(); return }
+        loadPrice()
+    }
     private fun loadPrice() {
+        if (closed || !client.isReady || priceLoading) return
+        priceLoading = true
+        if (details == null) localizedPrice = "Checking Google Play..."
         val params = QueryProductDetailsParams.newBuilder().setProductList(
             listOf(QueryProductDetailsParams.Product.newBuilder().setProductId("remove_ads")
                 .setProductType(BillingClient.ProductType.INAPP).build())
         ).build()
         client.queryProductDetailsAsync(params) { result, data ->
+            if (closed) return@queryProductDetailsAsync
+            priceLoading = false
             if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                details = data.productDetailsList.firstOrNull()
+                details = data.productDetailsList.firstOrNull { it.productId == "remove_ads" }
                 val offer = details?.oneTimePurchaseOfferDetailsList?.firstOrNull {
                     it.rentalDetails == null && it.preorderDetails == null
-                }
-                    ?: details?.oneTimePurchaseOfferDetails
+                } ?: details?.oneTimePurchaseOfferDetails
                 offerToken = offer?.offerToken
                 localizedPrice = offer?.formattedPrice ?: "Store price unavailable"
+            } else {
+                details = null
+                offerToken = null
+                localizedPrice = "Store price unavailable"
             }
         }
     }
@@ -107,6 +122,7 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             start()
             return
         }
+        if (details == null) loadPrice()
         scope.launch { recovery.restore(manual = !silent) }
     }
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
