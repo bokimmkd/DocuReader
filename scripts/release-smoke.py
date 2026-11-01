@@ -39,6 +39,7 @@ def open_file(name):
  tap(name)
 
 # The APK uses the production R8 graph and live configuration. Never click an ad.
+adb('uninstall','com.blw.wreader') # Independent fresh install; QA and smoke signing keys differ.
 adb('install','-r','verification/release-universal.apk')
 component='com.blw.wreader/com.blw.documentreader.MainActivity'
 for i in range(3):
