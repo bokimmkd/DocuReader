@@ -58,4 +58,5 @@ open_file('release-book.epub');await_node('Aa');tap('Aa');tap('Sepia');tap('Done
 adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
 for name in ['release-word.docx','release-sheet.xlsx','release-image.png']:
  open_file(name);await_node('Print');capture(name.split('.')[0]);adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
-print('PASS: actual release-AAB APK cold start/resume pixels, EPUB appearance and Word/Excel/image reader controls.')
+tap('Library');await_node('release-image.png');tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
+print('PASS: actual release-AAB APK cold start/resume pixels, EPUB appearance, Word/Excel/image reader controls and Library removal/Undo.')
