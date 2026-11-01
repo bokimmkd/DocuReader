@@ -55,7 +55,7 @@ class WorkflowFeaturesTest {
                 val strip=PDFTextStripper();strip.startPage=1;strip.endPage=1;assertFalse(strip.getText(doc).contains("APPROVED"))
                 strip.startPage=2;strip.endPage=2;val text=strip.getText(doc);assertTrue(text.contains("ORIGINAL PAGE 2"));assertTrue(text.contains("APPROVED"))
             }
-            val evidence=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()};out.copyTo(File(evidence,"stamp-rotated.pdf"),true)
+            val evidence=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()};out.copyTo(File(evidence,"stamp-rotated.pdf"),true);Unit
         } finally {out.delete()}
     }
     private fun click(text:String){assertTrue(device.wait(Until.hasObject(By.text(text)),10000));device.findObject(By.text(text)).click();device.waitForIdle()}
