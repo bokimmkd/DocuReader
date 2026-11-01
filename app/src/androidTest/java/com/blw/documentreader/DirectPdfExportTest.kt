@@ -79,6 +79,7 @@ class DirectPdfExportTest {
             for (landscape in listOf(false, true)) {
                 val file = withTimeout(120000) { DirectPdf.create(host, snapshot, landscape) }
                 try {
+                    assertPrintableMargins(file)
                     PDDocument.load(file).use { pdf ->
                         assertTrue("Wide worksheet produced an empty PDF", pdf.numberOfPages > 0)
                         val text = PDFTextStripper().getText(pdf).filterNot { it.isWhitespace() }
