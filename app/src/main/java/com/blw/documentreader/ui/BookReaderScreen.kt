@@ -97,6 +97,7 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
                 if(!alive) return@postDelayed
                 go(fraction); restoring=false
                 count=ceil((maximum()+height).toFloat()/height.coerceAtLeast(1)).toInt().coerceAtLeast(1)
+                page=if(count==1)1 else (fraction*(count-1)).toInt()+1
                 ready()
             },120) }
         }

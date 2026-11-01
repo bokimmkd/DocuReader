@@ -30,7 +30,8 @@ class WorkflowFeaturesTest {
     private fun uri(file:File)=FileProvider.getUriForFile(context,"${context.packageName}.files",file)
     private fun pdf():File {
         val file=File(context.filesDir,"library/workflow-source.pdf").also{it.parentFile!!.mkdirs()}
-        PdfDocument().use{doc->repeat(2){i->val p=doc.startPage(PdfDocument.PageInfo.Builder(595,842,i+1).create());p.canvas.drawColor(Color.WHITE);p.canvas.drawText("ORIGINAL PAGE ${i+1}",40f,80f,Paint().apply{color=Color.BLACK;textSize=20f});doc.finishPage(p)};file.outputStream().use{doc.writeTo(it)}}
+        val doc=PdfDocument()
+        try {repeat(2){i->val p=doc.startPage(PdfDocument.PageInfo.Builder(595,842,i+1).create());p.canvas.drawColor(Color.WHITE);p.canvas.drawText("ORIGINAL PAGE ${i+1}",40f,80f,Paint().apply{color=Color.BLACK;textSize=20f});doc.finishPage(p)};file.outputStream().use{doc.writeTo(it)}} finally {doc.close()}
         return file
     }
     @Test fun passwordCopyActuallyRequiresPasswordAndOriginalIsUnchanged()=runBlocking {
@@ -80,6 +81,7 @@ class WorkflowFeaturesTest {
         val intent=Intent(context,ImageReaderTestActivity::class.java).setData(uri(file)).putExtra("type","TXT")
         ActivityScenario.launch<ImageReaderTestActivity>(intent).use{
             assertTrue(device.wait(Until.hasObject(By.desc("Book mode")),15000));device.findObject(By.desc("Book mode")).click()
+            assertTrue(device.wait(Until.hasObject(By.textContains("Paragraph 1.")),15000))
             click("Aa");click("Sepia");click("Done")
             assertTrue(device.wait(Until.hasObject(By.text("Next ›")),10000));click("Next ›")
             device.findObject(By.desc("Bookmark page")).click();click("Bookmarks")
@@ -93,13 +95,54 @@ class WorkflowFeaturesTest {
         }
     }
     @Test fun repeatedProductionStartupAndRealBackgroundResumeStayVisible() {
+        fun visibleFrame(label:String) {
+            val bitmap=inst.uiAutomation.takeScreenshot();assertNotNull(bitmap)
+            var blue=0
+            for(y in 0 until bitmap!!.height step 4) for(x in 0 until bitmap.width step 4) {
+                val c=bitmap.getPixel(x,y)
+                if(Color.blue(c)>150 && Color.blue(c)>Color.red(c)+60 && Color.blue(c)>Color.green(c)+40)blue++
+            }
+            val dir=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()}
+            File(dir,"startup-$label.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+            bitmap.recycle();assertTrue("App frame is blank: $label ($blue)",blue>500)
+        }
         repeat(4) {
             ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use {
                 assertTrue(device.wait(Until.hasObject(By.text("Open document")),15000))
+                device.waitForIdle();visibleFrame("open-${it.hashCode()}")
                 device.pressHome();device.waitForIdle()
                 context.startActivity(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
                 assertTrue(device.wait(Until.hasObject(By.text("Open document")),15000))
+                device.waitForIdle();visibleFrame("resume-${it.hashCode()}")
             }
         }
+    }
+    @Test fun bulkCategoryUsesOnlyShownPdfFilesAndUnavailableEntryStaysIndexed() {
+        val store=DocumentStore(context);val old=store.load();val categories=store.categories();val source=pdf()
+        val missing=File(source.parentFile,"missing-workflow.pdf");missing.delete()
+        val txt=File(source.parentFile,"other-workflow.txt").also{it.writeText("Do not change")}
+        val docs=listOf(DocumentEntry(uri(source).toString(),"workflow-source.pdf","PDF",addedAt=1),DocumentEntry(uri(missing).toString(),missing.name,"PDF",addedAt=1),DocumentEntry(uri(txt).toString(),txt.name,"TXT",addedAt=1))
+        store.save(docs)
+        try {ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{s->
+            assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].showLibrary("PDF")};click("Library")
+            assertTrue(device.wait(Until.hasObject(By.textContains("File unavailable")),15000))
+            device.findObjects(By.desc("Document actions")).first().click();click("Select");click("All shown (2)");click("Category")
+            assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")),10000));device.findObjects(By.clazz("android.widget.EditText")).last().text="QA category";click("Apply")
+            val saved=store.load();assertEquals(2,saved.count{it.category=="QA category"});assertEquals("Uncategorized",saved.first{it.type=="TXT"}.category)
+            assertEquals(3,saved.size);assertTrue(source.isFile);assertTrue(txt.isFile)
+            s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].deleteCategory("QA category")}
+            assertTrue(store.load().all{it.category=="Uncategorized"});assertFalse("Category returns after reload",store.categories().contains("QA category"))
+        }}finally{store.save(old);store.categories(categories)}
+    }
+    @Test fun galleryNavigationAndBackKeepTheImagesFilter() {
+        val store=DocumentStore(context);val old=store.load()
+        val images=(1..2).map{n->val file=File(context.filesDir,"library/gallery-$n.png").also{it.parentFile!!.mkdirs()};val b=android.graphics.Bitmap.createBitmap(600,400,android.graphics.Bitmap.Config.ARGB_8888);b.eraseColor(if(n==1)Color.BLUE else Color.RED);file.outputStream().use{b.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};b.recycle();DocumentEntry(uri(file).toString(),file.name,"PNG",addedAt=n.toLong())}
+        store.save(images)
+        try {ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{s->
+            assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].showLibrary("Images")};click("Library");click("gallery-2.png")
+            assertTrue(device.wait(Until.hasObject(By.text("1 / 2")),15000));device.findObject(By.desc("Next image")).click()
+            assertTrue(device.wait(Until.hasObject(By.text("gallery-1.png")),10000));assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000));device.pressBack()
+            var state:LibraryState?=null;s.onActivity{state=androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].libraryState};assertEquals("Images",state!!.type)
+        }}finally{store.save(old)}
     }
 }
