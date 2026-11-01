@@ -47,6 +47,7 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
     var dialog by remember(web) { mutableStateOf(false) }
     var outputName by rememberSaveable(name) { mutableStateOf(name.substringBeforeLast('.', name) + ".pdf") }
     var landscape by rememberSaveable(name) { mutableStateOf(defaultLandscape) }
+    var fitSheetToPage by rememberSaveable(name) { mutableStateOf(true) }
     var inputError by remember(web) { mutableStateOf<String?>(null) }
     var pendingName by rememberSaveable { mutableStateOf("") }
     var stagedPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -108,6 +109,11 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
                 label = { Text("File name") }, shape = RoundedCornerShape(10.dp), isError = inputError != null,
                 supportingText = { Text(inputError ?: "Choose where to save your PDF.") })
             if (excel) Text("Converts the selected worksheet.", style = MaterialTheme.typography.bodySmall)
+            if (excel) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(checked = fitSheetToPage, onCheckedChange = { fitSheetToPage = it })
+                Text("Fit sheet to one page", style = MaterialTheme.typography.bodyMedium)
+            }
+            if (excel && !fitSheetToPage) Text("Fits all columns; long sheets continue on more pages.", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !landscape, onClick = { landscape = false }, label = { Text("Portrait") })
                 FilterChip(selected = landscape, onClick = { landscape = true }, label = { Text("Landscape") })
@@ -119,9 +125,7 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
             dialog = false; busy(true); progress = "Creating PDF…"
             job = scope.launch {
                 try {
-                    val reason = suspendCancellableCoroutine<String?> { c -> prepare(landscape) { if (c.isActive) c.resume(it) } }
-                    require(reason == null) { reason.orEmpty() }
-                    val file = DirectPdf.create(context, snapshot(), landscape)
+                    val file = DirectPdf.create(context, snapshot(), landscape, fitSheetToPage = excel && fitSheetToPage)
                     stagedPath = file.absolutePath; progress = null; destination.launch(pendingName)
                 } catch (timeout: TimeoutCancellationException) { clearStage(); report("PDF creation timed out. Please try again.") }
                 catch (cancel: CancellationException) { clearStage(); report("PDF creation canceled."); throw cancel }

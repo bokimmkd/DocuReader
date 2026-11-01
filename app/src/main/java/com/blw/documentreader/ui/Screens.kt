@@ -401,16 +401,20 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Fl
                     awaitFirstDown(requireUnconsumed = false)
                     var multiTouch = false
                     do {
-                        val event = awaitPointerEvent()
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                         if (event.changes.count { it.pressed } >= 2) multiTouch = true
-                        if (multiTouch) {
+                        if (multiTouch || currentZoom > 1.01f) {
                             val pinch = event.calculateZoom()
                             val pan = event.calculatePan()
                             val next = (currentZoom * pinch).coerceIn(1f, 8f)
                             if (next.isFinite()) changeZoom(next)
-                            translateX = (translateX + pan.x).coerceIn(-bounds.width * (next - 1f) / 2f, bounds.width * (next - 1f) / 2f)
-                            translateY = (translateY + pan.y).coerceIn(-bounds.height * (next - 1f) / 2f, bounds.height * (next - 1f) / 2f)
-                            event.changes.forEach { if (it.pressed) it.consume() }
+                            val oldX = translateX.coerceIn(-bounds.width * (currentZoom - 1f) / 2f, bounds.width * (currentZoom - 1f) / 2f)
+                            val oldY = translateY.coerceIn(-bounds.height * (currentZoom - 1f) / 2f, bounds.height * (currentZoom - 1f) / 2f)
+                            translateX = (oldX + pan.x).coerceIn(-bounds.width * (next - 1f) / 2f, bounds.width * (next - 1f) / 2f)
+                            translateY = (oldY + pan.y).coerceIn(-bounds.height * (next - 1f) / 2f, bounds.height * (next - 1f) / 2f)
+                            // At the page edge allow the parent list to continue scrolling.
+                            if (multiTouch || translateX != oldX || translateY != oldY)
+                                event.changes.forEach { if (it.pressed) it.consume() }
                         }
                     } while (event.changes.any { it.pressed })
                 }

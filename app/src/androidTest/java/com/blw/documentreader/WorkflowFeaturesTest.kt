@@ -34,6 +34,43 @@ class WorkflowFeaturesTest {
         try {repeat(2){i->val p=doc.startPage(PdfDocument.PageInfo.Builder(595,842,i+1).create());p.canvas.drawColor(Color.WHITE);p.canvas.drawText("ORIGINAL PAGE ${i+1}",40f,80f,Paint().apply{color=Color.BLACK;textSize=20f});doc.finishPage(p)};file.outputStream().use{doc.writeTo(it)}} finally {doc.close()}
         return file
     }
+    @Test fun zoomedPdfMovesHorizontallyWithANewSingleFingerGesture() {
+        val source=File(context.filesDir,"library/single-finger-pan.pdf").also { it.parentFile!!.mkdirs() }
+        val pdf=PdfDocument()
+        try {
+            val page=pdf.startPage(PdfDocument.PageInfo.Builder(595,842,1).create())
+            page.canvas.drawColor(Color.WHITE)
+            for (column in 0..11) page.canvas.drawRect(column*50f,0f,(column+1)*50f,842f,
+                Paint().apply { color=if(column%2==0) Color.rgb(25,85,180) else Color.rgb(235,175,35) })
+            pdf.finishPage(page);source.outputStream().use { pdf.writeTo(it) }
+        } finally { pdf.close() }
+        val intent=Intent(context,MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+            .setDataAndType(uri(source),"application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            val page=device.wait(Until.findObject(By.desc("Page 1")),20000)
+            assertNotNull("PDF page did not open",page)
+            page!!.pinchOpen(.65f)
+            device.waitForIdle();Thread.sleep(500)
+            val rect=device.findObject(By.desc("Page 1")).visibleBounds
+            val before=inst.uiAutomation.takeScreenshot()
+            try {
+                // All pinch pointers are up. This is a new, one-finger drag.
+                device.swipe(rect.centerX(),rect.centerY(),rect.centerX()+rect.width()/5,rect.centerY(),30)
+                device.waitForIdle();Thread.sleep(500)
+                val after=inst.uiAutomation.takeScreenshot()
+                try {
+                    var changed=0
+                    for(y in rect.top+20 until rect.bottom-20 step 3)
+                        for(x in rect.left+20 until rect.right-20 step 3)
+                            if(before.getPixel(x,y)!=after.getPixel(x,y))changed++
+                    assertTrue("New one-finger drag did not move the zoomed PDF",changed>1000)
+                    val dir=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()}
+                    File(dir,"pan-before.png").outputStream().use{before.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+                    File(dir,"pan-after.png").outputStream().use{after.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+                } finally { after.recycle() }
+            } finally { before.recycle() }
+        }
+    }
     @Test fun passwordCopyActuallyRequiresPasswordAndOriginalIsUnchanged()=runBlocking {
         val source=pdf();val bytes=source.readBytes()
         val out=PdfCopies.protect(context,uri(source),"secret-123")

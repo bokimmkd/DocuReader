@@ -21,6 +21,8 @@
       fitting via windowWidth; inherited CSS zoom moves html2canvas paint
       coordinates far outside the page even though PDF text extraction passes. */
    table.sheet{zoom:1!important;transform:none!important}
+   table.sheet[data-preserve-columns]{max-width:none!important;border-collapse:separate!important}
+   table.sheet[data-preserve-columns] td{min-width:0!important;max-width:none!important;overflow-wrap:normal!important}
    .docx-wrapper{padding:0!important;background:#fff!important}
    .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;min-height:0!important;height:auto!important;overflow:visible!important;max-width:100%!important}
    .image img,.slide img{max-height:none!important;height:auto;max-width:100%}
@@ -68,9 +70,15 @@
    // Wide spreadsheets must fit the *full set of columns* to the selected A4
    // page width; a smaller page in CSS pixels does not mean dropped columns.
    // Keep the page orientation (portrait/landscape) the user selected.
-   const fitWidth=Math.max(data.width,width);
+   let fitWidth=Math.max(data.width,width);
    if(!Number.isFinite(width)||width<=0||fitWidth>8192)
     throw Error('This sheet exceeds the safe 8192-pixel PDF export width.');
+   if(data.fitSheetToPage){
+    const height=sheet.getBoundingClientRect().height;
+    // Fit both dimensions with a small rounding allowance; never reflow columns.
+    fitWidth=Math.max(fitWidth,(height+16)*(doc.internal.pageSize.getWidth()-20)/(doc.internal.pageSize.getHeight()-20));
+    if(!Number.isFinite(fitWidth)||fitWidth>8192)throw Error('This worksheet is too long to fit legibly on one page. Turn off Fit sheet to one page.');
+   }
    holder.style.width=fitWidth+'px';
    options.windowWidth=fitWidth;
    options.html2canvas.windowWidth=fitWidth;
@@ -81,8 +89,12 @@
     groups.push(rowList.slice(start,end));start=end;
    }
    const template=sheet.cloneNode(false);template.style.width=width+'px';
-   const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
-   if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
+   const savedColumns=Array.from(sheet.children).filter(n=>n.tagName==='COLGROUP');
+   if(savedColumns.length)savedColumns.forEach(n=>template.appendChild(n.cloneNode(true)));
+   else {
+    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
+    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
+   }
    // Retain worksheet headers on every page; the paginated body excludes THEAD.
    if(sheet.tHead)template.appendChild(sheet.tHead.cloneNode(true));
    const pagePixels=(doc.internal.pageSize.getHeight()-20)*fitWidth/(doc.internal.pageSize.getWidth()-20);

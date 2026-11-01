@@ -161,6 +161,45 @@ class DirectPdfExportTest {
             f.copyTo(File(output, name + ".pdf"), overwrite = true); f.delete()
         }
     }
+    @Test fun mergedInvoicePreservesColumnsAndFitsOnePageAtAnyReaderZoom() = runBlocking {
+        val uri = fixture("layout-invoice.xlsx")
+        ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->
+            lateinit var web: WebView
+            scenario.onActivity { a -> web = OfficeWebView.create(a, uri, "Excel"); a.setContentView(web) }
+            try {
+                withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                for (zoom in listOf(0.25, 2.0)) {
+                    js(web, "window.setOfficeZoom($zoom)")
+                    val source = DirectPdf.officeSnapshot(web)
+                    val table = org.jsoup.Jsoup.parse(source.html).selectFirst("table.sheet")!!
+                    val widths = table.select("colgroup col").map { it.attr("style").substringAfter("width:").substringBefore("px").trim().toDouble() }
+                    assertEquals(12, widths.size)
+                    assertTrue("Model column lost its original width", widths[2] > widths[5] * 2)
+                    assertTrue("Image lost after a merged cell", table.select("td[data-sheet-column=3] img").isNotEmpty())
+                    for (landscape in listOf(false, true)) {
+                        val file = DirectPdf.create(web.context, source, landscape, fitSheetToPage = true)
+                        try {
+                            file.copyTo(File(output, "layout-invoice-$zoom-${if (landscape) "landscape" else "portrait"}.pdf"), true)
+                            assertPrintableMargins(file)
+                            val rendered = info(file)
+                            assertEquals("Fit sheet to one page split the invoice", 1, rendered.first)
+                            val compact = rendered.second.filterNot { it.isWhitespace() }
+                            for (marker in listOf("INVOICE_LAYOUT_START", "RIGHTMOST_CBM", "TOTAL_RIGHT", "INVOICE_LAYOUT_END"))
+                                assertTrue("Invoice content missing: $marker", compact.contains(marker))
+                            for (row in 7..38) {
+                                assertTrue("Model was reflowed or lost", rendered.second.contains("Model-$row-Premium"))
+                                assertTrue("Rightmost cell missing", compact.contains("END_$row"))
+                            }
+                            PDDocument.load(file).use { pdf ->
+                                assertEquals(landscape, pdf.getPage(0).mediaBox.width > pdf.getPage(0).mediaBox.height)
+                                assertTrue("Worksheet image missing from PDF", pdf.getPage(0).resources.xObjectNames.any { pdf.getPage(0).resources.getXObject(it) is com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject })
+                            }
+                        } finally { file.delete() }
+                    }
+                }
+            } finally { scenario.onActivity { web.destroy() } }
+        }
+    }
     @Test fun wideExcelUsesFitToPageInPortraitAndLandscape() = runBlocking {
         val uri = fixture("wide-excel.xlsx")
         ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->

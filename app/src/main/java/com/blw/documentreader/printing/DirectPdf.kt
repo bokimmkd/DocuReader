@@ -66,12 +66,12 @@ object DirectPdf {
         error("The reader is no longer open.")
     }
     @SuppressLint("SetJavaScriptEnabled")
-    suspend fun create(context: Context, snapshot: PdfSnapshot, landscape: Boolean): File {
+    suspend fun create(context: Context, snapshot: PdfSnapshot, landscape: Boolean, fitSheetToPage: Boolean = false): File {
         val root = File(context.cacheDir, "pdf-exports").also { it.mkdirs() }
         val file = File(root, UUID.randomUUID().toString() + ".pdf")
         try {
             if (snapshot.image) withContext(Dispatchers.IO) { image(snapshot, landscape, file) }
-            else html(context, snapshot, landscape, file)
+            else html(context, snapshot, landscape, fitSheetToPage, file)
             withContext(Dispatchers.IO) {
                 require(file.length() in 8L..64L * 1024 * 1024) { "The PDF could not be created." }
                 PDDocument.load(file).use { pdf ->
@@ -114,9 +114,9 @@ object DirectPdf {
         } finally { bitmap.recycle(); pdf.close() }
     }
     @SuppressLint("SetJavaScriptEnabled")
-    private suspend fun html(context: Context, snapshot: PdfSnapshot, landscape: Boolean, file: File) = withContext(Dispatchers.Main.immediate) {
+    private suspend fun html(context: Context, snapshot: PdfSnapshot, landscape: Boolean, fitSheetToPage: Boolean, file: File) = withContext(Dispatchers.Main.immediate) {
         val payload = JSONObject().put("html", snapshot.html).put("css", snapshot.css).put("landscape", landscape)
-            .put("width", if (landscape) 1047 else 718).toString().toByteArray(Charsets.UTF_8)
+            .put("fitSheetToPage", fitSheetToPage).put("width", if (landscape) 1047 else 718).toString().toByteArray(Charsets.UTF_8)
         require(payload.size <= 32 * 1024 * 1024) { "Document is too large to export." }
         val loader = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .addPathHandler("/export/", WebViewAssetLoader.PathHandler { path ->

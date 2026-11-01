@@ -125,6 +125,7 @@ function renderSheet(ws) {
         for(let c=1;c<=nCols;c++){
             const key=r+':'+c;if(hidden.has(key))continue;
             const cell=ws.getCell(r,c),td=document.createElement('td');
+            td.dataset.sheetColumn=String(c);
             td.textContent=formatCell(cell);styledCell(td,cell);
             if(merges.has(key)){
                 const merged=merges.get(key);
@@ -145,7 +146,9 @@ function renderSheet(ws) {
             const cellRow=Math.floor(drawing.range.tl.nativeRow)+1;
             const cellCol=Math.floor(drawing.range.tl.nativeCol)+1;
             const tr=tbody.children[cellRow-1];
-            const td=tr&&tr.children[cellCol];
+            const td=tr&&Array.from(tr.querySelectorAll('td')).find(cell=>{
+                const start=Number(cell.dataset.sheetColumn);return cellCol>=start&&cellCol<start+cell.colSpan;
+            });
             if (!td)continue;
             const bytes=new Uint8Array(im.buffer);
             const url=URL.createObjectURL(new Blob([bytes],{type:'image/'+(im.extension==='jpg'?'jpeg':im.extension||'png')}));
@@ -203,6 +206,10 @@ window.prepareOfficePrint = function(landscape) {
     }
     return null;
 };
+window.validateOfficeSnapshot = function() {
+    if (!window.officeReady) throw Error('Wait for the document to finish loading.');
+    if (state.truncated) throw Error('This worksheet exceeds the preview limit. Choose a smaller worksheet before exporting.');
+};
 (async function main(){
     try{
         const type=new URLSearchParams(location.search).get('type');
@@ -231,8 +238,23 @@ window.prepareOfficePrint = function(landscape) {
 window.captureWReaderPdfSnapshot = function() {
     window.wReaderSnapshotReady=false;window.wReaderSnapshotError='';window.wReaderSnapshotHtml='';
     (async function(){try {
-        if(!window.officeReady)throw Error('Wait for the document to finish loading.');
+        window.validateOfficeSnapshot();
         const source=document.getElementById('content');const clone=source.cloneNode(true);
+        const sourceSheet=source.querySelector('table.sheet'),copySheet=clone.querySelector('table.sheet');
+        if(sourceSheet&&copySheet){
+            // Column widths live in the on-screen heading, which print CSS hides.
+            // Freeze the unzoomed geometry before hiding it or paginating merged rows.
+            const widths=Array.from(sourceSheet.tHead.rows[0].cells).slice(1).map(c=>c.offsetWidth);
+            const cols=document.createElement('colgroup');
+            widths.forEach(width=>{const col=document.createElement('col');col.style.width=width+'px';cols.appendChild(col);});
+            copySheet.querySelectorAll('colgroup').forEach(n=>n.remove());
+            copySheet.insertBefore(cols,copySheet.firstChild);
+            copySheet.style.width=widths.reduce((sum,w)=>sum+w,0)+'px';
+            copySheet.style.tableLayout='fixed';
+            copySheet.dataset.preserveColumns='true';
+            const cells=sourceSheet.querySelectorAll('td'),copies=copySheet.querySelectorAll('td');
+            cells.forEach((cell,i)=>copies[i].style.setProperty('white-space',getComputedStyle(cell).whiteSpace,'important'));
+        }
         const originals=source.querySelectorAll('img');const copies=clone.querySelectorAll('img');
         for(let i=0;i<originals.length;i++){
             const img=originals[i];if(!img.complete)await img.decode();
@@ -245,8 +267,6 @@ window.captureWReaderPdfSnapshot = function() {
         }
         clone.querySelectorAll('script,iframe,object,embed').forEach(n=>n.remove());
         clone.style.zoom='1';clone.style.transform='none';
-        const scale=getComputedStyle(document.documentElement).getPropertyValue('--sheet-print-scale').trim();
-        if(scale&&clone.querySelector('table.sheet'))clone.querySelector('table.sheet').style.zoom=scale;
         const html=clone.outerHTML;if(html.length>24*1024*1024)throw Error('Document is too large to export.');
         window.wReaderSnapshotHtml=html;window.wReaderSnapshotReady=true;
     }catch(e){window.wReaderSnapshotError=String(e&&e.message||e)}})();
