@@ -207,6 +207,56 @@ class WorkflowFeaturesTest {
         }
         } finally {store.save(before)}
     }
+    @Test fun transientViberAttachmentSurvivesSourceRemovalWithoutDuplicate() {
+        val store = DocumentStore(context)
+        val previous = store.load()
+        val source = pdf()
+        val sourceUri = uri(source)
+        store.save(emptyList())
+        var saved: DocumentEntry? = null
+        try {
+            ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+                scenario.onActivity { a ->
+                    androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java]
+                        .openTransientAttachment(sourceUri)
+                }
+                val deadline = android.os.SystemClock.uptimeMillis() + 20000
+                while (android.os.SystemClock.uptimeMillis() < deadline) {
+                    saved = store.load().singleOrNull { it.savedLocally }
+                    if (saved != null && device.hasObject(By.desc("Print"))) break
+                    Thread.sleep(100)
+                }
+                val doc = saved ?: error("Transient document was not copied to Library.")
+                assertTrue("Original source identity was lost", sourceUri.toString() in doc.sourceUris)
+                assertEquals("PDF", doc.type)
+                assertEquals(1, store.load().size)
+                assertTrue("Source PDF unexpectedly missing", source.delete())
+                scenario.onActivity { a ->
+                    val vm = androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java]
+                    vm.closeDocument()
+                    vm.openDocument(Uri.parse(doc.uri))
+                }
+                assertTrue("Saved copy failed after source deletion",
+                    device.wait(Until.hasObject(By.desc("Print")), 15000))
+                scenario.onActivity { a ->
+                    androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java]
+                        .openTransientAttachment(sourceUri)
+                }
+                Thread.sleep(1300)
+                assertEquals("Repeat attachment created a duplicate", 1, store.load().size)
+                assertEquals(doc.uri, store.load().single().uri)
+            }
+        } finally {
+            saved?.let { entry ->
+                val id=Uri.parse(entry.uri).lastPathSegment.orEmpty()
+                if (id.isNotBlank() && !id.contains("/")) {
+                    File(context.filesDir, "library/$id").delete()
+                }
+            }
+            store.save(previous)
+        }
+    }
+
     @Test fun libraryPdfBookModeKeepsPageBookmarksAndNormalViewHasNoZoomBar() {
         context.getSharedPreferences("pdf-reading",android.content.Context.MODE_PRIVATE).edit().clear().apply()
         val store=DocumentStore(context);val before=store.load();val source=pdf()
