@@ -21,9 +21,18 @@ def await_node(value,timeout=20,enabled=False):
   time.sleep(.4)
  raise AssertionError('Release UI missing: '+value)
 def await_text(fragment,timeout=20):
- end=time.monotonic()+timeout
+ end=time.monotonic()+timeout;attempts=0
  while time.monotonic()<end:
   if any(fragment in n.get('text','') for n in dump().iter('node')):return
+  attempts+=1
+  # Chromium can omit visible heading nodes after a local HTML/theme reload.
+  # Verify actual pixels instead of treating that incomplete accessibility tree as blank content.
+  if attempts>=2:
+   shot=ROOT/('content-'+fragment+'.png');shot.write_bytes(adb('exec-out','screencap','-p'))
+   visible=subprocess.check_output(['tesseract',str(shot),'stdout','--psm','11'],stderr=subprocess.DEVNULL).decode(errors='replace')
+   (ROOT/('content-'+fragment+'.txt')).write_text(visible)
+   clean=lambda value:re.sub('[^A-Z0-9]','',value.upper())
+   if clean(fragment) in clean(visible):return
   time.sleep(.4)
  raise AssertionError('Release document content missing: '+fragment)
 def menu_item(value):
