@@ -189,7 +189,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                     savedUri.toString(), name, type, original?.favorite ?: false,
                     original?.lastPage ?: 0, original?.openedAt ?: 0L,
                     original?.category ?: "Uncategorized", original?.tags ?: "", true, System.currentTimeMillis(),
-                    (original?.sourceUris.orEmpty() + uri.toString()).distinct()
+                    (original?.sourceUris.orEmpty() + withContext(Dispatchers.IO) { store.sourceKeys(uri) }).distinct()
                 )
                 recent = listOf(newEntry) + recent.filter {
                     it.uri != newEntry.uri && it.uri != uri.toString()
@@ -227,10 +227,31 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             }
         }
     }
+    private var openRequest = 0L
     fun openDocument(requestedUri: Uri, password: String? = null, fromQueue: Boolean = false) {
+        val request = ++openRequest
+        busy = true
+        viewModelScope.launch {
+            try {
+                val keys = withContext(Dispatchers.IO) { store.sourceKeys(requestedUri) }
+                if (request != openRequest) return@launch
+                val known = recent.find { it.uri in keys || it.sourceUris.any { key -> key in keys } }
+                val migrated = known ?: withContext(Dispatchers.IO) { store.legacyCopy(requestedUri, recent) }
+                if (request != openRequest) return@launch
+                if (migrated != null) {
+                    recent = recent.map { if (it.uri == migrated.uri) it.copy(sourceUris = (it.sourceUris + keys).distinct()) else it }
+                    store.save(recent)
+                }
+                busy = false
+                openResolved(requestedUri, password, fromQueue, request, keys)
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (ex: Exception) { if (request == openRequest) { busy = false; message = ex.message ?: "Could not open this file." } }
+        }
+    }
+    private fun openResolved(requestedUri: Uri, password: String?, fromQueue: Boolean, request: Long, keys: List<String>) {
         val requested = requestedUri.toString()
         val linked = recent.find { it.uri == requested || requested in it.sourceUris }
-        val uri = linked?.takeIf { it.savedLocally }?.let { Uri.parse(it.uri) } ?: requestedUri
+        val uri = linked?.let { Uri.parse(it.uri) } ?: requestedUri
         if (!fromQueue) imageQueue = emptyList()
         successfullyOpened = false
         val existingEntry = linked ?: recent.find { it.uri == uri.toString() }
@@ -248,7 +269,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             val record = DocumentEntry(
                 uri.toString(), name, type, existing?.favorite ?: false,
                 0, System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, existing?.sourceUris.orEmpty()
+                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct()
             )
             current = record
             recent = listOf(record) + recent.filter { it.uri != record.uri }
@@ -260,29 +281,33 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         viewModelScope.launch {
             try {
                 val session = PdfSession.open(appContext, uri, password)
+                if (request != openRequest) { session.close(); return@launch }
                 pdf?.close()
                 pdf = session
                 val existing = recent.find { it.uri == uri.toString() }
                 val record = DocumentEntry(uri.toString(), name, type, existing?.favorite ?: false,
                     if (remember) existing?.lastPage ?: 0 else 0,
                     System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, existing?.sourceUris.orEmpty())
+                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct())
                 current = record
                 recent = listOf(record) + recent.filter { it.uri != record.uri }
                 store.save(recent)
                 pdfMatches = emptyList()
                 successfullyOpened = true
             } catch (ex: SecurityException) {
+                if (request != openRequest) return@launch
                 passwordNeeded = true
                 message = "This PDF is protected. Enter its password to open it."
             } catch (ex: Exception) {
+                if (request != openRequest) return@launch
                 message = if (password != null) "Wrong password or unsupported PDF protection." else
                     "Could not open this file. It may be damaged or access may have expired. Choose Locate again."
-            } finally { busy = false }
+            } finally { if (request == openRequest) busy = false }
         }
     }
     fun markReaderReady() { successfullyOpened = true }
     fun closeDocument() {
+        openRequest++; busy = false
         if (successfullyOpened) reviewMoment++
         successfullyOpened = false
         pdf?.close(); pdf = null; officeUri = null

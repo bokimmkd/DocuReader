@@ -80,6 +80,29 @@ class DocumentStore(private val context: Context) {
         (0 until data.length()).map { data.getString(it) }
     } catch (_: Exception) { listOf("Work", "Personal", "Finance") }
     fun categories(values: List<String>) = prefs.edit().putString("categories", JSONArray(values).toString()).apply()
+    fun sourceKeys(uri: Uri): List<String> = listOfNotNull(uri.normalizeScheme().toString(),
+        runCatching { context.contentResolver.canonicalize(uri)?.toString() }.getOrNull()).distinct()
+    /** One-time conservative migration for old private copies that did not retain their origin. */
+    fun legacyCopy(uri: Uri, entries: List<DocumentEntry>): DocumentEntry? {
+        val name = DocumentTypes.displayName(context, uri)
+        val candidates = entries.filter { it.savedLocally && it.sourceUris.isEmpty() && it.name == name }
+        if (candidates.isEmpty() || candidates.size > 5) return null
+        fun fingerprint(source: Uri): Pair<Long, String>? = runCatching {
+            context.contentResolver.openInputStream(source)?.use { input ->
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val buffer = ByteArray(64 * 1024); var count = 0L
+                while (true) {
+                    val n = input.read(buffer); if (n < 0) break
+                    count += n; if (count > 128L * 1024 * 1024) return@use null
+                    digest.update(buffer, 0, n)
+                }
+                count to digest.digest().joinToString("") { "%02x".format(it) }
+            }
+        }.getOrNull()
+        val original = fingerprint(uri) ?: return null
+        return candidates.filter { fingerprint(Uri.parse(it.uri)) == original }.singleOrNull()
+    }
+
     /** Explicit user-requested offline copy. Does not touch the original document. */
     fun keepOffline(uri: Uri, originalName: String): Uri {
         val dir = File(context.filesDir, "library").also { it.mkdirs() }

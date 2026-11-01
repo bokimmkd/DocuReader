@@ -82,6 +82,11 @@ class WorkflowFeaturesTest {
             device.findObject(By.desc("Document actions")).click();click("Remove from Library");click("Remove")
             assertTrue(source.isFile);assertTrue(device.wait(Until.hasObject(By.text("Undo")),10000));click("Undo")
             assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000));assertTrue(source.isFile)
+            device.findObject(By.desc("Document actions")).click();assertFalse(device.hasObject(By.text("Convert to PDF")))
+            click("PDF tools");click("Stamp PDF");assertTrue(device.wait(Until.hasObject(By.text("Page 1")),10000));click("Cancel")
+            device.findObject(By.desc("Document actions")).click();click("PDF tools");click("Extract pages")
+            assertTrue(device.wait(Until.hasObject(By.text("Extract selected pages")),15000));click("Cancel");device.pressBack()
+            assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000))
         } } finally {store.save(original);store.setRememberPosition(remembered)}
     }
     @Test fun bookAppearanceAndBookmarksWorkOfflineAndResume() {
@@ -191,7 +196,16 @@ class WorkflowFeaturesTest {
                 assertEquals("QA category",loaded.category);assertEquals("important",loaded.tags);assertTrue(loaded.favorite)
                 assertTrue(source.isFile);device.pressBack()
             }
-        }} finally {store.save(before)}
+        }
+        val previous=store.load().single()
+        store.save(listOf(previous.copy(name=DocumentTypes.displayName(context,originalUri),sourceUris=emptyList())))
+        ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].openDocument(originalUri) }
+            assertTrue(device.wait(Until.hasObject(By.desc("Print")),15000))
+            val restored=store.load().single();assertEquals(previous.uri,restored.uri);assertTrue(originalUri.toString() in restored.sourceUris)
+            assertEquals("QA category",restored.category);assertTrue(restored.favorite)
+        }
+        } finally {store.save(before)}
     }
     @Test fun libraryPdfBookModeKeepsPageBookmarksAndNormalViewHasNoZoomBar() {
         context.getSharedPreferences("pdf-reading",android.content.Context.MODE_PRIVATE).edit().clear().apply()
