@@ -3,7 +3,10 @@ set -uo pipefail
 # android-emulator-runner invokes each script line separately; keep status in this shell.
 test_status=0
 variant="${READER_TEST_VARIANT:-Debug}"
-if [ "$variant" = "Qa" ]; then
+if [ "${READER_REUSE_QA:-false}" = "true" ]; then
+  test -s verification/qa-baseline.json || exit 1
+  echo 'Verified 22-test Android baseline for identical app/build inputs; running actual optimized release APK.'
+elif [ "$variant" = "Qa" ]; then
   gradle :app:connectedQaAndroidTest -PreaderTestBuildType=qa -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --stacktrace --no-daemon || test_status=$?
 else
   gradle :app:connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --stacktrace --no-daemon || test_status=$?

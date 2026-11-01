@@ -45,24 +45,28 @@ def capture(name,require_blue=False):
   im=Image.open(out).convert('RGB');n=sum(1 for y in range(0,im.height,4) for x in range(0,im.width,4) if (lambda c:c[2]>150 and c[2]>c[0]+60 and c[2]>c[1]+40)(im.getpixel((x,y))))
   assert n>500,(name,'blank frame',n)
 def open_file(name):
- tap('Open document')
- # Wait for the picker window: its Activity can appear after the tap completes.
- # Reading the first dump immediately used to leave us on Recent indefinitely.
- tap('Show roots');tap('Downloads')
- if match('List view') is not None:tap('List view')
- for _ in range(12):
-  tree=dump()
-  if any(name in (n.get('text'),n.get('content-desc')) for n in tree.iter('node')):
-   tap(name);return
-  listing=next((n for n in tree.iter('node') if n.get('resource-id','').endswith('/dir_list')),None)
-  assert listing is not None,'Downloads file list missing'
-  a,b,c,d=[int(x) for x in re.findall(r'\d+',listing.get('bounds',''))]
-  adb('shell','input','swipe',str((a+c)//2),str(d-120),str((a+c)//2),str(b+150),'400')
- raise AssertionError('Test fixture not listed in Downloads: '+name)
+ tap('Open document');await_node('Show roots');tap('Search')
+ end=time.monotonic()+15
+ while time.monotonic()<end:
+  field=next((n for n in dump().iter('node') if n.get('class')=='android.widget.EditText'),None)
+  if field is not None:break
+ else:raise AssertionError('System picker search field missing')
+ adb('shell','input','keycombination','113','29') # Ctrl+A, including a restored search query.
+ adb('shell','input','text',name);adb('shell','input','keyevent','KEYCODE_ENTER')
+ end=time.monotonic()+30
+ while time.monotonic()<end:
+  # Do not mistake the query EditText for the actual file result.
+  node=next((n for n in dump().iter('node') if n.get('resource-id')=='android:id/title' and n.get('text')==name),None)
+  if node is not None:
+   a,b,c,d=[int(x) for x in re.findall(r'\d+',node.get('bounds',''))]
+   if c>a and d>b:
+    adb('shell','input','tap',str((a+c)//2),str((b+d)//2));return
+  time.sleep(.4)
+ raise AssertionError('Test fixture missing in system picker search: '+name)
 
 def main():
  # The APK uses the production R8 graph and live configuration. Never click an ad.
- adb('uninstall','com.blw.wreader') # Independent fresh install; QA and smoke signing keys differ.
+ if b'package:com.blw.wreader' in adb('shell','pm','list','packages','com.blw.wreader'):adb('uninstall','com.blw.wreader')
  adb('install','-r','verification/release-universal.apk')
  component='com.blw.wreader/com.blw.documentreader.MainActivity'
  for i in range(3):
@@ -75,7 +79,9 @@ def main():
  assets=Path('app/src/androidTest/assets')
  for source,name in [('sample.epub','release-book.epub'),('word.docx','release-word.docx'),('excel.xlsx','release-sheet.xlsx'),('picture.png','release-image.png')]:
   p=assets/source
-  if p.exists():adb('push',str(p),'/sdcard/Download/'+name)
+  if p.exists():
+   adb('push',str(p),'/sdcard/Download/'+name)
+   adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file:///sdcard/Download/'+name)
   else:raise AssertionError('Missing fixture '+source)
  
  open_file('release-book.epub');await_node('Aa');tap('Aa');tap('Sepia');tap('Done');await_text('EPUB_START');capture('book-sepia')
