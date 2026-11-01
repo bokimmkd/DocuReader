@@ -230,7 +230,7 @@ fun HomeScreen(
 @Composable
 fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                  onShare: () -> Unit, onPrint: () -> Unit, onOrganize: () -> Unit,
-                 onStamp: () -> Unit = {}, onProtect: () -> Unit = {}) {
+                 onStamp: (Int) -> Unit = {}, onProtect: () -> Unit = {}) {
     val doc = vm.current ?: return
     val session = vm.pdf ?: return
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = doc.lastPage.coerceIn(0, session.pageCount - 1))
@@ -268,7 +268,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                 TextButton(onClick = { toolsMenu = true }) { Icon(Icons.Default.Build, null); Text("Tools") }
                 DropdownMenu(toolsMenu, { toolsMenu = false }) {
                     DropdownMenuItem(text = { Text("Organize pages") }, onClick = { toolsMenu = false; onOrganize() })
-                    DropdownMenuItem(text = { Text("Stamp PDF") }, onClick = { toolsMenu = false; onStamp() })
+                    DropdownMenuItem(text = { Text("Stamp PDF") }, onClick = { toolsMenu = false; onStamp(currentPage) })
                     DropdownMenuItem(text = { Text("Share with password") }, onClick = { toolsMenu = false; onProtect() })
                 }
             }

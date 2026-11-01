@@ -374,7 +374,7 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
                             onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
-                            onStamp = { stampPage = vm.current?.lastPage ?: 0 },
+                            onStamp = { stampPage = it },
                             onProtect = { vm.current?.let { protectedShare = Uri.parse(it.uri) to it.name } })
                     } else when (tab) {
                         0 -> HomeScreen(vm, openPicker = ::openPicker,

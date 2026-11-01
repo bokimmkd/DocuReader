@@ -60,13 +60,17 @@ class WorkflowFeaturesTest {
     }
     private fun click(text:String){assertTrue(device.wait(Until.hasObject(By.text(text)),10000));device.findObject(By.text(text)).click();device.waitForIdle()}
     @Test fun libraryBackRetainsPdfFilterAndRemovalUndoPreservesSource() {
-        val store=DocumentStore(context);val original=store.load();val source=pdf();val sourceUri=uri(source)
+        val store=DocumentStore(context);val original=store.load();val remembered=store.rememberPosition();val source=pdf();val sourceUri=uri(source)
         store.save(listOf(DocumentEntry(sourceUri.toString(),"workflow-source.pdf","PDF",addedAt=1)))
         try { ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use {
             assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));click("Library")
             val filters=device.findObjects(By.text("PDF"));assertTrue(filters.isNotEmpty());filters.first().click()
+            it.onActivity{a->androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].updateRemember(false)}
             click("workflow-source.pdf")
-            assertTrue(device.wait(Until.hasObject(By.desc("Print")),10000));device.pressBack()
+            assertTrue(device.wait(Until.hasObject(By.desc("Print")),10000))
+            click("Go to");device.findObject(By.clazz("android.widget.EditText")).text="2";click("Go")
+            assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000));click("Tools");click("Stamp PDF")
+            assertTrue(device.wait(Until.hasObject(By.text("Page 2")),10000));click("Cancel");device.pressBack()
             assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000))
             var state:LibraryState?=null
             it.onActivity{a->state=androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].libraryState}
@@ -74,7 +78,7 @@ class WorkflowFeaturesTest {
             device.findObject(By.desc("Document actions")).click();click("Remove from Library");click("Remove")
             assertTrue(source.isFile);assertTrue(device.wait(Until.hasObject(By.text("Undo")),10000));click("Undo")
             assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000));assertTrue(source.isFile)
-        } } finally {store.save(original)}
+        } } finally {store.save(original);store.setRememberPosition(remembered)}
     }
     @Test fun bookAppearanceAndBookmarksWorkOfflineAndResume() {
         val file=File(context.filesDir,"library/workflow-book.txt").also{it.parentFile!!.mkdirs();it.writeText((1..80).joinToString("\n\n"){i->"Paragraph $i. A quiet harbour, a book and a place to return. Кириличен текст."})}
