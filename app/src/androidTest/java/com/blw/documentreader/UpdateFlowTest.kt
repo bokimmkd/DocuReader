@@ -88,8 +88,15 @@ class UpdateFlowTest {
             await(s){it.updates.prompt=="Available"};screenshot("available")
             begin(s)
             await(s){it.updates.transfer.fraction==0.25f}
-            click("Open sample document")
-            assertTrue(UiDevice.getInstance(inst).wait(Until.hasObject(By.text("Document remains usable")),10000))
+            val device=UiDevice.getInstance(inst)
+            val document=By.text("Document remains usable")
+            // The banner changes height as it enters Downloading. Reacquire and
+            // retry this idempotent action if a tap landed during that layout.
+            val until=System.currentTimeMillis()+10000
+            do { click("Open sample document")
+                if(device.wait(Until.hasObject(document),1000))break
+            } while(System.currentTimeMillis()<until)
+            assertTrue(device.hasObject(document))
             screenshot("downloading")
             s.onActivity {fake.setBytesDownloaded(100)}
             await(s){it.updates.transfer.fraction==1f}

@@ -12,6 +12,7 @@ mkdir -p verification/android-print
 adb pull /sdcard/Android/data/com.blw.wreader/files/print-qa verification/android-print || true
 adb pull /sdcard/Download/WReaderPrintQA verification/android-print || true
 adb pull /sdcard/Download/WReaderSettingsQA verification/android-print || true
+adb pull /sdcard/Download/WReaderUpdateQA verification/android-print || true
 adb pull /sdcard/Android/data/com.blw.wreader/files/direct-pdf-qa verification/android-print || true
 adb pull /sdcard/Android/data/com.blw.wreader/files/image-display-qa verification/android-print || true
 adb pull /sdcard/Android/data/com.blw.wreader/files/dialog-qa verification/android-print || true

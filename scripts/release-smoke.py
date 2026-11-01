@@ -13,13 +13,28 @@ def dump():
 def match(value):
  tree=dump()
  return next((n for n in tree.iter('node') if value in (n.get('text'),n.get('content-desc'))),None)
-def await_node(value,timeout=20):
+def await_node(value,timeout=20,enabled=False):
  end=time.monotonic()+timeout
  while time.monotonic()<end:
   node=match(value)
-  if node is not None:return node
+  if node is not None and (not enabled or node.get("enabled")=="true"):return node
   time.sleep(.4)
  raise AssertionError('Release UI missing: '+value)
+def await_text(fragment,timeout=20):
+ end=time.monotonic()+timeout
+ while time.monotonic()<end:
+  if any(fragment in n.get('text','') for n in dump().iter('node')):return
+  time.sleep(.4)
+ raise AssertionError('Release document content missing: '+fragment)
+def menu_item(value):
+ for _ in range(3):
+  tree=dump()
+  if any(value in (n.get('text'),n.get('content-desc')) for n in tree.iter('node')):return
+  scrolls=[n for n in tree.iter('node') if n.get('scrollable')=='true']
+  assert scrolls,'No scrollable category menu'
+  a,b,c,d=[int(x) for x in re.findall(r'\d+',scrolls[-1].get('bounds',''))]
+  adb('shell','input','swipe',str((a+c)//2),str(d-25),str((a+c)//2),str(b+25),'400')
+ await_node(value)
 def tap(value):
  node=await_node(value); bounds=[int(n) for n in re.findall(r'\d+',node.get('bounds',''))]
  assert len(bounds)==4,(value,bounds)
@@ -56,11 +71,14 @@ def main():
   if p.exists():adb('push',str(p),'/sdcard/Download/'+name)
   else:raise AssertionError('Missing fixture '+source)
  
- open_file('release-book.epub');await_node('Aa');tap('Aa');tap('Sepia');tap('Done');capture('book-sepia')
+ open_file('release-book.epub');await_node('Aa');tap('Aa');tap('Sepia');tap('Done');await_text('EPUB_START');capture('book-sepia')
  adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  for name in ['release-word.docx','release-sheet.xlsx','release-image.png']:
-  open_file(name);await_node('Print');capture(name.split('.')[0]);adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
- tap('Library');await_node('release-image.png');tap('Document actions');tap('Rename');tap('Uncategorized');await_node('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
+  open_file(name);await_node('Print',enabled=True)
+  if name.endswith('.docx'):await_text('WORD_START')
+  if name.endswith('.xlsx'):await_text('EXCEL_START')
+  capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
+ tap('Library');await_node('release-image.png');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
  print('PASS: actual release-AAB APK cold start/resume pixels, EPUB appearance, Word/Excel/image reader controls and Library removal/Undo.')
 

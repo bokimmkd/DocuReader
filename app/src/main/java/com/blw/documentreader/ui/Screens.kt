@@ -244,7 +244,12 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
     var zoom by remember { mutableFloatStateOf(1f) }
     var currentPage by remember(doc.uri) { mutableIntStateOf(doc.lastPage.coerceIn(0, session.pageCount - 1)) }
     LaunchedEffect(session) {
-        snapshotFlow { listState.firstVisibleItemIndex }.distinctUntilChanged().collect { index ->
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            layout.visibleItemsInfo.maxByOrNull { item ->
+                minOf(item.offset + item.size, layout.viewportEndOffset) - maxOf(item.offset, layout.viewportStartOffset)
+            }?.index ?: listState.firstVisibleItemIndex
+        }.distinctUntilChanged().collect { index ->
             currentPage = index
             vm.pageChanged(index)
         }
