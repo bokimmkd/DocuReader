@@ -104,7 +104,7 @@ class DocumentStore(private val context: Context) {
     }
 
     /** Explicit user-requested offline copy. Does not touch the original document. */
-    fun keepOffline(uri: Uri, originalName: String): Uri {
+    fun keepOffline(uri: Uri, originalName: String, maxBytes: Long = Long.MAX_VALUE): Uri {
         val dir = File(context.filesDir, "library").also { it.mkdirs() }
         val extension = originalName.substringAfterLast('.', "").lowercase()
             .takeIf { it in DocumentFormats.byExtension.keys } ?: "pdf"
@@ -112,7 +112,17 @@ class DocumentStore(private val context: Context) {
         val temp = File(dir, "${dest.name}.part")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                temp.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+                temp.outputStream().use { output ->
+                    val buf = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buf)
+                        if (count < 0) break
+                        total += count
+                        require(total <= maxBytes) { "Attachment exceeds the offline-copy safety limit." }
+                        output.write(buf, 0, count)
+                    }
+                }
             } ?: error("This document is no longer accessible. Locate it again.")
             require(temp.length() > 0L || extension == "txt") { "The document was empty." }
             check(temp.renameTo(dest)) { "Unable to save the local copy." }
