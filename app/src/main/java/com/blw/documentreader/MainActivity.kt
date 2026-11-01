@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -215,6 +216,11 @@ class MainActivity : ComponentActivity() {
             "Light" -> false
             else -> androidx.compose.foundation.isSystemInDarkTheme()
         }
+        // Scoped to the current document; a book may have its own theme while the app stays Light.
+        var bookTheme by remember(vm.current?.uri) { mutableStateOf<String?>(null) }
+        val readingTheme = if (vm.current != null) bookTheme else null
+        val readingColors = readingTheme?.let { bookColors(it, dark) }
+        val systemDark = bookIsDark(readingTheme, dark)
         var password by remember { mutableStateOf("") }
         var infoPage by rememberSaveable { mutableStateOf<String?>(null) }
         BackHandler(infoPage != null) { infoPage = null }
@@ -239,8 +245,14 @@ class MainActivity : ComponentActivity() {
         // Keep status and gesture navigation icons legible in both theme modes.
         SideEffect {
             val bars = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-            bars.isAppearanceLightStatusBars = !dark
-            bars.isAppearanceLightNavigationBars = !dark
+            bars.isAppearanceLightStatusBars = !systemDark
+            bars.isAppearanceLightNavigationBars = !systemDark
+            // API 35+ draws system bars over our Scaffold. Older releases use these colors.
+            @Suppress("DEPRECATION")
+            window.statusBarColor = (readingColors?.background ?: if (dark) Color(0xFF101723) else Color(0xFFF9FBFF)).toArgb()
+            @Suppress("DEPRECATION")
+            window.navigationBarColor = (readingColors?.background ?: if (dark) Color(0xFF101723) else Color(0xFFF9FBFF)).toArgb()
+            if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = readingTheme == null
         }
         val blue = Color(0xFF0869E8)
         MaterialTheme(colorScheme = if (dark) darkColorScheme(
@@ -266,6 +278,7 @@ class MainActivity : ComponentActivity() {
             bodySmall = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 15.sp)
         )) {
             Scaffold(
+                containerColor = readingColors?.background ?: MaterialTheme.colorScheme.background,
                 topBar = {
                     if (vm.current == null && !(tab == 2 && vm.toolReady)) {
                         Surface(color = MaterialTheme.colorScheme.background) {
@@ -305,7 +318,7 @@ class MainActivity : ComponentActivity() {
                     val activeTint = if (dark) Color(0xFF67B6FF) else Color(0xFF0869E8)
                     Column(
                         modifier = Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background)
+                            .background(readingColors?.background ?: MaterialTheme.colorScheme.background)
                             .navigationBarsPadding()
                     ) {
                         if ((!BuildConfig.MONETIZATION_ENABLED || consent.settled) && !consent.privacyOpen && !outputBusy) {
@@ -369,6 +382,7 @@ class MainActivity : ComponentActivity() {
                             onOpenSaved = { bookModeOnOpen = false; incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
                             onReady = vm::markReaderReady, report = vm::report, initialBookMode = bookModeOnOpen,
+                            onBookTheme = { bookTheme = it },
                             imagePosition = if(vm.imageQueue.isNotEmpty()) "${vm.imageQueue.indexOf(vm.current?.uri)+1} / ${vm.imageQueue.size}" else null,
                             onPrevious = if(vm.imageQueue.indexOf(vm.current?.uri)>0) ({vm.adjacentImage(-1)}) else null,
                             onNext = if(vm.imageQueue.indexOf(vm.current?.uri) in 0 until vm.imageQueue.lastIndex) ({vm.adjacentImage(1)}) else null

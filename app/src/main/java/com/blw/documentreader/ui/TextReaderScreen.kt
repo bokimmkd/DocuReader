@@ -53,12 +53,12 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
                      onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
                      onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
                      onReady: () -> Unit, report: (String) -> Unit,
-                     initialBookMode: Boolean = false, imagePosition: String? = null, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
+                     initialBookMode: Boolean = false, onBookTheme: (String?) -> Unit = {}, imagePosition: String? = null, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
     val context = LocalContext.current
     var bookMode by androidx.compose.runtime.saveable.rememberSaveable(uri.toString()) { mutableStateOf(initialBookMode && !autoExport) }
     if (bookMode && type in setOf("EPUB","TXT")) {
         BookReaderScreen(uri,name,type,context.getSharedPreferences("metadata_only",Context.MODE_PRIVATE).getBoolean("remember",true),
-            onBack,onShare,onReady,onDocumentView={bookMode=false},report=report)
+            onBack,onShare,onReady,onDocumentView={bookMode=false},report=report,onBookTheme=onBookTheme)
         return
     }
     var error by remember(uri) { mutableStateOf<String?>(null) }

@@ -71,6 +71,68 @@ class WorkflowFeaturesTest {
             } finally { before.recycle() }
         }
     }
+    @Test fun bookDarkThemeCoversChromeAndRestoresAppInBothNavigationModes() {
+        val store=DocumentStore(context);val oldTheme=store.appearance()
+        val prefs=context.getSharedPreferences("book-reader",android.content.Context.MODE_PRIVATE)
+        val oldBookTheme=prefs.getString("theme","System")
+        val entitlement=context.getSharedPreferences("entitlement",android.content.Context.MODE_PRIVATE)
+        val oldEntitlement=entitlement.getBoolean("play_confirmed_offline",false)
+        val modeId=context.resources.getIdentifier("config_navBarInteractionMode","integer","android")
+        val oldMode=context.resources.getInteger(modeId)
+        val source=File(context.filesDir,"library/theme-check.txt").also { it.parentFile!!.mkdirs();it.writeText((1..50).joinToString("\n\n") { "Theme paragraph $it. Reading after dark should stay comfortable." }) }
+        val intent=Intent(context,MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(uri(source),"text/plain")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        fun navigation(name: String) {
+            device.executeShellCommand("cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.$name")
+            device.waitForIdle();Thread.sleep(500)
+        }
+        fun frame(label: String, expected: Int, y: Int) {
+            device.waitForIdle();Thread.sleep(300)
+            val bitmap=inst.uiAutomation.takeScreenshot()
+            try {
+                val actual=bitmap.getPixel(8,y.coerceIn(0,bitmap.height-1))
+                assertTrue("$label background is not themed: $actual", kotlin.math.abs(Color.red(actual)-Color.red(expected))<22 && kotlin.math.abs(Color.green(actual)-Color.green(expected))<22 && kotlin.math.abs(Color.blue(actual)-Color.blue(expected))<22)
+                val dir=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()}
+                File(dir,"$label.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+            } finally { bitmap.recycle() }
+        }
+        try {
+            store.setAppearance("Light");entitlement.edit().putBoolean("play_confirmed_offline",true).commit()
+            for(mode in listOf("threebutton","gestural")) {
+                navigation(mode)
+                prefs.edit().putString("theme","Light").commit()
+                ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+                    assertTrue(device.wait(Until.hasObject(By.desc("Book mode")),20000))
+                    device.findObject(By.desc("Book mode")).click();click("Aa");click("Dark");click("Done")
+                    assertTrue(device.wait(Until.hasObject(By.text("Bookmarks")),10000))
+                    val toolbar=device.findObject(By.desc("Back")).visibleBounds
+                    val footer=device.findObject(By.text("Bookmarks")).visibleBounds
+                    frame("book-dark-toolbar-$mode",Color.rgb(19,27,39),toolbar.centerY())
+                    frame("book-dark-footer-$mode",Color.rgb(19,27,39),footer.centerY())
+                    frame("book-dark-status-$mode",Color.rgb(19,27,39),5)
+                    frame("book-dark-navigation-$mode",Color.rgb(19,27,39),device.displayHeight-5)
+                    scenario.onActivity { a ->
+                        val bars=androidx.core.view.WindowCompat.getInsetsController(a.window,a.window.decorView)
+                        assertFalse(bars.isAppearanceLightStatusBars);assertFalse(bars.isAppearanceLightNavigationBars)
+                    }
+                    click("Aa");click("Sepia");click("Done")
+                    frame("book-sepia-footer-$mode",Color.rgb(245,234,212),device.findObject(By.text("Bookmarks")).visibleCenter.y)
+                    click("Aa");click("Dark");click("Done")
+                    device.findObject(By.desc("Book actions")).click();click("Document view / Print / Save PDF")
+                    assertTrue(device.wait(Until.hasObject(By.desc("Book mode")),10000))
+                    frame("book-exit-light-$mode",Color.rgb(249,251,255),device.findObject(By.desc("Back")).visibleCenter.y)
+                    scenario.onActivity { a ->
+                        val bars=androidx.core.view.WindowCompat.getInsetsController(a.window,a.window.decorView)
+                        assertTrue(bars.isAppearanceLightStatusBars);assertTrue(bars.isAppearanceLightNavigationBars)
+                    }
+                }
+            }
+        } finally {
+            navigation(if(oldMode==2)"gestural" else "threebutton")
+            store.setAppearance(oldTheme);prefs.edit().putString("theme",oldBookTheme).commit()
+            entitlement.edit().putBoolean("play_confirmed_offline",oldEntitlement).commit()
+        }
+    }
     @Test fun passwordCopyActuallyRequiresPasswordAndOriginalIsUnchanged()=runBlocking {
         val source=pdf();val bytes=source.readBytes()
         val out=PdfCopies.protect(context,uri(source),"secret-123")

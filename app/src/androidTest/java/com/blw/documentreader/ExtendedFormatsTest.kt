@@ -59,18 +59,36 @@ class ExtendedFormatsTest {
     }
     @Test fun compactSettingsAndEmbeddedHelpPrivacyWorkOffline() {
         val d=UiDevice.getInstance(inst)
-        for(dark in listOf(false,true)) {
-            ActivityScenario.launch<SettingsTestActivity>(Intent(context,SettingsTestActivity::class.java).putExtra("dark",dark)).use {
-                val rate=d.wait(Until.findObject(By.text("Rate app")),10000)!!
-                val updates=d.findObject(By.text("Check for updates"))!!
-                val density=context.resources.displayMetrics.density
-                assertTrue("Settings rows too far apart",(rate.visibleCenter.y-updates.visibleCenter.y)/density<=42f)
-                val dir=File("/sdcard/Download/WReaderSettingsQA").also{it.mkdirs()};d.takeScreenshot(File(dir,if(dark)"settings-dark.png" else "settings-light.png"))
-                d.findObject(By.text("Help & Feedback")).click()
+        fun reveal(text: String): UiObject2 {
+            repeat(8) {
+                d.findObject(By.text(text))?.let { if (it.visibleBounds.height() > 12) return it }
+                d.swipe(d.displayWidth/2, d.displayHeight*3/4, d.displayWidth/2, d.displayHeight/3, 25)
+                d.waitForIdle()
+            }
+            error("Missing Settings item: $text")
+        }
+        for ((dark, scale, active) in listOf(Triple(false,1f,false),Triple(true,1f,false),Triple(false,1.5f,false),Triple(true,1f,true))) {
+            ActivityScenario.launch<SettingsTestActivity>(Intent(context,SettingsTestActivity::class.java)
+                .putExtra("dark",dark).putExtra("fontScale",scale).putExtra("adFree",active)).use {
+                assertTrue(d.wait(Until.hasObject(By.text("Ads & purchase")),10000))
+                val offer = reveal("Ad-free Lifetime")
+                val buy = reveal(if(active) "Active" else "Buy")
+                assertTrue("Purchase overlaps offer", buy.visibleBounds.left >= offer.visibleBounds.right || buy.visibleBounds.top >= offer.visibleBounds.bottom)
+                if(active) assertTrue(d.hasObject(By.text("Ad-free is active")))
+                val dir=File("/sdcard/Download/WReaderSettingsQA").also{it.mkdirs()}
+                d.takeScreenshot(File(dir,"settings-$dark-$scale-$active.png"))
+                val rate=reveal("Rate app")
+                val updates=d.findObject(By.text("Check for updates"))
+                if(scale==1f) assertTrue("Settings rows too far apart", (rate.visibleCenter.y-updates.visibleCenter.y)/context.resources.displayMetrics.density<=42f)
+                reveal("Help & Feedback").click()
                 assertTrue(d.wait(Until.hasObject(By.text("Open documents and attachments")),10000))
+                assertTrue(d.hasObject(By.desc("W Reader logo")))
+                d.takeScreenshot(File(dir,"help-$dark-$scale-$active.png"))
                 d.pressBack();d.waitForIdle()
-                d.findObject(By.text("Privacy Policy")).click()
+                reveal("Privacy Policy").click()
                 assertTrue(d.wait(Until.hasObject(By.text("W Reader — Privacy Policy")),10000))
+                assertTrue(d.hasObject(By.desc("W Reader logo")))
+                d.takeScreenshot(File(dir,"privacy-$dark-$scale-$active.png"))
             }
         }
     }

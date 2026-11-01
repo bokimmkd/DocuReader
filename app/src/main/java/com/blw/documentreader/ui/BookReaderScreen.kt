@@ -6,6 +6,7 @@ import android.webkit.*
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -81,7 +82,7 @@ private class BookView(context: Context) : WebView(context) {
 @Composable
 fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boolean,
     onBack: () -> Unit, onShare: () -> Unit, onReady: () -> Unit, onDocumentView: () -> Unit,
-    report: (String) -> Unit) {
+    report: (String) -> Unit, onBookTheme: (String?) -> Unit = {}) {
     val context=LocalContext.current
     val prefs=remember { context.getSharedPreferences("book-reader",Context.MODE_PRIVATE) }
     val key=remember(uri) { java.security.MessageDigest.getInstance("SHA-256").digest(uri.toString().toByteArray()).joinToString(""){"%02x".format(it)} }
@@ -99,6 +100,12 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
     val dark=when(theme){"Dark"->true;"Light","Sepia"->false;else->MaterialTheme.colorScheme.background.luminance()<.4f}
     val bg=when{theme=="Sepia"->"#f5ead4";dark->"#131b27";else->"#fffdf8"}
     val fg=when{theme=="Sepia"->"#443727";dark->"#e8edf4";else->"#273044"}
+    val palette = bookColors(theme, dark)
+    val themeChanged by rememberUpdatedState(onBookTheme)
+    DisposableEffect(theme) {
+        themeChanged(theme)
+        onDispose { themeChanged(null) }
+    }
     val ready by rememberUpdatedState(onReady)
     val positionWriter by rememberUpdatedState<(Float)->Unit>({ value ->
         if(!restoring) {
@@ -152,7 +159,9 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
     }
     fun setMarks(values:List<Float>){marks=values.take(30);prefs.edit().putString("marks-$key",marks.joinToString(",")).apply()}
     val marked=marks.any{abs(it-fraction)<.005f}
-    Column(Modifier.fillMaxSize()) {
+    MaterialTheme(colorScheme = palette) {
+    CompositionLocalProvider(LocalContentColor provides palette.onSurface) {
+    Column(Modifier.fillMaxSize().background(palette.background)) {
         Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=onBack){Icon(Icons.AutoMirrored.Filled.ArrowBack,"Back")}
             Column(Modifier.weight(1f)){Text(name,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.titleSmall);Text("$type · Book mode",style=MaterialTheme.typography.labelSmall)}
@@ -189,4 +198,6 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
         if(marks.isEmpty())Text("Tap the bookmark icon to save your place.")
         marks.sorted().forEach{value->Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick={fraction=value;web.go(value);marksOpen=false},modifier=Modifier.weight(1f)){Text("${(value*100).toInt()}% through book")};IconButton(onClick={setMarks(marks-value)}){Icon(Icons.Default.DeleteOutline,"Remove bookmark")}}}
     }},confirmButton={TextButton(onClick={marksOpen=false}){ DialogActionLabel("Done", Icons.Default.Check) }})
+    }
+    }
 }
