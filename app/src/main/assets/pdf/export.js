@@ -60,8 +60,16 @@
   if(sheet){
    // Paginate complete row groups before painting. Generic canvas auto-paging can lose a row at a boundary.
    const rowList=Array.from(sheet.tBodies).flatMap(b=>Array.from(b.rows));
-   const width=sheet.offsetWidth;
-   if(width>data.width+1)throw Error('This table is too wide for direct PDF. Choose Landscape or use Print and choose Save as PDF.');
+   const width=Math.ceil(Math.max(sheet.scrollWidth,sheet.getBoundingClientRect().width));
+   // Wide spreadsheets must fit the *full set of columns* to the selected A4
+   // page width; a smaller page in CSS pixels does not mean dropped columns.
+   // Keep the page orientation (portrait/landscape) the user selected.
+   const fitWidth=Math.max(data.width,width);
+   if(!Number.isFinite(fitWidth)||fitWidth>8192)
+    throw Error('This sheet exceeds the safe 8192-pixel PDF export width.');
+   holder.style.width=fitWidth+'px';
+   options.windowWidth=fitWidth;
+   options.html2canvas.windowWidth=fitWidth;
    const groups=[];
    for(let start=0;start<rowList.length;){
     let end=start+1;
@@ -71,10 +79,10 @@
    const template=sheet.cloneNode(false);template.style.width=width+'px';
    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
-   const pagePixels=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20);
+   const pagePixels=(doc.internal.pageSize.getHeight()-20)*fitWidth/(doc.internal.pageSize.getWidth()-20);
    const maximum=pagePixels-16;
    holder.replaceChildren();let box=null,table=null,body=null;const pages=[];
-   function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=data.width+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
+   function page(){box=document.createElement('div');box.className='wreader-pdf-page';box.style.width=fitWidth+'px';table=template.cloneNode(true);body=document.createElement('tbody');table.appendChild(body);box.appendChild(table);holder.appendChild(box);pages.push(box);}
    page();
    for(const group of groups){
     const nodes=group.map(r=>r.cloneNode(true));nodes.forEach(n=>body.appendChild(n));
