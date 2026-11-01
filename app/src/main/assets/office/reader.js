@@ -164,6 +164,42 @@ function escapeNotice() {
 }
 async function loadExcel(bytes) {
     if (!window.ExcelJS) throw Error('Excel viewer bundle is not available.');
+    // ExcelJS 4.4 assumes conventional drawing namespace prefixes and relative
+    // image targets. Normalize equivalent valid OOXML in memory; the source
+    // file is untouched and external relationships are never fetched.
+    const zip=await window.JSZip.loadAsync(bytes);let normalized=false;
+    for(const part of Object.values(zip.files)){
+        if(/^xl\/drawings\/[^/]+\.xml$/.test(part.name)){
+            const drawing=new DOMParser().parseFromString(await part.async('string'),'application/xml');let changed=false;
+            for(const [ns,prefix] of [['http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing','xdr'],['http://schemas.openxmlformats.org/drawingml/2006/main','a']]){
+                for(const node of Array.from(drawing.getElementsByTagNameNS(ns,'*'))){
+                    if(node.prefix===prefix)continue;
+                    const replacement=drawing.createElementNS(ns,prefix+':'+node.localName);
+                    for(const attribute of Array.from(node.attributes)){
+                        if(attribute.namespaceURI==='http://www.w3.org/2000/xmlns/'&&attribute.value===ns)continue;
+                        replacement.setAttributeNS(attribute.namespaceURI,attribute.name,attribute.value);
+                    }
+                    while(node.firstChild)replacement.appendChild(node.firstChild);
+                    node.parentNode.replaceChild(replacement,node);changed=true;
+                }
+            }
+            if(changed){zip.file(part.name,new XMLSerializer().serializeToString(drawing));normalized=true;}
+        }
+        if(part.dir||!part.name.endsWith('.rels')||!part.name.includes('/_rels/'))continue;
+        const xml=await part.async('string');
+        if(!xml.includes('Target="/'))continue;
+        const relations=new DOMParser().parseFromString(xml,'application/xml');let changed=false;
+        for(const relation of Array.from(relations.getElementsByTagNameNS('*','Relationship'))){
+            const target=relation.getAttribute('Target')||'';
+            if(relation.getAttribute('TargetMode')==='External'||!target.startsWith('/xl/')||!zip.file(target.slice(1)))continue;
+            const from=part.name.substring(0,part.name.lastIndexOf('/_rels/')).split('/');
+            const to=target.slice(1).split('/');
+            while(from.length&&to.length&&from[0]===to[0]){from.shift();to.shift();}
+            relation.setAttribute('Target','../'.repeat(from.length)+to.join('/'));changed=true;
+        }
+        if(changed){zip.file(part.name,new XMLSerializer().serializeToString(relations));normalized=true;}
+    }
+    if(normalized)bytes=await zip.generateAsync({type:'uint8array'});
     const workbook=new ExcelJS.Workbook();
     await workbook.xlsx.load(bytes.buffer);
     state.workbook=workbook;

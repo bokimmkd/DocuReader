@@ -167,7 +167,13 @@ class DirectPdfExportTest {
             lateinit var web: WebView
             scenario.onActivity { a -> web = OfficeWebView.create(a, uri, "Excel"); a.setContentView(web) }
             try {
-                withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                withTimeout(90000) {
+                    while (js(web, "window.officeReady===true") != "true") {
+                        val status = js(web, "document.getElementById('status').textContent")
+                        assertFalse("Excel failed to open: $status", status.contains("Cannot display document"))
+                        delay(150)
+                    }
+                }
                 for (zoom in listOf(0.25, 2.0)) {
                     js(web, "window.setOfficeZoom($zoom)")
                     val source = DirectPdf.officeSnapshot(web)
