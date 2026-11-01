@@ -33,11 +33,12 @@ private class BookView(context: Context) : WebView(context) {
     var onPosition: (Float) -> Unit = {}
     var onTurn: (Int) -> Unit = {}
     var pages = false
+    var alive = true
     private var startX = 0f; private var startY = 0f; private var multiple = false
     fun maximum() = (computeVerticalScrollRange() - height).coerceAtLeast(0)
     fun position() = if (maximum() == 0) 0f else scrollY.toFloat()/maximum()
     fun go(fraction: Float) { scrollTo(0, (maximum()*fraction.coerceIn(0f,1f)).toInt()) }
-    fun turn(direction: Int) { smoothScrollTo(0, (scrollY + direction*(height-32).coerceAtLeast(1)).coerceIn(0,maximum())) }
+    fun turn(direction: Int) { if(direction>0) pageDown(false) else pageUp(false) }
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) { super.onScrollChanged(l,t,oldl,oldt); onPosition(position()) }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when(event.actionMasked) {
@@ -56,6 +57,7 @@ private class BookView(context: Context) : WebView(context) {
 }
 
 /** Local EPUB/TXT reading controls. JavaScript, remote resources and file access stay disabled. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boolean,
     onBack: () -> Unit, onShare: () -> Unit, onReady: () -> Unit, onDocumentView: () -> Unit,
@@ -92,6 +94,7 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
             override fun shouldInterceptRequest(view:WebView?,request:WebResourceRequest?)=
                 if(request?.url?.scheme=="data")null else WebResourceResponse("text/plain","UTF-8",byteArrayOf().inputStream())
             override fun onPageFinished(view:WebView?,url:String?) { postDelayed({
+                if(!alive) return@postDelayed
                 go(fraction); restoring=false
                 count=ceil((maximum()+height).toFloat()/height.coerceAtLeast(1)).toInt().coerceAtLeast(1)
                 ready()
@@ -100,7 +103,7 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
         onPosition={ value -> positionWriter(value); page=if(count==1)1 else (value*(count-1)).toInt()+1 }
         onTurn={ turn(it) }
     } }
-    DisposableEffect(web) { onDispose { web.onPosition={};web.stopLoading();web.destroy() } }
+    DisposableEffect(web) { onDispose { web.alive=false;web.onPosition={};web.stopLoading();web.destroy() } }
     LaunchedEffect(uri) {
         try {
             source=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use {
@@ -153,10 +156,10 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
         }
     }
     if(appearance)AlertDialog(onDismissRequest={appearance=false},title={WReaderDialogTitle("Reading appearance")},text={Column(Modifier.verticalScroll(rememberScrollState())){
-        Row {listOf("System","Light","Sepia","Dark").forEach{value->FilterChip(theme==value,{theme=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
+        FlowRow {listOf("System","Light","Sepia","Dark").forEach{value->FilterChip(theme==value,{theme=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
         Text("Text size: ${size.toInt()}");Slider(size,{size=it},valueRange=14f..30f,steps=15)
-        Text("Line spacing");Row{listOf("Compact","Comfortable","Wide").forEach{value->FilterChip(spacing==value,{spacing=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
-        Text("Margins");Row{listOf("Narrow","Normal","Wide").forEach{value->FilterChip(margin==value,{margin=value},label={Text(value)})}}
+        Text("Line spacing");FlowRow{listOf("Compact","Comfortable","Wide").forEach{value->FilterChip(spacing==value,{spacing=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
+        Text("Margins");FlowRow{listOf("Narrow","Normal","Wide").forEach{value->FilterChip(margin==value,{margin=value},label={Text(value)})}}
         Row{Switch(pages,{pages=it;prefs.edit().putBoolean("pages",it).apply()});Text(if(pages)"Page turns / swipe" else "Scroll",Modifier.padding(12.dp))}
     }},confirmButton={TextButton(onClick={appearance=false}){Text("Done")}})
     if(marksOpen)AlertDialog(onDismissRequest={marksOpen=false},title={WReaderDialogTitle("Bookmarks")},text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())){

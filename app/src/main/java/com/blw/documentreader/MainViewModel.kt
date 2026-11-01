@@ -13,6 +13,7 @@ import com.blw.documentreader.data.DocumentEntry
 import com.blw.documentreader.data.DocumentStore
 import com.blw.documentreader.data.DocumentTypes
 import com.blw.documentreader.data.DocumentNames
+import com.blw.documentreader.data.DocumentFormats
 import com.blw.documentreader.data.LibraryState
 import com.blw.documentreader.data.LibraryActions
 import androidx.compose.runtime.mutableStateMapOf

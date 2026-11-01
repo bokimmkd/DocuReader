@@ -116,7 +116,7 @@ fun PdfStampDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit, onB
                             } }
                         }
                     } catch (cancel: CancellationException) { throw cancel }
-                    catch (_: Exception) { error = "Could not stamp this PDF. Use supported text and an unprotected document." }
+                    catch (_: Exception) { clearPreview(); error = "Could not stamp this PDF. Use supported text and an unprotected document." }
                     finally { working = false; onBusy(false) }
                 }
             }) { Text("Preview") }
