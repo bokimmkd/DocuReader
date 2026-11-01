@@ -92,7 +92,7 @@ fun DocumentEditDialog(
             OutlinedTextField(tags, onTagsChange, Modifier.fillMaxWidth(),
                 label = { Text("Tags (comma separated)") }, singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium,
-                leadingIcon = { Icon(Icons.Default.LabelOutline, null, Modifier.size(19.dp)) },
+                leadingIcon = { Icon(Icons.Default.Label, null, Modifier.size(19.dp)) },
                 colors = fields, shape = RoundedCornerShape(10.dp),
                 placeholder = { Text("invoice, apartment, 2026") })
             Text("This name is used when sharing. The original file stays unchanged.",

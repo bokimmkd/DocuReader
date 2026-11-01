@@ -53,7 +53,7 @@ private fun LibrarySelectionAction(label: String, onClick: () -> Unit, icon: @Co
 @Composable
 private fun SelectionTagIcon(add: Boolean) {
     Box(Modifier.size(28.dp)) {
-        Icon(Icons.Default.LabelOutline, if (add) "Add tags" else "Remove tags", Modifier.size(24.dp))
+        Icon(Icons.Default.Label, if (add) "Add tags" else "Remove tags", Modifier.size(24.dp))
         Surface(Modifier.size(14.dp).align(Alignment.BottomEnd),
             shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary) {
@@ -210,7 +210,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             LibraryFilter(category, categories, { category = it }, Modifier.weight(1f))
-            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f), Icons.Default.LabelOutline)
+            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f), Icons.Default.Label)
             LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(92.dp), Icons.Default.Sort)
         }
         if (selected.isNotEmpty()) {
@@ -304,7 +304,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                             if (doc.type in setOf("PDF", "EPUB", "TXT")) DocumentActionItem("Book mode", Icons.Default.MenuBook,
                                 { menu = false; onBookMode(doc) }, enabled = !missing)
                             DocumentActionItem("Rename", Icons.Default.DriveFileRenameOutline, { menu = false; edit(doc) })
-                            DocumentActionItem("Category & tags", Icons.Default.LabelOutline, { menu = false; edit(doc) })
+                            DocumentActionItem("Category & tags", Icons.Default.Label, { menu = false; edit(doc) })
                             if (!doc.savedLocally) DocumentActionItem("Keep offline copy", Icons.Default.Download,
                                 { menu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc) })
                             DocumentActionItem("Locate file", Icons.Default.FolderOpen, { menu = false; onLocate(doc) })

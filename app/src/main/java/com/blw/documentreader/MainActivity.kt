@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     private var convertOnReady by mutableStateOf(false)
     private var bookModeOnOpen by mutableStateOf(false)
     private var resumeTick by mutableIntStateOf(0)
+    private var optionalServicesReady = false
     private var preparingShare by mutableStateOf(false)
     private var protectedShare by mutableStateOf<Pair<Uri, String>?>(null)
     private var stampRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
@@ -102,6 +103,7 @@ class MainActivity : ComponentActivity() {
         window.decorView.doOnPreDraw {
             window.decorView.post {
                 if (!isFinishing && !isDestroyed) {
+                    optionalServicesReady = true
                     if (BuildConfig.MONETIZATION_ENABLED) consent.start()
                     if (BuildConfig.BILLING_ENABLED) billing.start()
                     handleIncomingIntent(intent)
@@ -180,7 +182,7 @@ class MainActivity : ComponentActivity() {
         resumeTick++
         vm.refreshAvailability()
         if (::reviews.isInitialized) reviews.observeUse()
-        if (::billing.isInitialized && BuildConfig.BILLING_ENABLED) billing.restore(silent = true)
+        if (::billing.isInitialized && BuildConfig.BILLING_ENABLED && optionalServicesReady) billing.restore(silent = true)
     }
 
     @Composable
