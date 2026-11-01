@@ -75,8 +75,12 @@
    }
    const template=sheet.cloneNode(false);
    template.style.width=width+'px';
-   template.style.zoom=String(fit);
-   template.style.transformOrigin='top left';
+   // Do not set CSS zoom for normal-width tables. Even zoom:1 changes
+   // html2canvas table origin on Android WebView, breaking print margins.
+   if(fit<0.999) {
+    template.style.zoom=String(fit);
+    template.style.transformOrigin='top left';
+   }
    const columns=Array.from(sheet.rows).find(r=>r.getBoundingClientRect().height>0&&Array.from(r.cells).every(c=>c.colSpan===1));
    if(columns){const cg=document.createElement('colgroup');for(const cell of columns.cells){const col=document.createElement('col');col.style.width=cell.offsetWidth+'px';cg.appendChild(col);}template.appendChild(cg);}
    const pagePixels=(doc.internal.pageSize.getHeight()-20)*data.width/(doc.internal.pageSize.getWidth()-20);
