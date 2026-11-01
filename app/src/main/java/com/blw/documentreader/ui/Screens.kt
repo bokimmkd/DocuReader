@@ -685,13 +685,13 @@ private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 }
 
 @Composable
-fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit,
+fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit, retryPrice: () -> Unit,
                    price: String, adFree: Boolean, privacy: () -> Unit,
                    privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit,
                    billingAvailable: Boolean = com.blw.documentreader.BuildConfig.BILLING_ENABLED) {
     var clearDialog by remember { mutableStateOf(false) }
     val closedTest = !billingAvailable
-    val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true)
+    val priceAvailable = !closedTest && price.isNotBlank() && !price.contains("unavailable", ignoreCase = true) && !price.contains("Checking", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Spacer(Modifier.height(2.dp))
@@ -742,7 +742,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 Text("Ad-free Lifetime", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text(if (closedTest) "Will be available after testing"
                     else if (adFree) "Lifetime active" else if (priceAvailable) "One payment · $price · Forever"
-                    else "Available through Google Play",
+                    else if (price.contains("Checking", ignoreCase = true)) "Checking Google Play..." else "Price unavailable — tap Retry",
                     fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (!closedTest) Button(onClick = removeAds, enabled = !adFree && priceAvailable,
@@ -757,6 +757,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 Text(if (adFree) "Active" else "Buy", fontSize = 13.sp, fontWeight=FontWeight.Bold)
             }
         }
+        if (!closedTest && !adFree && !priceAvailable) SettingsAction(
+            Icons.Default.Refresh, "Retry purchase availability", retryPrice)
         if (!closedTest) SettingsAction(Icons.Default.Restore, "Restore Purchase", restore)
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
         Row(verticalAlignment = Alignment.CenterVertically,
