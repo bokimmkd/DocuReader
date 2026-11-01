@@ -36,6 +36,8 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
     private var connecting = false
     private var closed = false
     private var manualRestorePending = false
+    private var priceQueryInFlight = false
+    private var priceQueryRevision = 0L
     private val recovery = PurchaseRecovery(object : AdFreeGateway {
         override suspend fun query(): OwnedQuery = suspendCancellableCoroutine { continuation ->
             client.queryPurchasesAsync(QueryPurchasesParams.newBuilder()
@@ -73,26 +75,59 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             override fun onBillingServiceDisconnected() { connecting = false }
         })
     }
-    private fun loadPrice() {
+    private fun loadPrice(manual: Boolean = false) {
+        if (closed) return
+        if (!client.isReady) {
+            if (manual) status("Connecting to Google Play. Try Retry after connection.")
+            start()
+            return
+        }
+        if (priceQueryInFlight) {
+            if (manual) status("Still checking the Play Store price. Please try again.")
+            return
+        }
+        priceQueryInFlight = true
+        val revision = ++priceQueryRevision
+        localizedPrice = "Loading store price…"
         val params = QueryProductDetailsParams.newBuilder().setProductList(
             listOf(QueryProductDetailsParams.Product.newBuilder().setProductId("remove_ads")
                 .setProductType(BillingClient.ProductType.INAPP).build())
         ).build()
         client.queryProductDetailsAsync(params) { result, data ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                details = data.productDetailsList.firstOrNull()
-                val offer = details?.oneTimePurchaseOfferDetailsList?.firstOrNull {
+            activity.runOnUiThread {
+                if (closed || revision != priceQueryRevision) return@runOnUiThread
+                priceQueryInFlight = false
+                details = null
+                offerToken = null
+                val product = if (result.responseCode == BillingClient.BillingResponseCode.OK)
+                    data.productDetailsList.firstOrNull { it.productId == "remove_ads" } else null
+                val offer = product?.oneTimePurchaseOfferDetailsList?.firstOrNull {
                     it.rentalDetails == null && it.preorderDetails == null
+                } ?: product?.oneTimePurchaseOfferDetails
+                if (product != null && offer != null) {
+                    details = product
+                    offerToken = offer.offerToken
+                    localizedPrice = offer.formattedPrice
+                } else {
+                    localizedPrice = "Store price unavailable"
+                    if (manual) status(
+                        "Play Store cannot offer remove_ads (code ${result.responseCode}). Check product, region and test-account eligibility."
+                    )
                 }
-                    ?: details?.oneTimePurchaseOfferDetails
-                offerToken = offer?.offerToken
-                localizedPrice = offer?.formattedPrice ?: "Store price unavailable"
             }
         }
     }
+    /** A failed/empty product query must never strand Buy as a dead grey button. */
+    fun retryPrice() {
+        if (closed) return
+        loadPrice(manual = true)
+    }
     fun buy() {
         val product = details
-        if (product == null || offerToken == null) { status("Ad-free is unavailable right now. Check Google Play and try again."); return }
+        if (product == null || offerToken == null) {
+            retryPrice()
+            return // Price recovery is NOT permission to charge.
+        }
         val entry = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(product).setOfferToken(offerToken!!).build()
         val response = client.launchBillingFlow(activity, BillingFlowParams.newBuilder()
@@ -107,6 +142,7 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             start()
             return
         }
+        if (details == null && !priceQueryInFlight) loadPrice(manual = false)
         scope.launch { recovery.restore(manual = !silent) }
     }
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
@@ -121,5 +157,5 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             else -> status("Purchase not confirmed (Play code ${result.responseCode}). Check Google Play or try Restore Purchase.")
         }
     }
-    fun close() { closed = true; scope.cancel(); client.endConnection() }
+    fun close() { closed = true; priceQueryRevision++; scope.cancel(); client.endConnection() }
 }
