@@ -150,7 +150,7 @@ fun HomeScreen(
 ) {
     val recents = vm.recent.filter { it.openedAt > 0L }
         .sortedByDescending { it.openedAt }.take(3)
-    val favorites = vm.recent.filter { it.favorite }.take(2)
+    val favorites = vm.recent.filter { it.favorite }.take(3)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 5.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)) {
