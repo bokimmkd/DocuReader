@@ -228,7 +228,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         }
     }
     private var openRequest = 0L
-    fun openDocument(requestedUri: Uri, password: String? = null, fromQueue: Boolean = false) {
+    fun openDocument(requestedUri: Uri, password: String? = null, fromQueue: Boolean = false, retainTemporary: Boolean = false) {
         val request = ++openRequest
         busy = true
         viewModelScope.launch {
@@ -241,6 +241,32 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                 if (migrated != null) {
                     recent = recent.map { if (it.uri == migrated.uri) it.copy(sourceUris = (it.sourceUris + keys).distinct()) else it }
                     store.save(recent)
+                }
+                val existing = migrated ?: known
+                if (retainTemporary && existing?.savedLocally != true &&
+                    requestedUri.authority != "${appContext.packageName}.files") {
+                    // Copy only supported attachments, while the messaging app's
+                    // temporary URI permission is still valid. Keep source aliases
+                    // so reopening the SAME Viber message does not add another row.
+                    val name = withContext(Dispatchers.IO) { DocumentTypes.displayName(appContext, requestedUri) }
+                    val type = withContext(Dispatchers.IO) { DocumentTypes.detect(appContext, requestedUri, name) }
+                    if (type != null) {
+                        val saved = withContext(Dispatchers.IO) {
+                            store.keepOffline(requestedUri, name, maxBytes = 128L * 1024 * 1024)
+                        }
+                        if (request != openRequest) return@launch
+                        val entry = DocumentEntry(saved.toString(), name, type,
+                            existing?.favorite ?: false, existing?.lastPage ?: 0,
+                            System.currentTimeMillis(), existing?.category ?: "Uncategorized",
+                            existing?.tags ?: "", true,
+                            existing?.addedAt?.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                            (existing?.sourceUris.orEmpty() + keys).distinct())
+                        recent = listOf(entry) + recent.filterNot {
+                            it.uri == entry.uri || it.uri == requestedUri.toString() ||
+                                (existing != null && it.uri == existing.uri)
+                        }
+                        store.save(recent)
+                    }
                 }
                 busy = false
                 openResolved(requestedUri, password, fromQueue, request, keys)
