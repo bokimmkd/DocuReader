@@ -1,3 +1,43 @@
+# W Reader 0.1.15 — final visual polish, Closed Alpha
+
+## Authorization and scope
+The user authorized implementing the agreed design fixes and uploading the next Closed-testing update while the production-access test period completes. This supersedes the prior backlog-only notes below. Production publication is not authorized. Keep the same accepted upload signing key.
+Version 0.1.14 (16) was accepted by the user for Excel, Favorites, PDF zoom and one-finger panning. Continue from that tested implementation, never from main or a blind branch merge.
+
+## Implementation
+- Version `0.1.15-closed`, versionCode `17`.
+- Theme choices show System/Light/Dark icons with their labels and selected state.
+- Ads & purchase is a grouped card with aligned icon/text columns, spacing, and Buy beside the lifetime offer. Narrow screens and font scale over 1.3 use a stacked layout. Active entitlement and Retry/price-loading behavior remain intact; billing code and live IDs are unchanged.
+- Help and Privacy Policy use the W Reader logo, colors and typography, section cards, working public links, and a support email action. Privacy text and data practices are unchanged.
+- Book mode themes cover toolbar, footer, dialogs and system bars, independently of app Light/Dark. Dark uses light icons. Sepia uses matching warm surfaces. Leaving Book mode restores the app theme and bar contrast policy.
+- Existing Viber attachment retention, Buy/Restore, Excel PDF fitting, one-finger PDF pan and Favorites are retained.
+- Three free original stories were discussed for a separate writing session; no stories are bundled in this release.
+
+## Production eligibility observed
+Play Console Dashboard was inspected on 2026-11-01 (UTC). Publishing a Closed release and at least 12 opted-in testers are marked complete. The remaining condition is at least 12 testers opted in continuously for 14 days. `Apply for production` is disabled. No remaining-day count or eligibility date was shown; do not invent a deadline or assume a new build restarts the test. Existing Alpha track/tester lists remain in place. Version 0.1.14 was shown available to selected testers.
+
+## Verification and artifact provenance
+- Branch: `fix/wreader-0113-viber-billing-zoom-excel`; start `f706aebafa2374ee4584046731507c9ef388046f`. Candidate `aeb977e5424c8c211b0f17217334301d8ace94d3`, tree `d1bca67678cd229bbbe9f8f820e095efa5914432`. No main merge or signing changes.
+- Full CI https://github.com/bokimmkd/DocuReader/actions/runs/41358135714, job `125002518389`: SUCCESS. 55 unit + 33 Android tests, no failures/errors/skips. Actual optimized release-AAB APK smoke passed cold starts, resume, EPUB appearance, Word/Excel/image controls and Library removal/Undo.
+- New Android regression checks Dark toolbar/footer/status/navigation backgrounds and icon appearance flags on both gesture and three-button navigation, Sepia footer, and app Light restoration on exit. Settings checks Light/Dark, 1.5x text, inactive/active entitlement layout, Help and Privacy branding.
+- Visually inspected Light/Dark Settings, large text stacking, Active state, branded Help/Privacy, Dark Book mode in both navigation modes, and return to Light. QA Settings host has a test-only header/system bar configuration; production keeps the existing branded Settings header. Emulator three-button navigation icons appear dim despite correct appearance flags; verify their contrast on the tester Samsung after rollout. Dark backgrounds and gesture handle are confirmed.
+- All 19 exported PDFs passed ink/margin checks; every text/table page has visible content and empty outer 20pt margins. Existing Office/PDF engines, monetization implementation and policy text have no diff from the accepted v16 baseline.
+- Evidence artifact `13104138507`, ZIP SHA-256 `fc0f679a1716bb62942a5ced5625998550795c2a0aa25171fb1d70c50c6b7b16`; unsigned AAB artifact `13103934348`, ZIP SHA-256 `ef47ecfed96e7066d0c0c7b4322ddc37f6503bd3855d39107317a30c489b22f3`. Both downloaded ZIP digests match GitHub metadata and exact candidate SHA.
+- Unsigned payload SHA-256 `6318a34d6c71d9fc7d109eb9fb0954e756bdbb5da0393edd8bdf13631a8057a8`.
+- Signed `WReader-0.1.15-closed-v17-signed.aab`, 19,219,749 bytes; SHA-256 `55e8deb007706d56d156e4578d9d6fff08bf89fcdd648a75d76ee1716d066ed2`. Original AAB entries byte-identical after signing; only signature entries added. Jarsigner verification, certificate match, manifest version/package/min26/target36, non-debug release, four ABIs, ReTrace map, live AdMob ID and absence of test Activities passed.
+- Same accepted SHA-256 upload certificate `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`.
+- Saved AAB: `libfile_21e0ab2eca4c8191b8b4a196e1c1dff2`.
+
+## Play submission
+Alpha release `12`, title `0.1.15 - Reader themes and Settings polish`, accepted AAB `17 (0.1.15-closed)`; previous version 16 excluded. Saved a full rollout to the existing Closed Alpha track. No device support loss. Only non-blocking warning: native debug symbols absent for bundled third-party native libraries; ReTrace mapping is included.
+Submission verified on 2026-11-01 UTC: Publishing overview shows `Changes in review` for the sole change `Closed testing - Alpha` / `0.1.15 - Reader themes and Settings polish` / `Start full rollout`. Quick checks are running; Google states review dispatch proceeds when they pass. This is submitted, not an approval or evidence that version 17 is already available to testers. Managed publishing remains off. No Production changes, tester-list changes, key changes or billing changes.
+Verified page: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+
+## Physical acceptance after rollout
+Check Settings in Light/Dark, Buy/Active/Restore layout and large fonts. Open Help and Privacy, confirm branding/back navigation and links. In Book mode switch Dark/Sepia/System, check upper/lower controls and phone bars, then exit and confirm the app returns to its own theme. Existing Excel/Viber/purchase/PDF fixes remain the accepted baseline.
+
+---
+
 # W Reader 0.1.14 — Excel layout and PDF pan follow-up
 
 ## Latest user authorization and device feedback
