@@ -1,6 +1,6 @@
 # W Reader — Privacy Policy
 
-**Last updated: October 31, 2026**
+**Last updated: November 1, 2026**
 
 W Reader is an Android document reader for PDF, DOCX, XLSX, TXT, CSV, PPTX, EPUB, RTF, ODT and JPG/PNG/WebP images. This policy describes how the application handles information.
 
@@ -9,6 +9,8 @@ W Reader is an Android document reader for PDF, DOCX, XLSX, TXT, CSV, PPTX, EPUB
 - Documents you select are opened and processed on your device. W Reader does not upload document contents, extracted text, or filenames to W Reader servers.
 - When you choose **Keep offline copy**, a copy is saved in app-private storage on your device. The source file is not modified.
 - Recent, Favorites, categories, tags, and last-reading positions are stored locally. Clear Recent History removes history metadata only, not original documents.
+- Book appearance, reading progress and bookmarks are stored locally. Remove from Library removes the list entry, not the original file. Category deletion never deletes documents.
+- Optional PDF stamps and password-protected sharing create local copies. Passwords are not stored in Library metadata or sent to W Reader servers. Recipients receive only the copy you explicitly share.
 - You can remove app-private data by clearing the app's storage or uninstalling the app. Uninstalling may delete app-private copies; it does not delete your original files outside the app.
 
 ## Sharing and printing

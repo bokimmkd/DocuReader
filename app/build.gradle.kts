@@ -10,8 +10,8 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.1.10-closed"
+        versionCode = 13
+        versionName = "0.1.11-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -19,19 +19,33 @@ android {
             buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
             buildConfigField("boolean", "BILLING_ENABLED", "false")
             buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
+            buildConfigField("String", "ADMOB_INLINE_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         getByName("release") {
-            // Dedicated W Reader live banner. Purchases stay disabled until configured.
+            // Dedicated W Reader live ads; established lifetime purchase remains enabled.
             buildConfigField("boolean", "MONETIZATION_ENABLED", "true")
             buildConfigField("boolean", "BILLING_ENABLED", "true")
             buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-1171723950608276/7121071338\"")
+            buildConfigField("String", "ADMOB_INLINE_ID", "\"ca-app-pub-1171723950608276/1442679721\"")
             manifestPlaceholders["admobAppId"] = "ca-app-pub-1171723950608276~9122924850"
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        create("qa") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = true
+            buildConfigField("boolean", "BILLING_ENABLED", "false")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
+            buildConfigField("String", "ADMOB_INLINE_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
+        }
     }
+    sourceSets.getByName("qa") { java.srcDir("src/debug/java"); manifest.srcFile("src/debug/AndroidManifest.xml") }
+    testBuildType = providers.gradleProperty("readerTestBuildType").getOrElse("debug")
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }

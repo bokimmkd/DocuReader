@@ -72,6 +72,11 @@ class DocumentStore(private val context: Context) {
     fun rememberPosition() = prefs.getBoolean("remember", true)
     fun setRememberPosition(on: Boolean) = prefs.edit().putBoolean("remember", on).apply()
     fun clearHistory() = prefs.edit().remove("recent").apply()
+    fun categories(): List<String> = try {
+        val data = JSONArray(prefs.getString("categories", "[\"Work\",\"Personal\",\"Finance\"]"))
+        (0 until data.length()).map { data.getString(it) }
+    } catch (_: Exception) { listOf("Work", "Personal", "Finance") }
+    fun categories(values: List<String>) = prefs.edit().putString("categories", JSONArray(values).toString()).apply()
     /** Explicit user-requested offline copy. Does not touch the original document. */
     fun keepOffline(uri: Uri, originalName: String): Uri {
         val dir = File(context.filesDir, "library").also { it.mkdirs() }

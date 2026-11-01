@@ -229,7 +229,8 @@ fun HomeScreen(
 
 @Composable
 fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
-                 onShare: () -> Unit, onPrint: () -> Unit, onOrganize: () -> Unit) {
+                 onShare: () -> Unit, onPrint: () -> Unit, onOrganize: () -> Unit,
+                 onStamp: () -> Unit = {}, onProtect: () -> Unit = {}) {
     val doc = vm.current ?: return
     val session = vm.pdf ?: return
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = doc.lastPage.coerceIn(0, session.pageCount - 1))
@@ -239,6 +240,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
     var searchDialog by remember(doc.uri) { mutableStateOf(false) }
     var pageText by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
+    var toolsMenu by remember { mutableStateOf(false) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var currentPage by remember(doc.uri) { mutableIntStateOf(doc.lastPage.coerceIn(0, session.pageCount - 1)) }
     LaunchedEffect(session) {
@@ -262,7 +264,14 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             TextButton(onClick = { thumbDialog = true }) { Icon(Icons.Default.GridView, null); Text("Pages") }
             TextButton(onClick = { searchDialog = true }) { Icon(Icons.Default.Search, null); Text("Find") }
             TextButton(onClick = { pageText = "${currentPage + 1}"; goDialog = true }) { Text("Go to") }
-            TextButton(onClick = onOrganize) { Icon(Icons.Default.Build, null); Text("Tools") }
+            Box {
+                TextButton(onClick = { toolsMenu = true }) { Icon(Icons.Default.Build, null); Text("Tools") }
+                DropdownMenu(toolsMenu, { toolsMenu = false }) {
+                    DropdownMenuItem(text = { Text("Organize pages") }, onClick = { toolsMenu = false; onOrganize() })
+                    DropdownMenuItem(text = { Text("Stamp PDF") }, onClick = { toolsMenu = false; onStamp() })
+                    DropdownMenuItem(text = { Text("Share with password") }, onClick = { toolsMenu = false; onProtect() })
+                }
+            }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Zoom", style = MaterialTheme.typography.labelSmall)

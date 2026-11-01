@@ -13,6 +13,13 @@ import com.blw.documentreader.data.DocumentEntry
 import com.blw.documentreader.data.DocumentStore
 import com.blw.documentreader.data.DocumentTypes
 import com.blw.documentreader.data.DocumentNames
+import com.blw.documentreader.data.LibraryState
+import com.blw.documentreader.data.LibraryActions
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.lifecycle.SavedStateHandle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import com.blw.documentreader.pdf.PdfPageTools
 import com.blw.documentreader.pdf.PdfSession
 import com.blw.documentreader.pdf.SourcePdf
@@ -22,10 +29,93 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainViewModel(app: Application) : AndroidViewModel(app) {
+class MainViewModel(app: Application, private val savedState: SavedStateHandle = SavedStateHandle()) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
     private val store = DocumentStore(appContext)
     var recent by mutableStateOf(store.load()); private set
+    var libraryState by mutableStateOf(LibraryState(
+        savedState["library.type"] ?: "All", savedState["library.search"] ?: "",
+        savedState["library.category"] ?: "All categories", savedState["library.tag"] ?: "All tags",
+        savedState["library.order"] ?: "Recent", savedState["library.index"] ?: 0, savedState["library.offset"] ?: 0
+    )); private set
+    var categories by mutableStateOf((store.categories() + recent.map { it.category }).filter { it != "Uncategorized" }.distinctBy { it.lowercase() }); private set
+    val unavailable = mutableStateMapOf<String, Boolean>()
+    var availabilityEpoch by mutableStateOf(0); private set
+    private val accessSlots = Semaphore(3)
+    private val checking = mutableSetOf<String>()
+    private var removed = emptyList<Pair<Int, DocumentEntry>>()
+    val canUndoRemoval get() = removed.isNotEmpty()
+    var imageQueue by mutableStateOf<List<String>>(emptyList()); private set
+    fun libraryState(value: LibraryState) {
+        libraryState = value
+        savedState["library.type"] = value.type; savedState["library.search"] = value.search
+        savedState["library.category"] = value.category; savedState["library.tag"] = value.tag
+        savedState["library.order"] = value.order; savedState["library.index"] = value.index; savedState["library.offset"] = value.offset
+    }
+    fun showLibrary(type: String) { libraryState(libraryState.copy(type = type, index = 0, offset = 0)) }
+    fun checkAvailability(doc: DocumentEntry) {
+        if (!checking.add(doc.uri)) return
+        viewModelScope.launch {
+            try {
+                val accessible = withContext(Dispatchers.IO) { accessSlots.withPermit {
+                    runCatching { appContext.contentResolver.openInputStream(Uri.parse(doc.uri))?.use { true } ?: false }.getOrDefault(false)
+                } }
+                if (recent.any { it.uri == doc.uri }) unavailable[doc.uri] = !accessible
+            } finally { checking.remove(doc.uri) }
+        }
+    }
+    fun refreshAvailability() { availabilityEpoch++ }
+    fun addCategory(value: String) {
+        val name = value.trim().take(45)
+        if (name.isNotEmpty() && name != "Uncategorized" && categories.none { it.equals(name, true) }) {
+            categories = categories + name; store.categories(categories)
+        }
+    }
+    fun deleteCategory(value: String) {
+        recent = recent.map { if (it.category == value) it.copy(category = "Uncategorized") else it }
+        current = current?.let { c -> recent.find { it.uri == c.uri } ?: c }
+        categories = categories.filterNot { it == value }; store.categories(categories); store.save(recent)
+        if (libraryState.category == value) libraryState(libraryState.copy(category = "All categories"))
+        report("Category removed. Files are unchanged.")
+    }
+    fun bulk(uris: Set<String>, category: String? = null, tags: String? = null, removeTags: Boolean = false) {
+        category?.let(::addCategory)
+        recent = LibraryActions.change(recent, uris, category, tags, removeTags)
+        current = current?.let { c -> recent.find { it.uri == c.uri } ?: c }; store.save(recent)
+        report("Updated ${uris.size} document(s). Active Library filters are kept.")
+    }
+    fun removeEntries(uris: Set<String>) {
+        removed = recent.mapIndexedNotNull { i, d -> if (d.uri in uris) i to d else null }
+        recent = recent.filterNot { it.uri in uris }; store.save(recent)
+        report("Removed ${removed.size} document(s) from Library. Original files unchanged.")
+    }
+    fun undoRemoval() {
+        val list = recent.toMutableList()
+        removed.forEach { (i, d) -> if (list.none { it.uri == d.uri }) list.add(i.coerceAtMost(list.size), d) }
+        removed = emptyList(); recent = list; store.save(recent); report("Library removal undone.")
+    }
+    fun relink(doc: DocumentEntry, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val type = withContext(Dispatchers.IO) { DocumentTypes.detect(appContext, uri, DocumentTypes.displayName(appContext, uri)) }
+                require(type == doc.type) { "Choose another ${doc.type} file." }
+                require(recent.none { it.uri == uri.toString() && it.uri != doc.uri }) { "That file is already in Library." }
+                recent = recent.map { if (it.uri == doc.uri) it.copy(uri = uri.toString(), savedLocally = false, addedAt = maxOf(1L, it.addedAt)) else it }
+                unavailable.remove(doc.uri); unavailable.remove(uri.toString()); store.save(recent)
+                report("File located. Name, category, tags and favorite are kept.")
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (ex: Exception) { report(ex.message ?: "Could not locate file.") }
+        }
+    }
+    fun openFromLibrary(doc: DocumentEntry, entries: List<DocumentEntry>) {
+        imageQueue = if (doc.type in DocumentFormats.images) entries.filter { it.type in DocumentFormats.images }.map { it.uri } else emptyList()
+        openDocument(Uri.parse(doc.uri), fromQueue = true)
+    }
+    fun adjacentImage(direction: Int) {
+        val index = imageQueue.indexOf(current?.uri)
+        val next = imageQueue.getOrNull(index + direction) ?: return
+        recent.find { it.uri == next }?.let { openDocument(Uri.parse(it.uri), fromQueue = true) }
+    }
     var libraryReveal by mutableStateOf(0); private set
     var reviewMoment by mutableStateOf(0); private set
     private var successfullyOpened = false
@@ -72,6 +162,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             message = ex.message; return false
         }
         val label = category.trim().take(45).ifBlank { "Uncategorized" }
+        addCategory(label)
         val keywords = DocumentNames.tags(tags)
         recent = recent.map { if (it.uri == doc.uri) it.copy(name = fileName, category = label, tags = keywords) else it }
         current = current?.let { if (it.uri == doc.uri) it.copy(name = fileName, category = label, tags = keywords) else it }
@@ -118,11 +209,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         store.save(recent); libraryReveal++; message = "PDF saved to Library."
     }
     fun removeLibraryEntry(doc: DocumentEntry) {
-        recent = recent.filterNot { it.uri == doc.uri }
-        store.save(recent)
-        // Never delete files from external providers or shared storage.
-        // An app-private copy, if any, stays untouched until explicit file cleanup.
-        message = "Removed from Library list. Original file unchanged."
+        removeEntries(setOf(doc.uri))
     }
     fun pageChanged(page: Int) {
         if (!remember) return
@@ -135,7 +222,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-    fun openDocument(uri: Uri, password: String? = null) {
+    fun openDocument(uri: Uri, password: String? = null, fromQueue: Boolean = false) {
+        if (!fromQueue) imageQueue = emptyList()
         successfullyOpened = false
         val existingEntry = recent.find { it.uri == uri.toString() }
         val name = existingEntry?.name ?: DocumentTypes.displayName(appContext, uri)

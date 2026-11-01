@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.doOnPreDraw
 import com.blw.documentreader.monetization.AdConsent
 import com.blw.documentreader.monetization.BottomBanner
 import com.blw.documentreader.monetization.RemoveAdsBilling
@@ -64,6 +65,13 @@ class MainActivity : ComponentActivity() {
     private var convertOnReady by mutableStateOf(false)
     private var resumeTick by mutableIntStateOf(0)
     private var preparingShare by mutableStateOf(false)
+    private var protectedShare by mutableStateOf<Pair<Uri, String>?>(null)
+    private var stampPage by mutableStateOf<Int?>(null)
+    private var locating: DocumentEntry? = null
+    private val locateDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val doc = locating; locating = null
+        if (uri != null && doc != null) { persistIfAvailable(uri); vm.relink(doc, uri) }
+    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
@@ -92,12 +100,17 @@ class MainActivity : ComponentActivity() {
         reviews.observeUse()
         updates.allowedToPrompt = { !outputBusy && !preparingShare && !vm.busy &&
             (!BuildConfig.MONETIZATION_ENABLED || consent.settled) && !consent.privacyOpen }
-        if (BuildConfig.MONETIZATION_ENABLED) {
-            consent.start()
-        }
-        if (BuildConfig.BILLING_ENABLED) billing.start()
-        handleIncomingIntent(intent)
         setContent { ApplicationScreen() }
+        // The reader shell must be drawn before optional SDK initialization or provider IO.
+        window.decorView.doOnPreDraw {
+            window.decorView.post {
+                if (!isFinishing && !isDestroyed) {
+                    if (BuildConfig.MONETIZATION_ENABLED) consent.start()
+                    if (BuildConfig.BILLING_ENABLED) billing.start()
+                    handleIncomingIntent(intent)
+                }
+            }
+        }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -148,6 +161,19 @@ class MainActivity : ComponentActivity() {
     private fun keepExport(uri: Uri, name: String) {
         vm.registerSavedPdf(uri, name)
     }
+    private fun shareGenerated(file: java.io.File, name: String) {
+        lifecycleScope.launch {
+            try {
+                val shared = withContext(Dispatchers.IO) {
+                    val dir = java.io.File(cacheDir, "shared-documents/${java.util.UUID.randomUUID()}").also { check(it.mkdirs()) }
+                    val copy = java.io.File(dir, com.blw.documentreader.data.DocumentNames.renamed(name,"PDF"))
+                    try { file.copyTo(copy); androidx.core.content.FileProvider.getUriForFile(this@MainActivity,"$packageName.files",copy) }
+                    finally { file.delete() }
+                }
+                share(shared, "application/pdf", name)
+            } catch (_: Exception) { vm.report("Could not share the protected copy. Original unchanged.") }
+        }
+    }
     private fun shareDocument(doc: com.blw.documentreader.data.DocumentEntry) {
         val mime = DocumentFormats.mimeByType[doc.type] ?: "application/octet-stream"
         share(Uri.parse(doc.uri), mime, doc.name)
@@ -155,6 +181,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeTick++
+        vm.refreshAvailability()
         if (::reviews.isInitialized) reviews.observeUse()
         if (::billing.isInitialized && BuildConfig.BILLING_ENABLED) billing.restore(silent = true)
     }
@@ -188,9 +215,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(vm.message) {
             vm.message?.let { msg ->
                 val locate = msg.contains("Locate again", true) || msg.contains("expired", true)
-                val result = snackbar.showSnackbar(msg, actionLabel = if (locate) "Locate" else null, withDismissAction = true)
+                val undo = msg.startsWith("Removed ") && vm.canUndoRemoval
+                val result = snackbar.showSnackbar(msg, actionLabel = if (undo) "Undo" else if (locate) "Locate" else null, withDismissAction = true)
                 vm.dismissMessage()
-                if (locate && result == SnackbarResult.ActionPerformed) openPicker()
+                if (result == SnackbarResult.ActionPerformed) { if (undo) vm.undoRemoval() else if (locate) openPicker() }
             }
         }
         // Keep status and gesture navigation icons legible in both theme modes.
@@ -272,7 +300,7 @@ class MainActivity : ComponentActivity() {
                                 onUpdate = updates::download, onLater = updates::later,
                                 onRestart = updates::restart)
                         }
-                        if (BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds) BottomBanner()
+                        if (BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds && !(vm.current == null && tab == 1)) BottomBanner()
                         if (vm.current == null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
@@ -325,7 +353,10 @@ class MainActivity : ComponentActivity() {
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
                             onOpenSaved = { incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
-                            onReady = vm::markReaderReady, report = vm::report
+                            onReady = vm::markReaderReady, report = vm::report,
+                            imagePosition = if(vm.imageQueue.isNotEmpty()) "${vm.imageQueue.indexOf(vm.current?.uri)+1} / ${vm.imageQueue.size}" else null,
+                            onPrevious = if(vm.imageQueue.indexOf(vm.current?.uri)>0) ({vm.adjacentImage(-1)}) else null,
+                            onNext = if(vm.imageQueue.indexOf(vm.current?.uri) in 0 until vm.imageQueue.lastIndex) ({vm.adjacentImage(1)}) else null
                         ) else OfficeReaderScreen(
                             uri = vm.officeUri!!,
                             name = vm.officeName,
@@ -342,16 +373,21 @@ class MainActivity : ComponentActivity() {
                         ReaderScreen(vm, onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
                             onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
-                            onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } })
+                            onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
+                            onStamp = { stampPage = vm.current?.lastPage ?: 0 },
+                            onProtect = { vm.current?.let { protectedShare = Uri.parse(it.uri) to it.name } })
                     } else when (tab) {
                         0 -> HomeScreen(vm, openPicker = ::openPicker,
                             reopen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
-                            onLibrary = { libraryFilter = it; tab = 1 })
+                            onLibrary = { vm.showLibrary(it); libraryFilter = it; tab = 1 })
                         1 -> LibraryScreen(vm,
                             onOpen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onShare = ::shareDocument,
                             onAdd = { pickForLibrary.launch(DocumentFormats.pickerTypes) },
-                            initialFilter = libraryFilter)
+                            initialFilter = libraryFilter,
+                            onOpenFiltered = { doc, entries -> incomingUri = Uri.parse(doc.uri); vm.openFromLibrary(doc, entries) },
+                            onLocate = { doc -> locating = doc; locateDocument.launch(DocumentFormats.pickerTypes) },
+                            showAds = BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds)
                         2 -> if (vm.toolReady) ToolEditor(vm,
                             addPdf = { addTool.launch(arrayOf("application/pdf")) },
                             onSave = { saveTool.launch("WReader_edited.pdf") },
@@ -387,6 +423,14 @@ class MainActivity : ComponentActivity() {
                 }) { Text("Unlock") } },
                 dismissButton = { TextButton(onClick = { vm.closeDocument() }) { Text("Cancel") } })
             if (infoPage != null) InfoScreen(infoPage!!, onBack = { infoPage = null })
+            protectedShare?.let { (uri, name) -> PdfPasswordDialog(uri, name, onDismiss = { protectedShare = null },
+                onBusy = { outputBusy = it }, onShare = ::shareGenerated, report = vm::report) }
+            if (stampPage != null && vm.current?.type == "PDF") vm.current?.let { doc ->
+                PdfStampDialog(Uri.parse(doc.uri), doc.name, stampPage!!, onDismiss = { stampPage = null },
+                    onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                    onOpen = { stampPage = null; incomingUri = it; vm.openDocument(it) },
+                    onShare = { uri, name -> share(uri, "application/pdf", name) }, report = vm::report)
+            }
 
         }
     }

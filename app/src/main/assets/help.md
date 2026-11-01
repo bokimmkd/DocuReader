@@ -48,6 +48,26 @@ W Reader checks Google Play when opened or resumed and retries failures without 
 
 Rate app opens W Reader in Google Play. An optional native review request may be attempted after seven days and use on three different days, with a thirty-day cooldown; Google controls whether it appears. Privacy Policy is readable inside W Reader without internet. Ad privacy options opens Google's available consent controls.
 
+## Library selection, categories and unavailable files
+
+Library keeps its type, category, tags, search, sort and scroll position when you return from a reader. Long-press a document, or use Select in its menu, to select multiple files. All shown selects only the current filtered results. Assign a category, add/remove tags, or Remove from Library. Removal affects the list only; original files and private offline copies are not deleted. Use Undo in the confirmation message to restore removed entries. Manage categories with the folder button next to Add; deleting a category moves its entries to Uncategorized.
+
+Red rows with “File unavailable” mean the file cannot currently be reached, not necessarily that it was deleted. Retry, Locate file to restore access while keeping metadata, or Remove from Library. Checks apply to visible rows; W Reader never scans your whole phone. Cloud providers may need internet or renewed permission. In an Images list, swipe at fit zoom or use arrows to browse the current filtered order. When zoomed, pan/pinch takes priority. Share, PDF export and Print always apply to the current image.
+
+## Book mode
+
+EPUB opens in Book mode; TXT can switch using the book icon. Aa offers font size, line spacing, margins and System/Light/Sepia/Dark backgrounds. Use Next/Previous or horizontal swipes in Page turns mode; Scroll mode also allows ordinary vertical reading. Page numbers describe screenfuls and change with layout. Progress and up to 30 bookmarks per book stay on this phone. Remember reading position controls automatic position restoration. Book actions opens bookmarks, shares the original or returns to Document view for printing/PDF export. No bookstore, account, cloud sync or Amazon/DRM access is included.
+
+## Stamp and password copies
+
+In an open PDF choose Tools → Stamp PDF. Select a preset (COPY, PAID, APPROVED, CONFIDENTIAL, DRAFT, VOID, RECEIVED) or your own text, color, position/diagonal, current page or all pages and optional date. Preview the actual stamped page, then Save copy to your chosen folder. Open, Share and Print are offered after saving. Text and page content remain in the PDF; advanced forms/signatures may be affected by PDF editing. Stamping an encrypted source is not supported.
+
+Tools → Share with password creates a separate AES-256 PDF copy after entering and confirming a 6–64-character password. Original files stay unchanged. Passwords are not saved in Library metadata. Send the password to the recipient separately. Already protected or unsupported PDFs show an error; ordinary Share remains available. Protecting a copy does not change earlier copies you already shared.
+
+## Advertising
+
+Free Library shows an inline banner after document 5, then 15, 25 and so on, without a second bottom banner there. Inline ads hide during selection. Other screens retain the small bottom banner. Ads never delay opening a document. Ad-free Lifetime removes all W Reader ad placements.
+
 ## Help and feedback
 
 Email bokimk.ap@gmail.com with your W Reader version, phone model, Android version and steps to reproduce. Avoid sending private documents; a non-sensitive sample is useful when reporting a rendering issue.

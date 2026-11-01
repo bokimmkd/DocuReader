@@ -34,7 +34,7 @@ fun DocumentEditDialog(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var creatingCategory by remember { mutableStateOf(false) }
-    val choices = (listOf("Uncategorized", "Work", "Personal", "Finance") + categories + category)
+    val choices = (listOf("Uncategorized") + categories + category)
         .map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
     val accent = MaterialTheme.colorScheme.primary
     val fields = OutlinedTextFieldDefaults.colors(
