@@ -46,12 +46,19 @@ def capture(name,require_blue=False):
   assert n>500,(name,'blank frame',n)
 def open_file(name):
  tap('Open document')
- # The system picker supplies the real content URI grant, just as on the phone.
- tree=dump()
- root_button=next((n.get('content-desc') for n in tree.iter('node') if n.get('content-desc') in ('Show roots','Open navigation drawer')),None)
- if root_button:
-  tap(root_button);tap('Downloads')
- tap(name)
+ # Wait for the picker window: its Activity can appear after the tap completes.
+ # Reading the first dump immediately used to leave us on Recent indefinitely.
+ tap('Show roots');tap('Downloads')
+ if match('List view') is not None:tap('List view')
+ for _ in range(12):
+  tree=dump()
+  if any(name in (n.get('text'),n.get('content-desc')) for n in tree.iter('node')):
+   tap(name);return
+  listing=next((n for n in tree.iter('node') if n.get('resource-id','').endswith('/dir_list')),None)
+  assert listing is not None,'Downloads file list missing'
+  a,b,c,d=[int(x) for x in re.findall(r'\d+',listing.get('bounds',''))]
+  adb('shell','input','swipe',str((a+c)//2),str(d-120),str((a+c)//2),str(b+150),'400')
+ raise AssertionError('Test fixture not listed in Downloads: '+name)
 
 def main():
  # The APK uses the production R8 graph and live configuration. Never click an ad.
