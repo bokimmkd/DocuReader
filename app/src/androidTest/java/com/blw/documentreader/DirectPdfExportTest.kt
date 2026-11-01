@@ -48,13 +48,17 @@ class DirectPdfExportTest {
                         bmp.eraseColor(android.graphics.Color.WHITE)
                         page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
                         var marks = 0
+                        var visibleInk = 0
                         for (y in 0 until bmp.height) for (x in 0 until bmp.width) {
+                            val color = bmp.getPixel(x,y)
+                            val ink = android.graphics.Color.red(color)<235 || android.graphics.Color.green(color)<235 || android.graphics.Color.blue(color)<235
+                            if (ink) visibleInk++
                             if (x < 20 || y < 20 || x >= bmp.width-20 || y >= bmp.height-20) {
-                                val color = bmp.getPixel(x,y)
-                                if (android.graphics.Color.red(color)<235 || android.graphics.Color.green(color)<235 || android.graphics.Color.blue(color)<235) marks++
+                                if (ink) marks++
                             }
                         }
                         assertEquals("Content entered outer print margin, ${file.name} page ${n+1}", 0, marks)
+                        assertTrue("PDF contains text but paints an empty page: ${file.name} page ${n+1}", visibleInk > 100)
                     } finally { bmp.recycle() }
                 }
             }

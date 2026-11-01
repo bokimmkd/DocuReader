@@ -17,6 +17,10 @@
    #document,#document *,.wreader-pdf-page,.wreader-pdf-page *{font-family:WReaderSans!important}
    #content{zoom:1!important;transform:none!important;min-height:0!important}
    #viewport{overflow:visible!important;width:auto!important}
+   /* Office snapshots can carry the system-print fit zoom. Direct PDF owns
+      fitting via windowWidth; inherited CSS zoom moves html2canvas paint
+      coordinates far outside the page even though PDF text extraction passes. */
+   table.sheet{zoom:1!important;transform:none!important}
    .docx-wrapper{padding:0!important;background:#fff!important}
    .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;min-height:0!important;height:auto!important;overflow:visible!important;max-width:100%!important}
    .image img,.slide img{max-height:none!important;height:auto;max-width:100%}
