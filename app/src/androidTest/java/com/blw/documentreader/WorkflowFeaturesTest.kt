@@ -132,7 +132,7 @@ class WorkflowFeaturesTest {
         try {ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{s->
             assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].showLibrary("PDF")};click("Library")
             assertTrue(device.wait(Until.hasObject(By.textContains("File unavailable")),15000))
-            device.findObjects(By.desc("Document actions")).first().click();click("Select");click("All shown (2)");click("Category")
+            device.findObjects(By.desc("Document actions")).first().click();click("Select");click("All shown (2)");device.findObject(By.desc("Assign category")).click()
             assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")),10000));device.findObjects(By.clazz("android.widget.EditText")).last().text="QA category";click("Apply")
             val saved=store.load();assertEquals(2,saved.count{it.category=="QA category"});assertEquals("Uncategorized",saved.first{it.type=="TXT"}.category)
             assertEquals(3,saved.size);assertTrue(source.isFile);assertTrue(txt.isFile)
