@@ -21,7 +21,7 @@ class DocumentDialogTestActivity : ComponentActivity() {
             MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = Color(0xFF67B6FF))
                 else lightColorScheme(primary = Color(0xFF0869E8))) {
                 Surface(Modifier.fillMaxSize().systemBarsPadding()) {
-                    LibraryScreen(vm, onOpen = {}, onAdd = {}, onShare = {})
+                    LibraryScreen(vm, onOpen = {}, onAdd = {}, onShare = {}, onConvert = {}, onPdfAction = { _, _ -> }, onBookMode = {})
                 }
             }
         }

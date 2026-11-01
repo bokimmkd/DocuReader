@@ -72,7 +72,9 @@ class WorkflowFeaturesTest {
             assertTrue(device.wait(Until.hasObject(By.desc("Print")),10000))
             click("Go to");val pageInput=device.wait(Until.findObject(By.clazz("android.widget.EditText")),10000);assertNotNull("Page dialog input",pageInput);pageInput!!.text="2";click("Go")
             assertTrue(device.wait(Until.hasObject(By.text("2 / 2")),10000));click("Tools");click("Stamp PDF")
-            assertTrue(device.wait(Until.hasObject(By.text("Page 2")),10000));click("Cancel");device.pressBack()
+            assertTrue(device.wait(Until.hasObject(By.text("Page 2")),10000));click("Cancel")
+            device.findObject(By.desc("Share options")).click();click("Share with password")
+            assertTrue(device.wait(Until.hasObject(By.text("Protect & share")),10000));click("Cancel");device.pressBack()
             assertTrue(device.wait(Until.hasObject(By.text("workflow-source.pdf")),10000))
             var state:LibraryState?=null
             it.onActivity{a->state=androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].libraryState}
@@ -84,11 +86,18 @@ class WorkflowFeaturesTest {
     }
     @Test fun bookAppearanceAndBookmarksWorkOfflineAndResume() {
         val file=File(context.filesDir,"library/workflow-book.txt").also{it.parentFile!!.mkdirs();it.writeText((1..80).joinToString("\n\n"){i->"Paragraph $i. A quiet harbour, a book and a place to return. Кириличен текст."})}
+        context.getSharedPreferences("book-reader",android.content.Context.MODE_PRIVATE).edit().putFloat("font",18f).apply()
         val intent=Intent(context,ImageReaderTestActivity::class.java).setData(uri(file)).putExtra("type","TXT")
         ActivityScenario.launch<ImageReaderTestActivity>(intent).use{
             assertTrue(device.wait(Until.hasObject(By.desc("Book mode")),15000));device.findObject(By.desc("Book mode")).click()
             assertTrue(device.wait(Until.hasObject(By.textContains("Paragraph 1.")),15000))
             click("Aa");click("Sepia");click("Done")
+            val bookView=device.wait(Until.findObject(By.clazz("android.webkit.WebView")),10000)
+            assertNotNull(bookView);bookView!!.pinchOpen(.5f)
+            click("Aa")
+            val sizeLabel=device.wait(Until.findObject(By.textStartsWith("Text size:")),10000)
+            assertNotNull(sizeLabel);assertTrue("Pinch did not increase Aa text size",sizeLabel!!.text.substringAfter(":").trim().toInt()>18)
+            click("Done")
             assertTrue(device.wait(Until.hasObject(By.text("Next ›")),10000));click("Next ›")
             device.findObject(By.desc("Bookmark page")).click();click("Bookmarks")
             assertTrue(device.wait(Until.hasObject(By.textContains("through book")),10000));click("Done")
@@ -132,7 +141,7 @@ class WorkflowFeaturesTest {
         try {ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{s->
             assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));s.onActivity{androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].showLibrary("PDF")};click("Library")
             assertTrue(device.wait(Until.hasObject(By.textContains("File unavailable")),15000))
-            device.findObjects(By.desc("Document actions")).first().click();click("Select");click("All shown (2)");click("Category")
+            device.findObjects(By.desc("Document actions")).first().click();click("Select");click("All shown (2)");device.findObject(By.desc("Assign category")).click()
             assertTrue(device.wait(Until.hasObject(By.clazz("android.widget.EditText")),10000));device.findObjects(By.clazz("android.widget.EditText")).last().text="QA category";click("Apply")
             val saved=store.load();assertEquals(2,saved.count{it.category=="QA category"});assertEquals("Uncategorized",saved.first{it.type=="TXT"}.category)
             assertEquals(3,saved.size);assertTrue(source.isFile);assertTrue(txt.isFile)
@@ -158,6 +167,74 @@ class WorkflowFeaturesTest {
             }while(pixels<1000 && android.os.SystemClock.uptimeMillis()<deadline)
             assertTrue("Next image title changed but its blue bitmap was not rendered",pixels>=1000);device.pressBack()
             var state:LibraryState?=null;s.onActivity{state=androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].libraryState};assertEquals("Images",state!!.type)
+            assertTrue(device.wait(Until.hasObject(By.desc("Document actions")),10000))
+            device.findObjects(By.desc("Document actions")).first().click();click("Convert to PDF")
+            assertTrue("Library conversion did not open the save-first dialog",device.wait(Until.hasObject(By.text("Save PDF")),15000))
+            assertFalse("Conversion opened Android printing",device.hasObject(By.pkg("com.android.printspooler")))
+            click("Cancel");device.pressBack()
+            s.onActivity{state=androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].libraryState};assertEquals("Images",state!!.type)
         }}finally{store.save(old)}
     }
+    @Test fun reopeningOriginalAfterOfflineCopyKeepsOneCuratedEntry() {
+        val store=DocumentStore(context);val before=store.load();val source=pdf();val originalUri=uri(source)
+        val doc=DocumentEntry(originalUri.toString(),"original-name.pdf","PDF",true,0,0,"QA category","important",false,42)
+        store.save(listOf(doc))
+        try { ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].saveToLibrary(originalUri,doc) }
+            val deadline=android.os.SystemClock.uptimeMillis()+10000
+            while(!store.load().any{it.savedLocally} && android.os.SystemClock.uptimeMillis()<deadline)Thread.sleep(50)
+            val copy=store.load().single();assertTrue(copy.savedLocally);assertTrue(originalUri.toString() in copy.sourceUris)
+            repeat(2) {
+                scenario.onActivity { androidx.lifecycle.ViewModelProvider(it)[MainViewModel::class.java].openDocument(originalUri) }
+                assertTrue(device.wait(Until.hasObject(By.desc("Print")),15000))
+                val loaded=store.load().single();assertEquals(copy.uri,loaded.uri);assertEquals("original-name.pdf",loaded.name)
+                assertEquals("QA category",loaded.category);assertEquals("important",loaded.tags);assertTrue(loaded.favorite)
+                assertTrue(source.isFile);device.pressBack()
+            }
+        }} finally {store.save(before)}
+    }
+    @Test fun libraryPdfBookModeKeepsPageBookmarksAndNormalViewHasNoZoomBar() {
+        context.getSharedPreferences("pdf-reading",android.content.Context.MODE_PRIVATE).edit().clear().apply()
+        val store=DocumentStore(context);val before=store.load();val source=pdf()
+        store.save(listOf(DocumentEntry(uri(source).toString(),"pdf-reading-test.pdf","PDF",addedAt=1)))
+        try { ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use { scenario ->
+            assertTrue(device.wait(Until.hasObject(By.text("Library")),15000));click("Library")
+            device.findObject(By.desc("Document actions")).click();click("Book mode")
+            assertTrue(device.wait(Until.hasObject(By.desc("Bookmark page")),15000))
+            device.findObject(By.desc("Bookmark page")).click();click("Next")
+            assertTrue(device.wait(Until.hasObject(By.textContains("2 / 2")),10000))
+            device.findObject(By.desc("Bookmark page")).click();click("Bookmarks")
+            assertTrue(device.wait(Until.hasObject(By.text("Page 1")),10000));assertTrue(device.hasObject(By.text("Page 2")))
+            click("Done");device.findObject(By.desc("Share options")).click();click("Document view")
+            assertTrue(device.wait(Until.hasObject(By.text("Go to")),10000));assertFalse(device.hasObject(By.text("Zoom")))
+            device.pressBack();assertTrue(device.wait(Until.hasObject(By.desc("Document actions")),10000))
+            device.findObject(By.desc("Document actions")).click();click("Book mode");click("Bookmarks")
+            assertTrue(device.wait(Until.hasObject(By.text("Page 1")),10000));assertTrue(device.hasObject(By.text("Page 2")))
+        }} finally {store.save(before)}
+    }
+    @Test fun zoomedPdfRerendersFineTextInsteadOfEnlargingPreview() = runBlocking {
+        val file=File(context.filesDir,"zoom-sharpness.pdf")
+        PdfDocument().use { pdf ->
+            val page=pdf.startPage(PdfDocument.PageInfo.Builder(600,800,1).create())
+            page.canvas.drawColor(Color.WHITE);val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK;textSize=4f}
+            for(y in 302..498 step 8)page.canvas.drawText("SHARP TEXT 1234567890",230f,y.toFloat(),paint)
+            pdf.finishPage(page);file.outputStream().use{pdf.writeTo(it)}
+        }
+        val session=PdfSession.open(context,uri(file))
+        try {
+            val base=session.render(0,600);val sharp=session.renderViewport(0,600,800,4f,0f,0f)
+            val enlarged=android.graphics.Bitmap.createBitmap(600,800,android.graphics.Bitmap.Config.ARGB_8888)
+            Canvas(enlarged).apply {drawColor(Color.WHITE);val matrix=android.graphics.Matrix().apply{setScale(4f,4f);postTranslate(-900f,-1200f)};drawBitmap(base,matrix,Paint(Paint.FILTER_BITMAP_FLAG))}
+            fun energy(b:android.graphics.Bitmap):Long {var result=0L;for(y in 1 until b.height-1)for(x in 1 until b.width-1){
+                fun gray(xx:Int,yy:Int)=Color.red(b.getPixel(xx,yy))
+                result+=kotlin.math.abs(4*gray(x,y)-gray(x-1,y)-gray(x+1,y)-gray(x,y-1)-gray(x,y+1))
+            };return result}
+            assertTrue("Zoom still looks like an enlarged low-resolution preview",energy(sharp)>energy(enlarged)*1.1)
+            val dir=File(context.getExternalFilesDir(null),"workflow-qa").also{it.mkdirs()}
+            File(dir,"zoom-native.png").outputStream().use{sharp.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+            File(dir,"zoom-old-preview.png").outputStream().use{enlarged.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+            base.recycle();sharp.recycle();enlarged.recycle()
+        } finally {session.close();file.delete()}
+    }
+
 }

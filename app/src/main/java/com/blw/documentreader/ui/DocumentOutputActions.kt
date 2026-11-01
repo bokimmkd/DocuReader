@@ -9,8 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -101,7 +100,7 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
             catch (ex: Exception) { busy(false); report("Printing unavailable: ${ex.message}") }
         }
     }) { Icon(Icons.Default.Print, "Print") }
-    if (dialog) AlertDialog(onDismissRequest = { dialog = false },
+    if (dialog) WReaderAlertDialog(onDismissRequest = { dialog = false },
         title = { WReaderDialogTitle("Save as PDF") }, shape = RoundedCornerShape(22.dp),
         containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp,
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -130,15 +129,15 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
                 finally { progress = null; if (stagedPath == null) busy(false) }
             }
         }, colors = ButtonDefaults.buttonColors(containerColor = PdfBlue, contentColor = Color.White),
-            shape = RoundedCornerShape(10.dp)) { Text("Save PDF") } },
-        dismissButton = { TextButton(onClick = { dialog = false }) { Text("Cancel") } })
-    if (progress != null) AlertDialog(onDismissRequest = { job?.cancel() },
+            shape = RoundedCornerShape(10.dp)) { DialogActionLabel("Save PDF", Icons.Default.PictureAsPdf) } },
+        dismissButton = { TextButton(onClick = { dialog = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
+    if (progress != null) WReaderAlertDialog(onDismissRequest = { job?.cancel() },
         title = { WReaderDialogTitle(progress!!) }, containerColor = MaterialTheme.colorScheme.background,
         text = { LinearProgressIndicator(Modifier.fillMaxWidth(), color = PdfBlue) },
-        confirmButton = { TextButton(onClick = { job?.cancel() }) { Text("Cancel") } })
+        confirmButton = { TextButton(onClick = { job?.cancel() }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
     savedUri?.let { uriString ->
         val uri = Uri.parse(uriString)
-        AlertDialog(onDismissRequest = { savedUri = null }, title = { WReaderDialogTitle("PDF saved") },
+        WReaderAlertDialog(onDismissRequest = { savedUri = null }, title = { WReaderDialogTitle("PDF saved") },
             shape = RoundedCornerShape(22.dp), containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp,
             text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(savedName, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -153,6 +152,6 @@ fun DocumentOutputActions(web: WebView, name: String, ready: Boolean, excel: Boo
                         catch (ex: Exception) { busy(false); report("Printing unavailable: ${ex.message}") }
                     }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Print", fontSize = 12.sp) }
                 }
-            } }, confirmButton = { TextButton(onClick = { savedUri = null }) { Text("Done") } })
+            } }, confirmButton = { TextButton(onClick = { savedUri = null }) { DialogActionLabel("Done", Icons.Default.Check) } })
     }
 }

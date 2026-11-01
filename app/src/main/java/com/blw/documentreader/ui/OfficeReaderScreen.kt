@@ -10,11 +10,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -117,9 +113,9 @@ fun OfficeReaderScreen(
         }
         AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
     }
-    if (showSearch) AlertDialog(
+    if (showSearch) WReaderAlertDialog(
         onDismissRequest = { showSearch = false },
-        title = { Text("Find in document") },
+        title = { WReaderDialogTitle("Find in document") },
         text = {
             OutlinedTextField(value = searchText, onValueChange = { searchText = it },
                 label = { Text("Search text or cell values") }, singleLine = true)
@@ -128,10 +124,10 @@ fun OfficeReaderScreen(
             TextButton(onClick = {
                 webView.findAllAsync(searchText)
                 showSearch = false
-            }) { Text("Find") }
+            }) { DialogActionLabel("Find", Icons.Default.Search) }
         },
         dismissButton = {
-            TextButton(onClick = { webView.clearMatches(); showSearch = false }) { Text("Close") }
+            TextButton(onClick = { webView.clearMatches(); showSearch = false }) { DialogActionLabel("Close", Icons.Default.Close) }
         }
     )
 }

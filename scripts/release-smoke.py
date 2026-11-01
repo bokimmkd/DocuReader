@@ -93,7 +93,7 @@ def main():
    adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file:///sdcard/Download/'+name)
   else:raise AssertionError('Missing fixture '+source)
  
- open_file('release-book.epub');await_node('Aa');tap('Aa');tap('Sepia');tap('Done');await_text('EPUB_START');capture('book-sepia')
+ open_file('release-book.epub');tap('Book mode');await_node('Aa');tap('Aa');tap('Sepia');tap('Done');await_text('EPUB_START');capture('book-sepia')
  adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  for name in ['release-word.docx','release-sheet.xlsx','release-image.png']:
   open_file(name);await_node('Print',enabled=True)

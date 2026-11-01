@@ -177,7 +177,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         busy = true
         viewModelScope.launch {
             try {
-                val original = document ?: recent.find { it.uri == uri.toString() }
+                val original = document ?: recent.find { it.uri == uri.toString() || uri.toString() in it.sourceUris }
+                if (original?.savedLocally == true) {
+                    libraryReveal++; message = "Already saved in Library."; return@launch
+                }
                 val name = original?.name ?: DocumentTypes.displayName(appContext, uri)
                 val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
                 require(type != null) { "Supported: ${com.blw.documentreader.data.DocumentFormats.supported}." }
@@ -185,7 +188,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                 val newEntry = DocumentEntry(
                     savedUri.toString(), name, type, original?.favorite ?: false,
                     original?.lastPage ?: 0, original?.openedAt ?: 0L,
-                    original?.category ?: "Uncategorized", original?.tags ?: "", true, System.currentTimeMillis()
+                    original?.category ?: "Uncategorized", original?.tags ?: "", true, System.currentTimeMillis(),
+                    (original?.sourceUris.orEmpty() + uri.toString()).distinct()
                 )
                 recent = listOf(newEntry) + recent.filter {
                     it.uri != newEntry.uri && it.uri != uri.toString()
@@ -223,10 +227,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             }
         }
     }
-    fun openDocument(uri: Uri, password: String? = null, fromQueue: Boolean = false) {
+    fun openDocument(requestedUri: Uri, password: String? = null, fromQueue: Boolean = false) {
+        val requested = requestedUri.toString()
+        val linked = recent.find { it.uri == requested || requested in it.sourceUris }
+        val uri = linked?.takeIf { it.savedLocally }?.let { Uri.parse(it.uri) } ?: requestedUri
         if (!fromQueue) imageQueue = emptyList()
         successfullyOpened = false
-        val existingEntry = recent.find { it.uri == uri.toString() }
+        val existingEntry = linked ?: recent.find { it.uri == uri.toString() }
         val name = existingEntry?.name ?: DocumentTypes.displayName(appContext, uri)
         val type = existingEntry?.type ?: DocumentTypes.detect(appContext, uri, name)
         if (type == null) { message = "Unsupported format. Choose ${com.blw.documentreader.data.DocumentFormats.supported}."; return }
@@ -241,7 +248,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             val record = DocumentEntry(
                 uri.toString(), name, type, existing?.favorite ?: false,
                 0, System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L
+                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, existing?.sourceUris.orEmpty()
             )
             current = record
             recent = listOf(record) + recent.filter { it.uri != record.uri }
@@ -259,7 +266,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                 val record = DocumentEntry(uri.toString(), name, type, existing?.favorite ?: false,
                     if (remember) existing?.lastPage ?: 0 else 0,
                     System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L)
+                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, existing?.sourceUris.orEmpty())
                 current = record
                 recent = listOf(record) + recent.filter { it.uri != record.uri }
                 store.save(recent)
@@ -294,15 +301,15 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             finally { busy = false }
         }
     }
-    fun beginTool(uri: Uri) { toolEngine.close(); sourceForSelection = null; addSource = false; toolPages.clear(); toolSaveResult = null; toolTitle = "PDF tools"; toolReady = false; importTool(uri, false) }
-    fun importTool(uri: Uri, adding: Boolean) {
+    fun beginTool(uri: Uri, selectStartingPages: Boolean = true) { toolEngine.close(); sourceForSelection = null; addSource = false; toolPages.clear(); toolSaveResult = null; toolTitle = "PDF tools"; toolReady = false; importTool(uri, false, selectStartingPages) }
+    fun importTool(uri: Uri, adding: Boolean, selectStartingPages: Boolean = true) {
         busy = true
         viewModelScope.launch {
             try {
                 val name = DocumentTypes.displayName(appContext, uri)
                 require(DocumentTypes.detect(appContext, uri, name) == DocumentTypes.PDF) { "Choose a PDF file" }
                 val source = toolEngine.importSource(uri, name)
-                sourceForSelection = source
+                sourceForSelection = if (adding || selectStartingPages) source else null
                 addSource = adding
                 if (!adding) {
                     toolPages.clear(); toolTitle = name; toolReady = true

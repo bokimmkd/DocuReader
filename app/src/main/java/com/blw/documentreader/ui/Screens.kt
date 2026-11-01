@@ -39,6 +39,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -230,9 +234,18 @@ fun HomeScreen(
 @Composable
 fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                  onShare: () -> Unit, onPrint: () -> Unit, onOrganize: () -> Unit,
-                 onStamp: (Int) -> Unit = {}, onProtect: () -> Unit = {}) {
+                 onStamp: (Int) -> Unit = {}, onProtect: () -> Unit = {},
+                 readingMode: Boolean = false, onDocumentView: () -> Unit = {}) {
     val doc = vm.current ?: return
     val session = vm.pdf ?: return
+    val context = LocalContext.current
+    val readingPrefs = remember { context.getSharedPreferences("pdf-reading", android.content.Context.MODE_PRIVATE) }
+    val bookmarkKey = remember(doc.uri) { "marks-" + java.security.MessageDigest.getInstance("SHA-256")
+        .digest(doc.uri.toByteArray()).joinToString("") { "%02x".format(it) } }
+    var bookmarks by remember(doc.uri) { mutableStateOf(readingPrefs.getString(bookmarkKey, "").orEmpty()
+        .split(',').mapNotNull { it.toIntOrNull() }.filter { it in 0 until session.pageCount }.distinct()) }
+    var bookmarksOpen by remember(doc.uri) { mutableStateOf(false) }
+    fun saveBookmarks(values: List<Int>) { bookmarks = values.distinct().sorted(); readingPrefs.edit().putString(bookmarkKey, bookmarks.joinToString(",")).apply() }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = doc.lastPage.coerceIn(0, session.pageCount - 1))
     val scope = rememberCoroutineScope()
     var goDialog by remember(doc.uri) { mutableStateOf(false) }
@@ -241,6 +254,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
     var pageText by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     var toolsMenu by remember { mutableStateOf(false) }
+    var shareMenu by remember(doc.uri) { mutableStateOf(false) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var currentPage by remember(doc.uri) { mutableIntStateOf(doc.lastPage.coerceIn(0, session.pageCount - 1)) }
     LaunchedEffect(session) {
@@ -259,46 +273,72 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
             Column(Modifier.weight(1f)) {
                 Text(doc.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${currentPage + 1} / ${session.pageCount}", style = MaterialTheme.typography.labelSmall)
+                Text("${currentPage + 1} / ${session.pageCount}" + if (readingMode) " · Book mode" else "", style = MaterialTheme.typography.labelSmall)
             }
-            IconButton(onClick = { vm.favorite(doc) }) { Icon(if (doc.favorite) Icons.Default.Star else Icons.Default.StarBorder, "Favorite") }
-            IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share original") }
+            if (readingMode) IconButton(onClick = {
+                saveBookmarks(if (currentPage in bookmarks) bookmarks - currentPage else bookmarks + currentPage)
+            }) { Icon(if (currentPage in bookmarks) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, "Bookmark page") }
+            else IconButton(onClick = { vm.favorite(doc) }) { Icon(if (doc.favorite) Icons.Default.Star else Icons.Default.StarBorder, "Favorite") }
+            Box {
+                IconButton(onClick = { shareMenu = true }) { Icon(Icons.Default.Share, "Share options") }
+                DropdownMenu(shareMenu, { shareMenu = false }) {
+                    if (readingMode) {
+                        DocumentActionItem("Bookmarks", Icons.Default.Bookmark, { shareMenu = false; bookmarksOpen = true })
+                        DocumentActionItem("Document view", Icons.Default.Description, { shareMenu = false; onDocumentView() })
+                    }
+                    DocumentActionItem("Share file", Icons.Default.Share, { shareMenu = false; onShare() })
+                    DocumentActionItem("Share with password", Icons.Default.Lock, { shareMenu = false; onProtect() })
+                }
+            }
             IconButton(onClick = onPrint) { Icon(Icons.Default.Print, "Print") }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        if (!readingMode) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { thumbDialog = true }) { Icon(Icons.Default.GridView, null); Text("Pages") }
             TextButton(onClick = { searchDialog = true }) { Icon(Icons.Default.Search, null); Text("Find") }
             TextButton(onClick = { pageText = "${currentPage + 1}"; goDialog = true }) { Text("Go to") }
             Box {
                 TextButton(onClick = { toolsMenu = true }) { Icon(Icons.Default.Build, null); Text("Tools") }
                 DropdownMenu(toolsMenu, { toolsMenu = false }) {
-                    DropdownMenuItem(text = { Text("Organize pages") }, onClick = { toolsMenu = false; onOrganize() })
-                    DropdownMenuItem(text = { Text("Stamp PDF") }, onClick = { toolsMenu = false; onStamp(currentPage) })
-                    DropdownMenuItem(text = { Text("Share with password") }, onClick = { toolsMenu = false; onProtect() })
+                    DocumentActionItem("Organize pages", Icons.Default.Dashboard, { toolsMenu = false; onOrganize() })
+                    DocumentActionItem("Stamp PDF", Icons.Default.Approval, { toolsMenu = false; onStamp(currentPage) })
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Zoom", style = MaterialTheme.typography.labelSmall)
-            Slider(value = zoom, onValueChange = { zoom = it }, valueRange = 1f..2.5f,
-                modifier = Modifier.weight(1f).padding(horizontal = 10.dp))
-            Text("${(zoom * 100).toInt()}%", style = MaterialTheme.typography.labelSmall)
-        }
         HorizontalDivider()
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(8.dp),
+        LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(session.pageCount, key = { it }) { index ->
-                ReaderPage(session, index, zoom)
+                ReaderPage(session, index, zoom, onZoom = { zoom = it })
+            }
+        }
+        if (readingMode) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            TextButton(enabled = currentPage > 0, onClick = { scope.launch { listState.animateScrollToItem(currentPage - 1) } }) {
+                Icon(Icons.Default.ChevronLeft, null, Modifier.size(18.dp)); Text("Previous")
+            }
+            TextButton(onClick = { bookmarksOpen = true }) { DialogActionLabel("Bookmarks", Icons.Default.Bookmark) }
+            TextButton(enabled = currentPage < session.pageCount - 1, onClick = { scope.launch { listState.animateScrollToItem(currentPage + 1) } }) {
+                Text("Next"); Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp))
             }
         }
     }
-    if (goDialog) AlertDialog(onDismissRequest = { goDialog = false }, title = { Text("Go to page") },
+    if (bookmarksOpen) WReaderAlertDialog(onDismissRequest = { bookmarksOpen = false },
+        title = { WReaderDialogTitle("Bookmarks") }, text = {
+            Column {
+                if (bookmarks.isEmpty()) Text("Tap the bookmark icon to save this page.")
+                bookmarks.forEach { index -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { scope.launch { listState.scrollToItem(index) }; bookmarksOpen = false }, modifier = Modifier.weight(1f)) { Text("Page ${index + 1}") }
+                    IconButton(onClick = { saveBookmarks(bookmarks - index) }) { Icon(Icons.Default.DeleteOutline, "Remove bookmark on page ${index + 1}") }
+                } }
+            }
+        }, confirmButton = { TextButton(onClick = { bookmarksOpen = false }) { DialogActionLabel("Done", Icons.Default.Check) } })
+    if (goDialog) WReaderAlertDialog(onDismissRequest = { goDialog = false }, title = { WReaderDialogTitle("Go to page") },
         text = { OutlinedTextField(pageText, { pageText = it }, label = { Text("1–${session.pageCount}") }, singleLine = true) },
         confirmButton = { TextButton(onClick = {
             pageText.toIntOrNull()?.let { if (it in 1..session.pageCount) scope.launch { listState.animateScrollToItem(it - 1) } }
             goDialog = false
-        }) { Text("Go") } }, dismissButton = { TextButton(onClick = { goDialog = false }) { Text("Cancel") } })
-    if (searchDialog) AlertDialog(onDismissRequest = { searchDialog = false }, title = { Text("Search selectable text") },
+        }) { DialogActionLabel("Go", Icons.Default.ArrowForward) } }, dismissButton = { TextButton(onClick = { goDialog = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
+    if (searchDialog) WReaderAlertDialog(onDismissRequest = { searchDialog = false }, title = { WReaderDialogTitle("Search selectable text") },
         text = {
             Column {
                 OutlinedTextField(query, { query = it }, singleLine = true, label = { Text("Search PDF") })
@@ -310,9 +350,9 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                     }
                 }
             }
-        }, confirmButton = { TextButton(onClick = { vm.searchPdf(query) }) { Text("Find") } },
-        dismissButton = { TextButton(onClick = { searchDialog = false }) { Text("Close") } })
-    if (thumbDialog) AlertDialog(onDismissRequest = { thumbDialog = false }, title = { Text("Page thumbnails") },
+        }, confirmButton = { TextButton(onClick = { vm.searchPdf(query) }) { DialogActionLabel("Find", Icons.Default.Search) } },
+        dismissButton = { TextButton(onClick = { searchDialog = false }) { DialogActionLabel("Close", Icons.Default.Close) } })
+    if (thumbDialog) WReaderAlertDialog(onDismissRequest = { thumbDialog = false }, title = { WReaderDialogTitle("Page thumbnails") },
         text = {
             LazyColumn(Modifier.heightIn(max = 400.dp)) {
                 items(session.pageCount) { index ->
@@ -324,28 +364,39 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                     }
                 }
             }
-        }, confirmButton = { TextButton(onClick = { thumbDialog = false }) { Text("Close") } })
+        }, confirmButton = { TextButton(onClick = { thumbDialog = false }) { DialogActionLabel("Close", Icons.Default.Close) } })
 }
 
+private data class PdfViewport(val width: Int, val height: Int, val zoom: Float, val x: Float, val y: Float)
+
 @Composable
-private fun ReaderPage(session: PdfSession, index: Int, zoom: Float) {
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp
-    val targetPixels = (screenWidth * 2.4).toInt()
+private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Float) -> Unit) {
+    val density = LocalDensity.current.density
+    val targetPixels = (LocalConfiguration.current.screenWidthDp * density).toInt()
     val image by produceState<Bitmap?>(initialValue = null, session, index, targetPixels) {
         value = try { session.render(index, targetPixels) } catch (_: Exception) { null }
     }
+    var bounds by remember(session, index) { mutableStateOf(IntSize.Zero) }
     var translateX by remember(session, index) { mutableFloatStateOf(0f) }
     var translateY by remember(session, index) { mutableFloatStateOf(0f) }
-    var gestureZoom by remember(session, index) { mutableFloatStateOf(1f) }
-    val scale = (zoom * gestureZoom).coerceIn(1f, 4f)
+    val currentZoom by rememberUpdatedState(zoom)
+    val changeZoom by rememberUpdatedState(onZoom)
+    val scale = zoom.coerceIn(1f, 4f)
+    val x = translateX.coerceIn(-bounds.width * (scale - 1f) / 2f, bounds.width * (scale - 1f) / 2f)
+    val y = translateY.coerceIn(-bounds.height * (scale - 1f) / 2f, bounds.height * (scale - 1f) / 2f)
+    val viewport = PdfViewport(bounds.width, bounds.height, scale, x, y)
+    val sharp by produceState<Pair<PdfViewport, Bitmap>?>(null, session, index, viewport) {
+        if (viewport.width > 0 && viewport.height > 0 && scale > 1.01f) {
+            delay(120) // Keep gestures responsive; replace the preview once the fingers settle.
+            try { value = viewport to session.renderViewport(index, viewport.width, viewport.height, scale, x, y) }
+            catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+            catch (_: Exception) { value = null }
+        } else value = null
+    }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth().clipToBounds()
+        Box(Modifier.fillMaxWidth().clipToBounds().onSizeChanged { bounds = it }
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .pointerInput(session, index, zoom) {
-                // Do NOT consume the one-finger drag: let parent LazyColumn scroll
-                // smoothly across every PDF page. Only two-finger gestures own
-                // the zoom/pan sequence. This fixes the Samsung scroll bug.
+            .pointerInput(session, index) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     var multiTouch = false
@@ -355,14 +406,10 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float) {
                         if (multiTouch) {
                             val pinch = event.calculateZoom()
                             val pan = event.calculatePan()
-                            val next = (gestureZoom * pinch).coerceIn(1f, 4f / zoom)
-                            if (next.isFinite()) gestureZoom = next
-                            translateX += pan.x
-                            translateY += pan.y
-                            if (gestureZoom * zoom <= 1.01f) {
-                                translateX = 0f
-                                translateY = 0f
-                            }
+                            val next = (currentZoom * pinch).coerceIn(1f, 4f)
+                            if (next.isFinite()) changeZoom(next)
+                            translateX = (translateX + pan.x).coerceIn(-bounds.width * (next - 1f) / 2f, bounds.width * (next - 1f) / 2f)
+                            translateY = (translateY + pan.y).coerceIn(-bounds.height * (next - 1f) / 2f, bounds.height * (next - 1f) / 2f)
                             event.changes.forEach { if (it.pressed) it.consume() }
                         }
                     } while (event.changes.any { it.pressed })
@@ -370,9 +417,14 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float) {
             }) {
             if (image == null) Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(24.dp))
-            } else Image(image!!.asImageBitmap(), "Page ${index + 1}", Modifier.fillMaxWidth().graphicsLayer {
-                scaleX = scale; scaleY = scale; translationX = translateX; translationY = translateY
-            }, contentScale = ContentScale.FillWidth)
+            } else {
+                Image(image!!.asImageBitmap(), "Page ${index + 1}", Modifier.fillMaxWidth().graphicsLayer {
+                    scaleX = scale; scaleY = scale; translationX = x; translationY = y
+                }, contentScale = ContentScale.FillWidth)
+                sharp?.takeIf { it.first == viewport }?.let { rendered ->
+                    Image(rendered.second.asImageBitmap(), null, Modifier.matchParentSize(), contentScale = ContentScale.FillBounds)
+                }
+            }
         }
         Spacer(Modifier.height(3.dp))
         Text("${index + 1}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -428,13 +480,26 @@ fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit) {
 
 @Composable
 fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack: () -> Unit,
-               openOutput: (Uri) -> Unit, shareOutput: (Uri) -> Unit) {
+               openOutput: (Uri) -> Unit, shareOutput: (Uri) -> Unit,
+               initialAction: PdfLibraryAction? = null, onInitialActionHandled: () -> Unit = {}) {
     var showRange by rememberSaveable { mutableStateOf(false) }
     var rangeText by rememberSaveable { mutableStateOf("") }
     var warning by remember { mutableStateOf(false) }
     val selected = remember { mutableStateListOf<Int>() }
     val pages = vm.toolPages
     val singleIndex = selected.singleOrNull()
+    LaunchedEffect(initialAction) {
+        if (initialAction != null) {
+            selected.clear()
+            when (initialAction) {
+                PdfLibraryAction.AddPages -> addPdf()
+                PdfLibraryAction.ExtractPages -> { rangeText = ""; showRange = true }
+                PdfLibraryAction.DeletePages -> vm.report("Select pages, then tap Delete. Save a new PDF when finished.")
+                else -> Unit
+            }
+            onInitialActionHandled()
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
@@ -514,15 +579,15 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
             mutableStateListOf<Int>().also { it.addAll(0 until source.count) }
         }
         var typedRange by remember(source.file.path) { mutableStateOf("") }
-        AlertDialog(onDismissRequest = { vm.clearSelection() },
-            title = { Text(if (vm.addSource) "Add pages from PDF" else "Choose starting pages") },
+        WReaderAlertDialog(onDismissRequest = { vm.clearSelection() },
+            title = { WReaderDialogTitle(if (vm.addSource) "Add pages from PDF" else "Choose starting pages") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("${source.name} · ${source.count} pages", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { picked.clear(); picked.addAll(0 until source.count) }) { Text("All") }
-                        TextButton(onClick = { picked.clear() }) { Text("Clear") }
+                        TextButton(onClick = { picked.clear() }) { DialogActionLabel("Clear", Icons.Default.Clear) }
                         Text("${picked.size} selected", style = MaterialTheme.typography.labelSmall)
                     }
                     LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.heightIn(max = 310.dp),
@@ -543,9 +608,9 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
             confirmButton = { TextButton(onClick = {
                 if (typedRange.isBlank()) vm.addSelectedPages(picked.sorted()) else vm.addSelected(typedRange)
             }) { Text(if (vm.addSource) "Add pages" else "Continue") } },
-            dismissButton = { TextButton(onClick = { vm.clearSelection() }) { Text("Cancel") } })
+            dismissButton = { TextButton(onClick = { vm.clearSelection() }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
     }
-    if (showRange) AlertDialog(onDismissRequest = { showRange = false }, title = { Text("Extract selected pages") },
+    if (showRange) WReaderAlertDialog(onDismissRequest = { showRange = false }, title = { WReaderDialogTitle("Extract selected pages") },
         text = { Column {
             Text("Keep only these positions from the current page order.")
             OutlinedTextField(rangeText, { rangeText = it }, label = { Text("e.g. 2, 5, 10-12") })
@@ -556,11 +621,11 @@ fun ToolEditor(vm: MainViewModel, addPdf: () -> Unit, onSave: () -> Unit, onBack
                 pages.clear(); pages.addAll(copies)
                 selected.clear(); showRange = false
             } catch (e: Exception) { vm.report(e.message ?: "Invalid page selection") }
-        }) { Text("Keep pages") } }, dismissButton = { TextButton(onClick = { showRange = false }) { Text("Cancel") } })
-    if (warning) AlertDialog(onDismissRequest = { warning = false }, title = { Text("Save new PDF?") },
+        }) { DialogActionLabel("Keep pages", Icons.Default.ContentCut) } }, dismissButton = { TextButton(onClick = { showRange = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
+    if (warning) WReaderAlertDialog(onDismissRequest = { warning = false }, title = { WReaderDialogTitle("Save new PDF?") },
         text = { Text("The original files stay unchanged. Page changes can invalidate digital signatures and may discard form fields, bookmarks, annotations, tags, layers or attachments. This engine cannot guarantee their preservation. Continue only if that is acceptable.") },
-        confirmButton = { TextButton(onClick = { warning = false; onSave() }) { Text("Continue") } },
-        dismissButton = { TextButton(onClick = { warning = false }) { Text("Cancel") } })
+        confirmButton = { TextButton(onClick = { warning = false; onSave() }) { DialogActionLabel("Continue", Icons.Default.ArrowForward) } },
+        dismissButton = { TextButton(onClick = { warning = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
 }
 
 @Composable
@@ -710,9 +775,9 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp))
     }
-    if (clearDialog) AlertDialog(onDismissRequest = { clearDialog = false },
-        title = { Text("Clear recent history?") },
+    if (clearDialog) WReaderAlertDialog(onDismissRequest = { clearDialog = false },
+        title = { WReaderDialogTitle("Clear recent history?") },
         text = { Text("This removes only the history list. Your document files will not be deleted.") },
-        confirmButton = { TextButton(onClick = { vm.clearRecent(); clearDialog = false }) { Text("Clear") } },
-        dismissButton = { TextButton(onClick = { clearDialog = false }) { Text("Cancel") } })
+        confirmButton = { TextButton(onClick = { vm.clearRecent(); clearDialog = false }) { DialogActionLabel("Clear", Icons.Default.Clear) } },
+        dismissButton = { TextButton(onClick = { clearDialog = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
 }

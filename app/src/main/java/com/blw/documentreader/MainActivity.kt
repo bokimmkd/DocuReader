@@ -23,11 +23,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.AutoFixHigh
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Build
@@ -63,10 +59,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var reviews: PlayReview
     private var outputBusy by mutableStateOf(false)
     private var convertOnReady by mutableStateOf(false)
+    private var bookModeOnOpen by mutableStateOf(false)
     private var resumeTick by mutableIntStateOf(0)
     private var preparingShare by mutableStateOf(false)
     private var protectedShare by mutableStateOf<Pair<Uri, String>?>(null)
-    private var stampPage by mutableStateOf<Int?>(null)
+    private var stampRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
     private var locating: DocumentEntry? = null
     private val locateDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val doc = locating; locating = null
@@ -74,7 +71,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
+        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; bookModeOnOpen = false; vm.openDocument(uri) }
     }
     private val pickForLibrary = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); vm.saveToLibrary(uri) }
@@ -125,7 +122,7 @@ class MainActivity : ComponentActivity() {
                 else intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
             else -> null
         } ?: intent?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
-        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; vm.openDocument(uri) }
+        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; bookModeOnOpen = false; vm.openDocument(uri) }
     }
     private fun persistIfAvailable(uri: Uri) {
         // Persist only grants actually offered by SAF; attachment grants may be temporary.
@@ -190,10 +187,13 @@ class MainActivity : ComponentActivity() {
     private fun ApplicationScreen() {
         var tab by rememberSaveable { mutableIntStateOf(0) }
         var libraryFilter by rememberSaveable { mutableStateOf("All") }
+        var pendingPdfAction by rememberSaveable { mutableStateOf<PdfLibraryAction?>(null) }
+        var toolFromLibrary by rememberSaveable { mutableStateOf(false) }
         BackHandler(enabled = vm.current != null || tab == 2) {
             if (outputBusy) return@BackHandler
             convertOnReady = false
-            if (vm.current != null) vm.closeDocument() else tab = 0
+            pendingPdfAction = null
+            if (vm.current != null) vm.closeDocument() else tab = if (toolFromLibrary && vm.toolReady) 1 else 0
         }
         val dark = when (vm.appearance) {
             "Dark" -> true
@@ -351,9 +351,9 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
-                            onOpenSaved = { incomingUri = it; convertOnReady = false; vm.openDocument(it) },
+                            onOpenSaved = { bookModeOnOpen = false; incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
-                            onReady = vm::markReaderReady, report = vm::report,
+                            onReady = vm::markReaderReady, report = vm::report, initialBookMode = bookModeOnOpen,
                             imagePosition = if(vm.imageQueue.isNotEmpty()) "${vm.imageQueue.indexOf(vm.current?.uri)+1} / ${vm.imageQueue.size}" else null,
                             onPrevious = if(vm.imageQueue.indexOf(vm.current?.uri)>0) ({vm.adjacentImage(-1)}) else null,
                             onNext = if(vm.imageQueue.indexOf(vm.current?.uri) in 0 until vm.imageQueue.lastIndex) ({vm.adjacentImage(1)}) else null
@@ -365,36 +365,55 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let(::shareDocument) },
                             autoExport = convertOnReady, onAutoHandled = { convertOnReady = false },
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
-                            onOpenSaved = { incomingUri = it; convertOnReady = false; vm.openDocument(it) },
+                            onOpenSaved = { bookModeOnOpen = false; incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
                             onReady = vm::markReaderReady, report = vm::report
                         )
                     } else if (vm.current != null && vm.pdf != null) {
                         ReaderScreen(vm, onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
-                            onShare = { vm.current?.let { share(Uri.parse(it.uri), "application/pdf") } },
+                            readingMode = bookModeOnOpen, onDocumentView = { bookModeOnOpen = false },
+                            onShare = { vm.current?.let(::shareDocument) },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
-                            onOrganize = { vm.current?.let { vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
-                            onStamp = { stampPage = it },
+                            onOrganize = { vm.current?.let { toolFromLibrary = false; vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
+                            onStamp = { page -> vm.current?.let { stampRequest = Triple(Uri.parse(it.uri), it.name, page) } },
                             onProtect = { vm.current?.let { protectedShare = Uri.parse(it.uri) to it.name } })
                     } else when (tab) {
                         0 -> HomeScreen(vm, openPicker = ::openPicker,
-                            reopen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
+                            reopen = { bookModeOnOpen = false; incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onLibrary = { vm.showLibrary(it); libraryFilter = it; tab = 1 })
                         1 -> LibraryScreen(vm,
-                            onOpen = { incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
+                            onOpen = { bookModeOnOpen = false; incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onShare = ::shareDocument,
+                            onConvert = { doc ->
+                                incomingUri = Uri.parse(doc.uri)
+                                bookModeOnOpen = false; convertOnReady = true
+                                vm.openDocument(incomingUri!!)
+                            },
+                            onBookMode = { doc -> bookModeOnOpen = true; incomingUri = Uri.parse(doc.uri); vm.openDocument(incomingUri!!) },
+                            onPdfAction = { doc, action ->
+                                val uri = Uri.parse(doc.uri)
+                                when (action) {
+                                    PdfLibraryAction.ShareWithPassword -> protectedShare = uri to doc.name
+                                    PdfLibraryAction.Stamp -> stampRequest = Triple(uri, doc.name, 0)
+                                    else -> {
+                                        pendingPdfAction = action; toolFromLibrary = true
+                                        vm.beginTool(uri, selectStartingPages = false); tab = 2
+                                    }
+                                }
+                            },
                             onAdd = { pickForLibrary.launch(DocumentFormats.pickerTypes) },
                             initialFilter = libraryFilter,
-                            onOpenFiltered = { doc, entries -> incomingUri = Uri.parse(doc.uri); vm.openFromLibrary(doc, entries) },
+                            onOpenFiltered = { doc, entries -> bookModeOnOpen = false; incomingUri = Uri.parse(doc.uri); vm.openFromLibrary(doc, entries) },
                             onLocate = { doc -> locating = doc; locateDocument.launch(DocumentFormats.pickerTypes) },
                             showAds = BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds)
                         2 -> if (vm.toolReady) ToolEditor(vm,
                             addPdf = { addTool.launch(arrayOf("application/pdf")) },
                             onSave = { saveTool.launch("WReader_edited.pdf") },
-                            onBack = { tab = 0 },
-                            openOutput = { incomingUri = it; vm.openDocument(it) },
-                            shareOutput = { share(it, "application/pdf") })
-                        else ToolsStartScreen(onChoosePdf = { pickTool.launch(arrayOf("application/pdf")) },
+                            onBack = { pendingPdfAction = null; tab = if (toolFromLibrary) 1 else 0 },
+                            openOutput = { bookModeOnOpen = false; incomingUri = it; vm.openDocument(it) },
+                            shareOutput = { share(it, "application/pdf") },
+                            initialAction = pendingPdfAction, onInitialActionHandled = { pendingPdfAction = null })
+                        else ToolsStartScreen(onChoosePdf = { pendingPdfAction = null; toolFromLibrary = false; pickTool.launch(arrayOf("application/pdf")) },
                             onConvert = { convertDocument.launch(DocumentFormats.pickerTypes.filterNot { it == "application/pdf" }.toTypedArray()) })
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
@@ -413,22 +432,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            if (vm.passwordNeeded && incomingUri != null) AlertDialog(
-                onDismissRequest = { vm.dismissMessage() }, title = { Text("PDF password") },
+            if (vm.passwordNeeded && incomingUri != null) WReaderAlertDialog(
+                onDismissRequest = { vm.dismissMessage() }, title = { WReaderDialogTitle("PDF password") },
                 text = { OutlinedTextField(password, { password = it }, singleLine = true,
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     label = { Text("Password") }) },
                 confirmButton = { TextButton(onClick = {
                     incomingUri?.let { vm.openDocument(it, password) }; password = ""
-                }) { Text("Unlock") } },
-                dismissButton = { TextButton(onClick = { vm.closeDocument() }) { Text("Cancel") } })
+                }) { DialogActionLabel("Unlock", Icons.Default.LockOpen) } },
+                dismissButton = { TextButton(onClick = { vm.closeDocument() }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
             if (infoPage != null) InfoScreen(infoPage!!, onBack = { infoPage = null })
             protectedShare?.let { (uri, name) -> PdfPasswordDialog(uri, name, onDismiss = { protectedShare = null },
                 onBusy = { outputBusy = it }, onShare = ::shareGenerated, report = vm::report) }
-            if (stampPage != null && vm.current?.type == "PDF") vm.current?.let { doc ->
-                PdfStampDialog(Uri.parse(doc.uri), doc.name, stampPage!!, onDismiss = { stampPage = null },
+            stampRequest?.let { (uri, name, page) ->
+                PdfStampDialog(uri, name, page, onDismiss = { stampRequest = null },
                     onBusy = { outputBusy = it }, onSaved = ::keepExport,
-                    onOpen = { stampPage = null; incomingUri = it; vm.openDocument(it) },
+                    onOpen = { stampRequest = null; incomingUri = it; vm.openDocument(it) },
                     onShare = { uri, name -> share(uri, "application/pdf", name) }, report = vm::report)
             }
 

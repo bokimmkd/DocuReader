@@ -53,9 +53,9 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
                      onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
                      onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
                      onReady: () -> Unit, report: (String) -> Unit,
-                     imagePosition: String? = null, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
+                     initialBookMode: Boolean = false, imagePosition: String? = null, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
     val context = LocalContext.current
-    var bookMode by androidx.compose.runtime.saveable.rememberSaveable(uri.toString()) { mutableStateOf(type == "EPUB" && !autoExport) }
+    var bookMode by androidx.compose.runtime.saveable.rememberSaveable(uri.toString()) { mutableStateOf(initialBookMode && !autoExport) }
     if (bookMode && type in setOf("EPUB","TXT")) {
         BookReaderScreen(uri,name,type,context.getSharedPreferences("metadata_only",Context.MODE_PRIVATE).getBoolean("remember",true),
             onBack,onShare,onReady,onDocumentView={bookMode=false},report=report)
@@ -138,8 +138,8 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
             key(web) { AndroidView(factory = { web }, modifier = Modifier.weight(1f).fillMaxWidth()) }
         }
     }
-    if (showSearch) AlertDialog(onDismissRequest = { showSearch = false }, title = { Text("Find in text") },
+    if (showSearch) WReaderAlertDialog(onDismissRequest = { showSearch = false }, title = { WReaderDialogTitle("Find in text") },
         text = { OutlinedTextField(query, { query = it }, singleLine = true, label = { Text("Search") }) },
-        confirmButton = { TextButton(onClick = { web.findAllAsync(query); showSearch = false }) { Text("Find") } },
-        dismissButton = { TextButton(onClick = { web.clearMatches(); showSearch = false }) { Text("Close") } })
+        confirmButton = { TextButton(onClick = { web.findAllAsync(query); showSearch = false }) { DialogActionLabel("Find", Icons.Default.Search) } },
+        dismissButton = { TextButton(onClick = { web.clearMatches(); showSearch = false }) { DialogActionLabel("Close", Icons.Default.Close) } })
 }

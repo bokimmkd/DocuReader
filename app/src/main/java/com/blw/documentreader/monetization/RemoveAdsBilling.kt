@@ -16,6 +16,8 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import kotlinx.coroutines.*
+import kotlin.coroutines.resume
 
 /** Google Play one-time product ID must be configured in Play Console before production. */
 class RemoveAdsBilling(private val activity: Activity, private val status: (String) -> Unit) : PurchasesUpdatedListener {
@@ -30,14 +32,45 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
         .enableAutoServiceReconnection()
         .build()
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var connecting = false
+    private var closed = false
+    private var manualRestorePending = false
+    private val recovery = PurchaseRecovery(object : AdFreeGateway {
+        override suspend fun query(): OwnedQuery = suspendCancellableCoroutine { continuation ->
+            client.queryPurchasesAsync(QueryPurchasesParams.newBuilder()
+                .setProductType(BillingClient.ProductType.INAPP).build()) { result, purchases ->
+                if (continuation.isActive) continuation.resume(OwnedQuery(result.responseCode,
+                    purchases.filter { "remove_ads" in it.products }.map(::snapshot)))
+            }
+        }
+        override suspend fun acknowledge(token: String): Int = suspendCancellableCoroutine { continuation ->
+            client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()) { result ->
+                if (continuation.isActive) continuation.resume(result.responseCode)
+            }
+        }
+    }, entitlement = { enabled ->
+        adFree = enabled
+        prefs.edit().putBoolean("play_confirmed_offline", enabled).apply()
+    }, message = status)
+    private fun snapshot(p: Purchase) = OwnedAdFree(p.purchaseToken, p.isAcknowledged,
+        p.purchaseState != Purchase.PurchaseState.PURCHASED)
     fun start() {
+        if (closed || connecting || client.isReady) return
+        connecting = true
         client.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
+                connecting = false
+                if (closed) return
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    loadPrice(); restore(silent = true)
+                    loadPrice(); val manual = manualRestorePending; manualRestorePending = false
+                    restore(silent = !manual)
+                } else if (manualRestorePending) {
+                    manualRestorePending = false
+                    status("Google Play is temporarily unavailable (code ${result.responseCode}). Try Restore again later.")
                 }
             }
-            override fun onBillingServiceDisconnected() { /* automatic reconnection enabled */ }
+            override fun onBillingServiceDisconnected() { connecting = false }
         })
     }
     private fun loadPrice() {
@@ -64,52 +97,29 @@ class RemoveAdsBilling(private val activity: Activity, private val status: (Stri
             .setProductDetails(product).setOfferToken(offerToken!!).build()
         val response = client.launchBillingFlow(activity, BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(entry)).build())
-        if (response.responseCode != BillingClient.BillingResponseCode.OK) status("Google Play couldn't launch checkout.")
+        if (response.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) restore()
+        else if (response.responseCode != BillingClient.BillingResponseCode.OK) status("Google Play couldn't launch checkout (code ${response.responseCode}).")
     }
     fun restore(silent: Boolean = false) {
-        if (!client.isReady) { if (!silent) status("Google Play is not connected. Try again later."); return }
-        client.queryPurchasesAsync(QueryPurchasesParams.newBuilder()
-            .setProductType(BillingClient.ProductType.INAPP).build()) { result, purchases ->
-            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                val purchased = purchases.filter { "remove_ads" in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED }
-                if (purchased.isNotEmpty()) purchased.forEach(::processPurchase)
-                else {
-                    adFree = false
-                    prefs.edit().putBoolean("play_confirmed_offline", false).apply()
-                    if (!silent) status("No active ad-free purchase found on this Google Play account.")
-                }
-            } else if (!silent) status("Restore unavailable. Offline entitlement remains active if previously confirmed.")
+        if (closed) return
+        if (!client.isReady) {
+            manualRestorePending = manualRestorePending || !silent
+            start()
+            return
         }
+        scope.launch { recovery.restore(manual = !silent) }
     }
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
+        if (closed) return
         when (result.responseCode) {
-            BillingClient.BillingResponseCode.OK -> purchases?.forEach(::processPurchase)
+            BillingClient.BillingResponseCode.OK -> {
+                val owned = purchases.orEmpty().filter { "remove_ads" in it.products }
+                if (owned.isEmpty()) restore() else scope.launch { recovery.observe(owned.map(::snapshot)) }
+            }
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> restore()
             BillingClient.BillingResponseCode.USER_CANCELED -> status("Purchase canceled.")
-            else -> status("Purchase not confirmed. Check Google Play or try Restore Purchase.")
+            else -> status("Purchase not confirmed (Play code ${result.responseCode}). Check Google Play or try Restore Purchase.")
         }
     }
-    private fun processPurchase(purchase: Purchase) {
-        if ("remove_ads" !in purchase.products) return
-        when (purchase.purchaseState) {
-            Purchase.PurchaseState.PENDING -> status("Purchase pending. Ads remain until Google Play confirms payment.")
-            Purchase.PurchaseState.PURCHASED -> {
-                // Play client reports PURCHASED; for fraud-resistant release, verify the
-                // purchaseToken using Play Developer API on a trusted server before granting.
-                if (!purchase.isAcknowledged) {
-                    client.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder()
-                        .setPurchaseToken(purchase.purchaseToken).build()) { response ->
-                        if (response.responseCode == BillingClient.BillingResponseCode.OK) confirm()
-                        else status("Payment found, but acknowledgment failed. Use Restore Purchase.")
-                    }
-                } else confirm()
-            }
-        }
-    }
-    private fun confirm() {
-        adFree = true
-        prefs.edit().putBoolean("play_confirmed_offline", true).apply()
-        status("Ad-free enabled.")
-    }
-    fun close() = client.endConnection()
+    fun close() { closed = true; scope.cancel(); client.endConnection() }
 }

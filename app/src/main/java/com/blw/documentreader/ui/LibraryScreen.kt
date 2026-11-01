@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +40,28 @@ import com.blw.documentreader.data.LibraryActions
 import com.blw.documentreader.monetization.InlineBanner
 
 private val LibraryBlue = Color(0xFF0869E8)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LibrarySelectionAction(label: String, onClick: () -> Unit, icon: @Composable () -> Unit) {
+    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
+        IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { icon() }
+    }
+}
+
+@Composable
+private fun SelectionTagIcon(add: Boolean) {
+    Box(Modifier.size(28.dp)) {
+        Icon(Icons.Default.LabelOutline, if (add) "Add tags" else "Remove tags", Modifier.size(24.dp))
+        Surface(Modifier.size(14.dp).align(Alignment.BottomEnd),
+            shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary) {
+            Icon(if (add) Icons.Default.Add else Icons.Default.Remove, null, Modifier.padding(1.dp))
+        }
+    }
+}
+
 private fun libraryField(vm: MainViewModel, get: (com.blw.documentreader.data.LibraryState) -> String,
     set: (com.blw.documentreader.data.LibraryState, String) -> com.blw.documentreader.data.LibraryState) =
     object : kotlin.properties.ReadWriteProperty<Any?, String> {
@@ -54,19 +77,22 @@ private fun formatColor(type: String) = when (type) {
 
 @Composable
 private fun LibraryFilter(label: String, values: List<String>, onSelect: (String) -> Unit,
-                          modifier: Modifier = Modifier) {
+                          modifier: Modifier = Modifier, icon: ImageVector = Icons.Default.FolderOpen) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
         TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().height(40.dp),
             contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             shape = RoundedCornerShape(8.dp)) {
+            Icon(icon, null, Modifier.size(15.dp))
+            Spacer(Modifier.width(3.dp))
             Text(label, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Icon(Icons.Default.ArrowDropDown, null, Modifier.size(17.dp))
         }
         DropdownMenu(expanded, { expanded = false }) {
             values.forEach { value ->
-                DropdownMenuItem(text = { Text(value) }, onClick = { onSelect(value); expanded = false })
+                DocumentActionItem(value, if (value == label) Icons.Default.Check else icon,
+                    { onSelect(value); expanded = false })
             }
         }
     }
@@ -75,7 +101,8 @@ private fun LibraryFilter(label: String, values: List<String>, onSelect: (String
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () -> Unit,
-                  onShare: (DocumentEntry) -> Unit, initialFilter: String = "All",
+                  onShare: (DocumentEntry) -> Unit, onConvert: (DocumentEntry) -> Unit,
+                  onPdfAction: (DocumentEntry, PdfLibraryAction) -> Unit, onBookMode: (DocumentEntry) -> Unit, initialFilter: String = "All",
                   onOpenFiltered: (DocumentEntry, List<DocumentEntry>) -> Unit = { doc, _ -> onOpen(doc) },
                   onLocate: (DocumentEntry) -> Unit = {}, showAds: Boolean = false) {
     val state = vm.libraryState
@@ -95,6 +122,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     var bulkAction by remember { mutableStateOf<String?>(null) }
     var bulkValue by remember { mutableStateOf("") }
     var manageCategories by remember { mutableStateOf(false) }
+    var categoryDraft by rememberSaveable { mutableStateOf("") }
+    var categoryError by remember { mutableStateOf<String?>(null) }
     var deleteCategory by remember { mutableStateOf<String?>(null) }
     var unavailableDoc by remember { mutableStateOf<DocumentEntry?>(null) }
     BackHandler(selected.isNotEmpty()) { selected = arrayListOf() }
@@ -181,8 +210,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             LibraryFilter(category, categories, { category = it }, Modifier.weight(1f))
-            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f))
-            LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(82.dp))
+            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f), Icons.Default.LabelOutline)
+            LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(92.dp), Icons.Default.Sort)
         }
         if (selected.isNotEmpty()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -191,10 +220,18 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 IconButton(onClick = { selected = arrayListOf() }) { Icon(Icons.Default.Close, "Cancel selection") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TextButton(onClick = { bulkValue = ""; bulkAction = "Category" }) { Text("Category", fontSize = 11.sp) }
-                TextButton(onClick = { bulkValue = ""; bulkAction = "Add tags" }) { Text("+ Tags", fontSize = 11.sp) }
-                TextButton(onClick = { bulkValue = ""; bulkAction = "Remove tags" }) { Text("− Tags", fontSize = 11.sp) }
-                IconButton(onClick = { remove = selected.toSet() }) { Icon(Icons.Default.DeleteOutline, "Remove selected from Library") }
+                LibrarySelectionAction("Assign category", { bulkValue = ""; bulkAction = "Category" }) {
+                    Icon(Icons.Default.FolderOpen, "Assign category")
+                }
+                LibrarySelectionAction("Add tags", { bulkValue = ""; bulkAction = "Add tags" }) {
+                    SelectionTagIcon(add = true)
+                }
+                LibrarySelectionAction("Remove tags", { bulkValue = ""; bulkAction = "Remove tags" }) {
+                    SelectionTagIcon(add = false)
+                }
+                LibrarySelectionAction("Remove selected from Library", { remove = selected.toSet() }) {
+                    Icon(Icons.Default.DeleteOutline, "Remove selected from Library", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
         HorizontalDivider()
@@ -212,6 +249,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 LaunchedEffect(doc.uri, vm.availabilityEpoch) { vm.checkAvailability(doc) }
                 val missing = vm.unavailable[doc.uri] == true
                 var menu by remember(doc.uri) { mutableStateOf(false) }
+                var pdfMenu by remember(doc.uri) { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth().background(if (missing) MaterialTheme.colorScheme.errorContainer.copy(alpha = .30f) else Color.Transparent)
                     .combinedClickable(onClick = {
                         if (selected.isNotEmpty()) toggle(doc.uri)
@@ -251,14 +289,40 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                             Icon(Icons.Default.MoreVert, "Document actions", Modifier.size(19.dp))
                         }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(text = { Text("Select") }, onClick = { menu = false; toggle(doc.uri) })
-                            DropdownMenuItem(text = { Text("Share file") }, onClick = { menu = false; onShare(doc) })
-                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; edit(doc) })
-                            DropdownMenuItem(text = { Text("Category & tags") }, onClick = { menu = false; edit(doc) })
-                            if (!doc.savedLocally) DropdownMenuItem(text = { Text("Keep offline copy") },
-                                onClick = { menu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc) })
-                            DropdownMenuItem(text = { Text("Locate file") }, onClick = { menu = false; onLocate(doc) })
-                            DropdownMenuItem(text = { Text("Remove from Library", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; remove = setOf(doc.uri) })
+                            DocumentActionItem("Select", Icons.Default.CheckBox, { menu = false; toggle(doc.uri) })
+                            DocumentActionItem("Share file", Icons.Default.Share, { menu = false; onShare(doc) })
+                            if (doc.type == "PDF") {
+                                DocumentActionItem("Share with password", Icons.Default.Lock,
+                                    { menu = false; onPdfAction(doc, PdfLibraryAction.ShareWithPassword) }, enabled = !missing)
+                                DocumentActionItem("PDF tools", Icons.Default.Build,
+                                    { menu = false; pdfMenu = true }, enabled = !missing, submenu = true)
+                            }
+                            if (doc.type != "PDF" && doc.type in com.blw.documentreader.data.DocumentFormats.mimeByType) {
+                                DocumentActionItem("Convert to PDF", Icons.Default.PictureAsPdf,
+                                    { menu = false; onConvert(doc) }, enabled = !missing)
+                            }
+                            if (doc.type in setOf("PDF", "EPUB", "TXT")) DocumentActionItem("Book mode", Icons.Default.MenuBook,
+                                { menu = false; onBookMode(doc) }, enabled = !missing)
+                            DocumentActionItem("Rename", Icons.Default.DriveFileRenameOutline, { menu = false; edit(doc) })
+                            DocumentActionItem("Category & tags", Icons.Default.LabelOutline, { menu = false; edit(doc) })
+                            if (!doc.savedLocally) DocumentActionItem("Keep offline copy", Icons.Default.Download,
+                                { menu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc) })
+                            DocumentActionItem("Locate file", Icons.Default.FolderOpen, { menu = false; onLocate(doc) })
+                            HorizontalDivider()
+                            DocumentActionItem("Remove from Library", Icons.Default.DeleteOutline,
+                                { menu = false; remove = setOf(doc.uri) }, destructive = true)
+                        }
+                        DropdownMenu(pdfMenu, { pdfMenu = false }) {
+                            DocumentActionItem("Add pages", Icons.Default.AddBox,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.AddPages) })
+                            DocumentActionItem("Delete pages", Icons.Default.DeleteOutline,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.DeletePages) })
+                            DocumentActionItem("Extract pages", Icons.Default.ContentCut,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.ExtractPages) })
+                            DocumentActionItem("Organize pages", Icons.Default.Dashboard,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.OrganizePages) })
+                            DocumentActionItem("Stamp PDF", Icons.Default.Approval,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.Stamp) })
                         }
                     }
                 }
@@ -283,17 +347,25 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
             }, onDismiss = { editing = null }
         )
     }
-    remove?.let { uris -> AlertDialog(onDismissRequest = { remove = null }, title = { WReaderDialogTitle("Remove ${uris.size} document(s)?") },
+    remove?.let { uris -> WReaderAlertDialog(onDismissRequest = { remove = null }, title = { WReaderDialogTitle("Remove ${uris.size} document(s)?") },
         text = { Text("Remove from Library only. Original files and offline copies stay unchanged. You can undo this action.") },
-        confirmButton = { Button(onClick = { vm.removeEntries(uris); selected = arrayListOf(); remove = null }) { Text("Remove") } },
-        dismissButton = { TextButton(onClick = { remove = null }) { Text("Cancel") } }) }
-    unavailableDoc?.let { doc -> AlertDialog(onDismissRequest = { unavailableDoc = null }, title = { WReaderDialogTitle("File unavailable") },
+        confirmButton = { Button(onClick = { vm.removeEntries(uris); selected = arrayListOf(); remove = null }) {
+            Icon(Icons.Default.DeleteOutline, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Remove")
+        } },
+        dismissButton = { TextButton(onClick = { remove = null }) {
+            Icon(Icons.Default.Close, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Cancel")
+        } }) }
+    unavailableDoc?.let { doc -> WReaderAlertDialog(onDismissRequest = { unavailableDoc = null }, title = { WReaderDialogTitle("File unavailable") },
         text = { Column { Text(doc.name); Text("The file may be offline, moved or permission may have expired.")
-            TextButton(onClick = { vm.checkAvailability(doc); unavailableDoc = null; onOpenFiltered(doc, entries) }) { Text("Retry") }
-            TextButton(onClick = { unavailableDoc = null; onLocate(doc) }) { Text("Locate file") }
-            TextButton(onClick = { unavailableDoc = null; remove = setOf(doc.uri) }) { Text("Remove from Library") } } },
-        confirmButton = { TextButton(onClick = { unavailableDoc = null }) { Text("Close") } }) }
-    bulkAction?.let { action -> AlertDialog(onDismissRequest = { bulkAction = null }, title = { WReaderDialogTitle(action) },
+            TextButton(onClick = { vm.checkAvailability(doc); unavailableDoc = null; onOpenFiltered(doc, entries) }) { DialogActionLabel("Retry", Icons.Default.Refresh) }
+            TextButton(onClick = { unavailableDoc = null; onLocate(doc) }) { DialogActionLabel("Locate file", Icons.Default.FolderOpen) }
+            TextButton(onClick = { unavailableDoc = null; remove = setOf(doc.uri) }) { DialogActionLabel("Remove from Library", Icons.Default.DeleteOutline) } } },
+        confirmButton = { TextButton(onClick = { unavailableDoc = null }) { DialogActionLabel("Close", Icons.Default.Close) } }) }
+    bulkAction?.let { action -> WReaderAlertDialog(onDismissRequest = { bulkAction = null }, title = { WReaderDialogTitle(action) },
         text = { Column {
             if (action == "Category") {
                 LibraryFilter(bulkValue.ifBlank { "Choose category" }, listOf("Uncategorized") + vm.categories, { bulkValue = it })
@@ -305,16 +377,42 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
             if (action == "Category") vm.bulk(selected.toSet(), category = bulkValue)
             else vm.bulk(selected.toSet(), tags = bulkValue, removeTags = action == "Remove tags")
             bulkAction = null; selected = arrayListOf()
-        }) { Text("Apply") } }, dismissButton = { TextButton(onClick = { bulkAction = null }) { Text("Cancel") } }) }
-    if (manageCategories) AlertDialog(onDismissRequest = { manageCategories = false }, title = { WReaderDialogTitle("Categories") },
-        text = { Column(Modifier.heightIn(max = 350.dp).verticalScroll(rememberScrollState())) {
-            if (vm.categories.isEmpty()) Text("No custom categories yet.")
-            vm.categories.forEach { value -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(value, Modifier.weight(1f)); IconButton(onClick = { deleteCategory = value }) { Icon(Icons.Default.DeleteOutline, "Delete $value") }
-            } }
-        } }, confirmButton = { TextButton(onClick = { manageCategories = false }) { Text("Done") } })
-    deleteCategory?.let { value -> AlertDialog(onDismissRequest = { deleteCategory = null }, title = { WReaderDialogTitle("Delete category?") },
+        }) { DialogActionLabel("Apply", Icons.Default.Check) } }, dismissButton = { TextButton(onClick = { bulkAction = null }) { DialogActionLabel("Cancel", Icons.Default.Close) } }) }
+    if (manageCategories) WReaderCompactDialog(title = "Categories", onDismissRequest = { manageCategories = false },
+        content = {
+            OutlinedTextField(categoryDraft, { categoryDraft = it.take(45); categoryError = null },
+                modifier = Modifier.fillMaxWidth(), label = { Text("New category") }, singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium, shape = RoundedCornerShape(10.dp),
+                leadingIcon = { Icon(Icons.Default.FolderOpen, null, Modifier.size(19.dp)) },
+                trailingIcon = {
+                    IconButton(enabled = categoryDraft.isNotBlank(), onClick = {
+                        val value = categoryDraft.trim()
+                        if (value.equals("Uncategorized", true) || vm.categories.any { it.equals(value, true) }) {
+                            categoryError = "This category already exists."
+                        } else {
+                            vm.addCategory(value); categoryDraft = ""; categoryError = null
+                        }
+                    }) { Icon(Icons.Default.Add, "Add category", tint = if (categoryDraft.isBlank())
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = .38f) else MaterialTheme.colorScheme.primary) }
+                }, isError = categoryError != null)
+            categoryError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            if (vm.categories.isEmpty()) Text("No custom categories yet.", style = MaterialTheme.typography.bodySmall)
+            Column {
+                vm.categories.forEach { value -> Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FolderOpen, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(10.dp))
+                    Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    IconButton(onClick = { deleteCategory = value }) {
+                        Icon(Icons.Default.DeleteOutline, "Delete $value", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+                    }
+                } }
+            }
+        }, buttons = { TextButton(onClick = { manageCategories = false }) {
+            Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Done")
+        } })
+    deleteCategory?.let { value -> WReaderAlertDialog(onDismissRequest = { deleteCategory = null }, title = { WReaderDialogTitle("Delete category?") },
         text = { Text("Remove “$value”? Its documents become Uncategorized. No files are deleted.") },
-        confirmButton = { Button(onClick = { vm.deleteCategory(value); deleteCategory = null }) { Text("Delete category") } },
-        dismissButton = { TextButton(onClick = { deleteCategory = null }) { Text("Cancel") } }) }
+        confirmButton = { Button(onClick = { vm.deleteCategory(value); deleteCategory = null }) { DialogActionLabel("Delete category", Icons.Default.DeleteOutline) } },
+        dismissButton = { TextButton(onClick = { deleteCategory = null }) { DialogActionLabel("Cancel", Icons.Default.Close) } }) }
 }

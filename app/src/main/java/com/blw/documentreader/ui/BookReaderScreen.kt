@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.*
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +35,23 @@ private class BookView(context: Context) : WebView(context) {
     var onTurn: (Int) -> Unit = {}
     var pages = false
     var alive = true
+    var readingTextSize = 18f
+    var onPinchStart: () -> Unit = {}
+    var onTextSize: (Float) -> Unit = {}
+    private var pinchSize = 18f
+    private val pinch = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+            multiple = true; pinchSize = readingTextSize; onPinchStart(); return true
+        }
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            pinchSize = (pinchSize * detector.scaleFactor).coerceIn(14f, 30f)
+            settings.textZoom = (100f * pinchSize / readingTextSize).toInt()
+            return true
+        }
+        override fun onScaleEnd(detector: ScaleGestureDetector) {
+            settings.textZoom = 100; onTextSize(pinchSize)
+        }
+    })
     private var startX = 0f; private var startY = 0f; private var multiple = false
     fun maximum() = (computeVerticalScrollRange() - height).coerceAtLeast(0)
     fun position() = if (maximum() == 0) 0f else scrollY.toFloat()/maximum()
@@ -41,6 +59,7 @@ private class BookView(context: Context) : WebView(context) {
     fun turn(direction: Int) { if(direction>0) pageDown(false) else pageUp(false) }
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) { super.onScrollChanged(l,t,oldl,oldt); onPosition(position()) }
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        pinch.onTouchEvent(event)
         when(event.actionMasked) {
             MotionEvent.ACTION_DOWN -> { startX=event.x; startY=event.y; multiple=false }
             MotionEvent.ACTION_POINTER_DOWN -> multiple=true
@@ -52,6 +71,7 @@ private class BookView(context: Context) : WebView(context) {
                 }
             }
         }
+        if (multiple) return true
         return super.onTouchEvent(event)
     }
 }
@@ -103,6 +123,8 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
         }
         onPosition={ value -> positionWriter(value); page=if(count==1)1 else (value*(count-1)).toInt()+1 }
         onTurn={ turn(it) }
+        onPinchStart={ restoring=true }
+        onTextSize={ value -> if(abs(value-size)>.1f) size=value else { go(fraction); restoring=false } }
     } }
     DisposableEffect(web) { onDispose { web.alive=false;web.onPosition={};web.stopLoading();web.destroy() } }
     LaunchedEffect(uri) {
@@ -138,13 +160,13 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
             TextButton(onClick={appearance=true},contentPadding=PaddingValues(6.dp)){Text("Aa")}
             var menu by remember {mutableStateOf(false)}
             Box { IconButton(onClick={menu=true}){Icon(Icons.Default.MoreVert,"Book actions")};DropdownMenu(menu,{menu=false}){
-                DropdownMenuItem(text={Text("Bookmarks (${marks.size})")},onClick={menu=false;marksOpen=true})
-                DropdownMenuItem(text={Text("Share file")},onClick={menu=false;onShare()})
-                DropdownMenuItem(text={Text("Document view / Print / Save PDF")},onClick={menu=false;onDocumentView()})
+                DocumentActionItem("Bookmarks (${marks.size})", Icons.Default.Bookmark, {menu=false;marksOpen=true})
+                DocumentActionItem("Share file", Icons.Default.Share, {menu=false;onShare()})
+                DocumentActionItem("Document view / Print / Save PDF", Icons.Default.Description, {menu=false;onDocumentView()})
             } }
         }
         if(error!=null)Text(error!!,Modifier.padding(20.dp))
-        else AndroidView(factory={web},update={it.pages=pages},modifier=Modifier.weight(1f).fillMaxWidth())
+        else AndroidView(factory={web},update={it.pages=pages;it.readingTextSize=size},modifier=Modifier.weight(1f).fillMaxWidth())
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically){
             Text("${(fraction*100).toInt()}%",style=MaterialTheme.typography.labelSmall)
             Slider(fraction,{fraction=it;web.go(it)},modifier=Modifier.weight(1f))
@@ -156,15 +178,15 @@ fun BookReaderScreen(uri: Uri, name: String, type: String, rememberPosition: Boo
             TextButton(enabled=fraction<.999f && count>1,onClick={web.turn(1)}){Text("Next ›")}
         }
     }
-    if(appearance)AlertDialog(onDismissRequest={appearance=false},title={WReaderDialogTitle("Reading appearance")},text={Column(Modifier.verticalScroll(rememberScrollState())){
+    if(appearance)WReaderAlertDialog(onDismissRequest={appearance=false},title={WReaderDialogTitle("Reading appearance")},text={Column{
         FlowRow {listOf("System","Light","Sepia","Dark").forEach{value->FilterChip(theme==value,{theme=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
         Text("Text size: ${size.toInt()}");Slider(size,{size=it},valueRange=14f..30f,steps=15)
         Text("Line spacing");FlowRow{listOf("Compact","Comfortable","Wide").forEach{value->FilterChip(spacing==value,{spacing=value},label={Text(value,style=MaterialTheme.typography.labelSmall)})}}
         Text("Margins");FlowRow{listOf("Narrow","Normal","Wide").forEach{value->FilterChip(margin==value,{margin=value},label={Text(value)})}}
         Row{Switch(pages,{pages=it;prefs.edit().putBoolean("pages",it).apply()});Text(if(pages)"Page turns / swipe" else "Scroll",Modifier.padding(12.dp))}
-    }},confirmButton={TextButton(onClick={appearance=false}){Text("Done")}})
-    if(marksOpen)AlertDialog(onDismissRequest={marksOpen=false},title={WReaderDialogTitle("Bookmarks")},text={Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())){
+    }},confirmButton={TextButton(onClick={appearance=false}){ DialogActionLabel("Done", Icons.Default.Check) }})
+    if(marksOpen)WReaderAlertDialog(onDismissRequest={marksOpen=false},title={WReaderDialogTitle("Bookmarks")},text={Column{
         if(marks.isEmpty())Text("Tap the bookmark icon to save your place.")
         marks.sorted().forEach{value->Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick={fraction=value;web.go(value);marksOpen=false},modifier=Modifier.weight(1f)){Text("${(value*100).toInt()}% through book")};IconButton(onClick={setMarks(marks-value)}){Icon(Icons.Default.DeleteOutline,"Remove bookmark")}}}
-    }},confirmButton={TextButton(onClick={marksOpen=false}){Text("Done")}})
+    }},confirmButton={TextButton(onClick={marksOpen=false}){ DialogActionLabel("Done", Icons.Default.Check) }})
 }

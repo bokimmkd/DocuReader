@@ -9,6 +9,8 @@ import android.os.ParcelFileDescriptor
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -35,10 +37,12 @@ fun copyUriToCache(context: Context, uri: Uri): File {
 class PdfSession private constructor(private val snapshot: File, private val renderer: PdfRenderer,
                                    private val tempEncrypted: File?) : Closeable {
     private val lock = Mutex()
-    val pageCount: Int get() = renderer.pageCount
+    val pageCount: Int = renderer.pageCount
+    @Volatile private var closed = false
 
     suspend fun render(pageIndex: Int, targetWidth: Int): Bitmap = withContext(Dispatchers.IO) {
         lock.withLock {
+            check(!closed)
             require(pageIndex in 0 until renderer.pageCount)
             renderer.openPage(pageIndex).use { page ->
                 val width = targetWidth.coerceIn(200, 1800)
@@ -49,6 +53,29 @@ class PdfSession private constructor(private val snapshot: File, private val ren
                     (height * factor).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap
+            }
+        }
+    }
+
+    /** Render the displayed crop at screen resolution, rather than magnifying a cached thumbnail. */
+    suspend fun renderViewport(pageIndex: Int, width: Int, height: Int, zoom: Float,
+        panX: Float, panY: Float): Bitmap = withContext(Dispatchers.IO) {
+        lock.withLock {
+            check(!closed)
+            renderer.openPage(pageIndex).use { page ->
+                val budget = min(1f, kotlin.math.sqrt(3_000_000f / (width.toFloat() * height.coerceAtLeast(1))))
+                val w = (width * budget).toInt().coerceAtLeast(1)
+                val h = (height * budget).toInt().coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(Color.WHITE)
+                val fit = width.toFloat() / page.width
+                val matrix = android.graphics.Matrix().apply {
+                    setScale(fit * zoom * budget, fit * zoom * budget)
+                    postTranslate((width * (1f - zoom) / 2f + panX) * budget,
+                        (height * (1f - zoom) / 2f + panY) * budget)
+                }
+                page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 bitmap
             }
         }
@@ -71,9 +98,11 @@ class PdfSession private constructor(private val snapshot: File, private val ren
     }
 
     override fun close() {
-        renderer.close()
-        snapshot.delete()
-        tempEncrypted?.delete()
+        if (closed) return
+        closed = true
+        CoroutineScope(Dispatchers.IO).launch {
+            lock.withLock { renderer.close(); snapshot.delete(); tempEncrypted?.delete() }
+        }
     }
 
     companion object {
