@@ -5,10 +5,13 @@ The user explicitly requested another AAB for the pending fixes and to wait for 
 User physically confirmed Viber opening, Buy (completed a purchase), and expanded PDF zoom on 0.1.13. Restore has not been separately confirmed. Reported failures: a new single-finger gesture cannot pan a zoomed PDF, and Excel invoice export changes column proportions/wraps text across six pages. Home Favorites should show three entries like Recents. The original customer workbook has not been provided; do not claim exact-file acceptance.
 
 ## Device acceptance update — 2026-11-01
-User tested 0.1.14-closed and confirmed Favorites are OK and PDF zoom followed by one-finger panning is OK. Their screenshot shows 0.1.14-closed installed. Actual Excel invoice testing is still pending. User considers this close to a release candidate; confirm the invoice before treating acceptance as complete. This feedback does not authorize Production publication.
+User tested 0.1.14-closed and confirmed Favorites are OK and PDF zoom followed by one-finger panning is OK. Their screenshot shows 0.1.14-closed installed. At that point actual Excel invoice testing was pending; the subsequent acceptance below supersedes that pending status. This feedback does not authorize Production publication.
 
 ## Next update backlog
 User requested visual icons for the Appearance choices: Light (sun), Dark (moon), System (device/system). Keep the three modes and clear selected-state/accessibility labels. This is recorded for the next update, not a request for another AAB now.
+
+## Release candidate acceptance — 2026-11-01
+User subsequently reported: “Mislam deka sme ok so ekselot” (“I think we are OK with Excel”). Record Excel as accepted based on the user's device feedback, with no remaining issue reported; this is not independent inspection of the original customer workbook. Together with confirmed Favorites and PDF zoom/pan, 0.1.14-closed (16), tested source fadd8f4d17337ca81da4ea0f1cfb2acba8bfa068, is the accepted release candidate. Keep Appearance icons in the next-update backlog. No new AAB or Production publication was requested by this feedback; existing Closed testing scope remains.
 
 ## 0.1.14 implementation
 - Version `0.1.14-closed`, versionCode `16`, package `com.blw.wreader`.
@@ -32,7 +35,7 @@ Artifact provenance:
 - Saved artifact `libfile_d247c23eb27c8191b6d5f0d18507814e`.
 
 ## Next physical acceptance
-Test the user's actual invoice for full first/last columns, totals, images and intended page count; test Fit enabled and disabled. Favorites and PDF zoom/pan are now physically confirmed by the user on 0.1.14. Purchase succeeded per earlier user feedback; ad removal/Restore has not been separately confirmed. Use the owned purchase for any later check, without charging again.
+Excel is now accepted per the user's follow-up; Favorites and PDF zoom/pan are also physically confirmed on 0.1.14. No further defect was reported. Purchase succeeded per earlier user feedback; ad removal/Restore has not been separately confirmed. Use the owned purchase for any later check, without charging again.
 
 ---
 
