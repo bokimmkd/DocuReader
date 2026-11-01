@@ -227,6 +227,73 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             }
         }
     }
+    /**
+     * Messaging apps commonly grant access only until the receiving Activity exits.
+     * Copy supported transient documents before rendering and persist their source
+     * aliases, so Viber/WhatsApp/email attachments remain readable in Library.
+     * No filename-only deduplication: two different files may share a name.
+     */
+    fun openTransientAttachment(requestedUri: Uri, onLocalReady: (Uri) -> Unit = {}) {
+        val request = ++openRequest
+        busy = true
+        viewModelScope.launch {
+            try {
+                val keys = withContext(Dispatchers.IO) { store.sourceKeys(requestedUri) }
+                if (request != openRequest) return@launch
+                val previous = recent.find { entry ->
+                    entry.uri in keys || entry.sourceUris.any { it in keys }
+                }
+                if (previous?.savedLocally == true) {
+                    busy = false
+                    val available = Uri.parse(previous.uri)
+                    onLocalReady(available)
+                    openDocument(available)
+                    return@launch
+                }
+                val name = previous?.name ?: withContext(Dispatchers.IO) {
+                    DocumentTypes.displayName(appContext, requestedUri)
+                }
+                val type = previous?.type ?: withContext(Dispatchers.IO) {
+                    DocumentTypes.detect(appContext, requestedUri, name)
+                }
+                if (type == null) {
+                    busy = false
+                    message = "Unsupported attachment. Choose ${com.blw.documentreader.data.DocumentFormats.supported}."
+                    return@launch
+                }
+                val localUri = withContext(Dispatchers.IO) { store.keepOffline(requestedUri, name) }
+                if (request != openRequest) {
+                    // Another file was selected before the transient copy completed.
+                    busy = false
+                    return@launch
+                }
+                val record = DocumentEntry(
+                    localUri.toString(), name, type,
+                    previous?.favorite ?: false, previous?.lastPage ?: 0,
+                    System.currentTimeMillis(), previous?.category ?: "Uncategorized",
+                    previous?.tags ?: "", true,
+                    previous?.addedAt?.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                    (previous?.sourceUris.orEmpty() + keys).distinct()
+                )
+                recent = listOf(record) + recent.filterNot { entry ->
+                    entry.uri == record.uri || entry.uri in keys ||
+                        entry.sourceUris.any { it in keys }
+                }
+                store.save(recent)
+                libraryReveal++
+                busy = false
+                onLocalReady(localUri)
+                openDocument(localUri)
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (ex: Exception) {
+                if (request == openRequest) {
+                    busy = false
+                    message = "Attachment couldn't be kept offline: ${ex.message ?: "Open it again from the source."}"
+                }
+            }
+        }
+    }
+
     private var openRequest = 0L
     fun openDocument(requestedUri: Uri, password: String? = null, fromQueue: Boolean = false) {
         val request = ++openRequest
