@@ -38,6 +38,10 @@ android {
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
+            // AndroidX instrumentation calls shared Kotlin APIs outside the app's R8 graph.
+            // These extra retention rules are QA-only; release optimization is unchanged.
+            proguardFile("qa-test-target.pro")
+            testProguardFile("qa-test-runner.pro")
             buildConfigField("boolean", "BILLING_ENABLED", "false")
             buildConfigField("String", "ADMOB_BANNER_ID", "\"ca-app-pub-3940256099942544/9214589741\"")
             buildConfigField("String", "ADMOB_INLINE_ID", "\"ca-app-pub-3940256099942544/9214589741\"")

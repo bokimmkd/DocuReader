@@ -17,4 +17,7 @@ adb pull /sdcard/Android/data/com.blw.wreader/files/image-display-qa verificatio
 adb pull /sdcard/Android/data/com.blw.wreader/files/dialog-qa verification/android-print || true
 adb pull /sdcard/Android/data/com.blw.wreader/files/workflow-qa verification/android-print || true
 adb logcat -d > verification/android-print/emulator-logcat.txt
+if [ "$test_status" -eq 0 ] && [ -f verification/release-universal.apk ]; then
+  python scripts/release-smoke.py || test_status=$?
+fi
 exit "$test_status"

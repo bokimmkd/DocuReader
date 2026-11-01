@@ -19,7 +19,7 @@ PDF conversion is processed locally using bundled rendering components and fonts
 
 ## Advertising and in-app purchases
 
-Version **0.1.5** introduces a small Google AdMob banner. There are no full-screen ads before opening a document. The earlier **0.1.4** closed-test build has advertising disabled.
+The free version uses Google AdMob banners: a small bottom banner on document and other screens, and inline banners within Library. Library does not show both placements at once. Ad-free Lifetime removes all W Reader ads. There are no full-screen ads before opening a document.
 
 Google Mobile Ads and its partners may collect and share approximate location derived from an IP address, device or other identifiers (including advertising ID when available), interactions with ads and the app, and diagnostics such as crash information. This information supports ad delivery, measurement, analytics, and fraud prevention. These services do not receive your document contents, extracted text, or filenames from W Reader.
 

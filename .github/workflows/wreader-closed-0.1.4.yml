@@ -47,6 +47,12 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Prepare actual release-AAB APK for black-box verification
+        run: |
+          mkdir -p verification
+          curl --fail --location --retry 2 https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar -o verification/bundletool.jar
+          java -Xmx1g -jar verification/bundletool.jar build-apks --bundle=app/build/outputs/bundle/release/app-release.aab --output=verification/release.apks --mode=universal --ks="$HOME/.android/debug.keystore" --ks-key-alias=androiddebugkey --ks-pass=pass:android --key-pass=pass:android
+          unzip -p verification/release.apks universal.apk > verification/release-universal.apk
       - name: Verify readers, direct PDF saving, printing, Open with, Settings and update lifecycle
         uses: reactivecircus/android-emulator-runner@v2
         with:
