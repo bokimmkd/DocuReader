@@ -124,13 +124,26 @@ class MainActivity : ComponentActivity() {
                 else intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
             else -> null
         } ?: intent?.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
-        if (uri != null) { persistIfAvailable(uri); incomingUri = uri; bookModeOnOpen = false; vm.openDocument(uri) }
+        if (uri != null) {
+            val durableGrant = persistIfAvailable(uri)
+            incomingUri = uri
+            bookModeOnOpen = false
+            // Messaging providers (Viber, WhatsApp, email) often grant access only
+            // for this intent. Copy while permission is live, not when Library
+            // later attempts to reopen an expired external URI.
+            vm.openDocument(uri, retainTemporary = !durableGrant)
+        }
     }
-    private fun persistIfAvailable(uri: Uri) {
-        // Persist only grants actually offered by SAF; attachment grants may be temporary.
-        try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        catch (_: SecurityException) { /* temporary attachment permission; report expiration on reopen */ }
-        catch (_: IllegalArgumentException) { /* non-persistable provider */ }
+    private fun persistIfAvailable(uri: Uri): Boolean {
+        if (uri.scheme != "content" || uri.authority == "${packageName}.files") return true
+        return try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            true
+        } catch (_: SecurityException) {
+            false // Provider offers a temporary read grant only.
+        } catch (_: IllegalArgumentException) {
+            false
+        }
     }
     private fun openPicker() {
         openDocument.launch(DocumentFormats.pickerTypes)
