@@ -102,6 +102,23 @@ def main():
   capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  tap('Library');await_node('release-image.png');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
+ # Match the phone's ~384dp width and reserve 64dp for its banner. Real
+ # Settings, branded header and bottom navigation must fit without scrolling.
+ adb('shell','wm','size','1080x2160')
+ adb('shell','wm','density','450')
+ try:
+  tap('Settings')
+  await_node('Restore Purchase')
+  footer=next((n for n in dump().iter('node') if n.get('text','').startswith('W Reader ') and 'English' in n.get('text','')),None)
+  assert footer is not None, 'Settings version footer missing before scrolling'
+  bounds=[int(v) for v in re.findall(r'\d+',footer.get('bounds',''))]
+  nav=await_node('Home')
+  nav_bounds=[int(v) for v in re.findall(r'\d+',nav.get('bounds',''))]
+  assert 0 < bounds[1] < bounds[3] <= nav_bounds[1], 'Settings footer clipped by bottom navigation'
+  capture('compact-settings')
+ finally:
+  adb('shell','wm','size','reset')
+  adb('shell','wm','density','reset')
  print('PASS: actual release-AAB APK cold start/resume pixels, EPUB appearance, Word/Excel/image reader controls and Library removal/Undo.')
 
 try:

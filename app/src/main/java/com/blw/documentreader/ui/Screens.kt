@@ -736,58 +736,54 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             Switch(checked = vm.remember, onCheckedChange = vm::updateRemember)
         }
         HorizontalDivider(Modifier.padding(vertical = 2.dp))
-        Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Default.Diamond, null, Modifier.size(20.dp), tint = Color(0xFFE5B530))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Ads & purchase", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
-                            else if (adFree) "Ad-free is active" else "Banner ads · No interruptions",
-                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Icon(Icons.Default.Diamond, null, Modifier.size(19.dp), tint = Color(0xFFE5B530))
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Ads & purchase", fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold)
+                    Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
+                        else if (adFree) "Ad-free is active" else "Banner ads · No interruptions",
+                        fontSize = 11.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (closedTest) Text("Ad-free purchase available after testing", fontSize = 11.sp,
+                modifier = Modifier.padding(start = 28.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else {
+                val offer: @Composable () -> Unit = {
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text("Ad-free Lifetime", fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (adFree) "Lifetime active" else if (priceAvailable) "$price · One payment"
+                            else if (priceLoading) "Checking Play Store price…" else "Tap Retry to check Google Play",
+                            fontSize = 11.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                if (closedTest) Text("Ad-free purchase available after testing", fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 32.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else {
-                    val offer: @Composable () -> Unit = {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Ad-free Lifetime", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text(if (adFree) "Lifetime active" else if (priceAvailable) "$price · One payment"
-                                else if (priceLoading) "Checking Play Store price…" else "Tap Retry to check Google Play",
-                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                val purchase: @Composable () -> Unit = {
+                    Button(onClick = removeAds, enabled = !adFree && !priceLoading,
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(if (adFree) Icons.Default.CheckCircle else Icons.Default.Diamond, null,
+                            tint = if (adFree) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFFFD768), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (adFree) "Active" else if (priceAvailable) "Buy" else "Retry", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
-                    val purchase: @Composable () -> Unit = {
-                        Button(onClick = removeAds, enabled = !adFree && !priceLoading,
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandBlue, contentColor = Color.White),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                            modifier = Modifier.heightIn(min = 48.dp)) {
-                            Icon(if (adFree) Icons.Default.CheckCircle else Icons.Default.Diamond, null,
-                                tint = if (adFree) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFFFD768), modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(if (adFree) "Active" else if (priceAvailable) "Buy" else "Retry", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
+                }
+                BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 28.dp)) {
+                    if (maxWidth < 230.dp || LocalDensity.current.fontScale > 1.3f) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) { offer(); purchase() }
+                    } else Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Box(Modifier.weight(1f)) { offer() }; purchase()
                     }
-                    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 32.dp)) {
-                        if (maxWidth < 230.dp || LocalDensity.current.fontScale > 1.3f) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { offer(); purchase() }
-                        } else Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(Modifier.weight(1f)) { offer() }; purchase()
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = restore),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Default.Restore, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text("Restore Purchase", fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = restore),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Icon(Icons.Default.Restore, null, Modifier.size(19.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text("Restore Purchase", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -804,9 +800,10 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
         if (com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
+        HorizontalDivider()
         Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 12.dp))
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp))
     }
     if (clearDialog) WReaderAlertDialog(onDismissRequest = { clearDialog = false },
         title = { WReaderDialogTitle("Clear recent history?") },

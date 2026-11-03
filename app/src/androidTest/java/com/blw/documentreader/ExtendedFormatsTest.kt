@@ -71,6 +71,13 @@ class ExtendedFormatsTest {
             ActivityScenario.launch<SettingsTestActivity>(Intent(context,SettingsTestActivity::class.java)
                 .putExtra("dark",dark).putExtra("fontScale",scale).putExtra("adFree",active)).use {
                 assertTrue(d.wait(Until.hasObject(By.text("Ads & purchase")),10000))
+                if (scale == 1f) {
+                    val heading = d.findObject(By.text("Ads & purchase"))
+                    val dataHeading = d.findObject(By.text("Data & help"))
+                    assertNotNull("Data & help should be visible below purchases", dataHeading)
+                    val sectionDp = (dataHeading.visibleBounds.top - heading.visibleBounds.top) / context.resources.displayMetrics.density
+                    assertTrue("Purchase section is too tall: ${sectionDp}dp", sectionDp in 1f..150f)
+                }
                 val offer = reveal("Ad-free Lifetime")
                 val buy = reveal(if(active) "Active" else "Buy")
                 assertTrue("Purchase overlaps offer", buy.visibleBounds.left >= offer.visibleBounds.right || buy.visibleBounds.top >= offer.visibleBounds.bottom)
