@@ -1,3 +1,13 @@
+# W Reader 0.1.16 — compact Settings, Closed Alpha
+
+Released candidate `fd50e494435e1784baf1b4797f650582b4f23305` on `fix/wreader-0113-viber-billing-zoom-excel`, based on the accepted 0.1.15 build. VersionCode 18. The purchase section is flat and aligned with Data & help, with tight spacing and 48dp touch targets. Large text can stack. The version footer is centered. The tester reported the lifetime purchase still active the next day. The two earlier reversed test orders used the “approves then charges back” test card. Manual restore on a fresh install was not separately reported.
+
+CI https://github.com/bokimmkd/DocuReader/actions/runs/41612707795 passed 55 unit and 33 Android tests. An APK from the optimized release AAB displayed all Settings rows, the version footer and a loaded test banner at 1080×2340 and density 450. Footer text was verified from the actual rendered pixels. An earlier check compressed the screen twice when an ad loaded. Its superseded artifact was not uploaded. Final evidence artifact 13221116156, unsigned bundle artifact 13220078525. Signed AAB has 19,217,879 bytes and SHA-256 `33a9f2be9c22e1d665d77669b5a674521cadc61bc98e383519c093c55c301a33`, Library `libfile_c90df0b6af508191a394d56215dccacc`. Verified unchanged payload and same accepted upload certificate as v17.
+
+On November 3, 2026, Play accepted 18 (0.1.16-closed) for release 13 of the existing Alpha track. Publishing overview confirmed “Changes in review” for the sole item “Closed testing - Alpha / 0.1.16 - Compact Settings / Start full rollout”. Google quick checks were still running. No production rollout. The only Play warning was missing native debug symbols. Tester availability awaits Google approval.
+
+---
+
 # W Reader 0.1.15 — final visual polish, Closed Alpha
 
 ## Authorization and scope
