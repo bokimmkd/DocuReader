@@ -102,20 +102,26 @@ def main():
   capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  tap('Library');await_node('release-image.png');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
- # Match the phone's ~384dp width and reserve 64dp for its banner. Real
- # Settings, branded header and bottom navigation must fit without scrolling.
- adb('shell','wm','size','1080x2160')
+ # Match the reported phone's full logical viewport. The app manages the
+ # actual banner slot; subtracting another banner from the display double-counts it.
+ adb('shell','wm','size','1080x2340')
  adb('shell','wm','density','450')
  try:
   tap('Settings')
   await_node('Restore Purchase')
-  footer=next((n for n in dump().iter('node') if n.get('text','').startswith('W Reader ') and 'English' in n.get('text','')),None)
-  assert footer is not None, 'Settings version footer missing before scrolling'
-  bounds=[int(v) for v in re.findall(r'\d+',footer.get('bounds',''))]
   nav=await_node('Home')
-  nav_bounds=[int(v) for v in re.findall(r'\d+',nav.get('bounds',''))]
-  assert 0 < bounds[1] < bounds[3] <= nav_bounds[1], 'Settings footer clipped by bottom navigation'
-  capture('compact-settings')
+  nav_top=int(re.findall(r'\d+',nav.get('bounds',''))[1])
+  deadline=time.monotonic()+25
+  while time.monotonic()<deadline:
+   time.sleep(2)
+   capture('compact-settings')
+   with Image.open(ROOT/'compact-settings.png') as im:
+    assert im.size==(1080,2340), im.size
+    bottom=im.crop((0,im.height//2,im.width,nav_top))
+    bottom.save(ROOT/'settings-footer.png')
+   text=subprocess.check_output(['tesseract',str(ROOT/'settings-footer.png'),'stdout','--psm','11'],stderr=subprocess.DEVNULL).decode()
+   if re.search(r'W\s*Reader.*English',text,re.IGNORECASE):break
+  else:raise AssertionError('Settings version footer is not visible above navigation in screenshot: '+text)
  finally:
   adb('shell','wm','size','reset')
   adb('shell','wm','density','reset')
