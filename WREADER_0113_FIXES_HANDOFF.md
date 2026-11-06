@@ -1,3 +1,21 @@
+# Next update — agreed Library / Recent behavior (2026-11-06)
+
+Status: approved backlog only. The user asked to record this for the next update; no implementation, build or release is requested now.
+
+- Library has two tabs: Saved and Recent.
+- Saved contains documents deliberately saved/imported by the user and keeps them until the user explicitly removes them.
+- Recent contains documents opened in the last 30 days. Home continues to show only the latest three, with See all opening the full Recent list. Use last-opened time for the 30-day window.
+- Opening a Viber, WhatsApp or email attachment opens it immediately and records it in Recent, without an interrupting save prompt or automatically adding it to Saved.
+- Provide Save to Library in the reader to retain a durable local copy explicitly.
+- Marking a document as a Favorite also saves it durably so the favorite does not disappear when Recent expires.
+- Documents created through W Reader Tools are saved to Library.
+- Keep existing Library documents during migration; apply the new intake behavior to future opens.
+- Expiring a Recent entry must never delete the original file on the phone, a Saved document or a Favorite. Keep history expiry separate from temporary-copy cleanup; any cleanup must protect durable references and files currently open.
+- If a temporary document is no longer accessible, explain clearly that it must be reopened from its source.
+- Verify before release: 30-day expiry and reopening, Home latest-three/full history, attachment save/reopen, Favorites durability, Tools outputs, migration without data loss, and removal/Undo. Preserve accepted attachment retention and reader fixes.
+
+---
+
 # W Reader 0.1.16 — compact Settings, Closed Alpha
 
 Released candidate `fd50e494435e1784baf1b4797f650582b4f23305` on `fix/wreader-0113-viber-billing-zoom-excel`, based on the accepted 0.1.15 build. VersionCode 18. The purchase section is flat and aligned with Data & help, with tight spacing and 48dp touch targets. Large text can stack. The version footer is centered. The tester reported the lifetime purchase still active the next day. The two earlier reversed test orders used the “approves then charges back” test card. Manual restore on a fresh install was not separately reported.
