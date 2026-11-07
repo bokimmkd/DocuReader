@@ -1,3 +1,14 @@
+# Next update — category list scroll indicator (2026-11-07)
+
+Status: user-requested backlog only; record for the next update.
+
+- In Library > Edit document > Category, the dropdown can show only part of the category list, but it is not obvious that more categories are available below. User supplied a screenshot demonstrating this.
+- Make scrolling discoverable immediately: show a visible scrollbar when the list overflows, plus a small downward continuation indicator while more items remain below. Hide the downward indicator at the end of the list; avoid covering category labels or touch targets.
+- Keep the dropdown within available screen space and make every category reachable by scrolling.
+- Verify short and long lists, first/middle/last scroll positions, Light/Dark themes, smaller screens and larger text. Preserve category selection and document editing.
+
+---
+
 # Next update — agreed Library / Recent behavior (2026-11-06)
 
 Status: approved backlog only. The user asked to record this for the next update; no implementation, build or release is requested now.
