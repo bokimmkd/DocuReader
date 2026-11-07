@@ -1,3 +1,16 @@
+# Next update — Save locally from Library menu (2026-11-07)
+
+Status: addition to the agreed next-update plan, not implemented yet.
+
+- For a document opened from a web browser (and equivalent external sources), its presence in Library/Recent must not imply that a durable local copy has been saved.
+- Add Save locally to the document's three-dot menu in Library, including Recent entries, whenever no durable local copy exists. This complements the reader's Save to Library action.
+- Save the available document content as a durable local copy, mark the existing entry as Saved, and allow offline reopening without depending on the browser's temporary access. Preserve filename/extension, category, tags and Favorite state, and avoid creating duplicate Library entries.
+- Distinguish temporary cached content from a deliberately saved copy. Once successfully saved, show a clear Saved locally state instead of offering the same save operation again.
+- Only report success after the copy has completed. If source content is unavailable, explain that the document must be reopened from its source; retain the existing entry on failure.
+- Verify browser-opened documents, temporary source access loss, save failure, repeated saving/deduplication, offline reopening and preservation of metadata.
+
+---
+
 # Next update — category list scroll indicator (2026-11-07)
 
 Status: user-requested backlog only; record for the next update.
