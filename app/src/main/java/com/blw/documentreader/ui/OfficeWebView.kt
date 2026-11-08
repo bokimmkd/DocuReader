@@ -20,8 +20,8 @@ object OfficeWebView {
             settings.allowFileAccessFromFileURLs = false
             settings.allowUniversalAccessFromFileURLs = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            settings.setSupportZoom(true)
-            settings.builtInZoomControls = true
+            settings.setSupportZoom(false)
+            settings.builtInZoomControls = false
             settings.displayZoomControls = false
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true

@@ -10,8 +10,8 @@ android {
         applicationId = "com.blw.wreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.1.16-closed"
+        versionCode = 19
+        versionName = "0.1.17-closed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

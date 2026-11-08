@@ -13,10 +13,64 @@ const MAX_SHEET_ROWS = 800, MAX_SHEET_COLS = 90;
 function message(value) { status.textContent = value; status.hidden = false; }
 function info(value) { notice.hidden = false; notice.textContent = value; }
 function clearMessage() { status.hidden = true; }
-window.setOfficeZoom = function(value) {
-    state.zoom = Math.max(0.25, Math.min(2.5, Number(value) || 0.5));
-    content.style.zoom = String(state.zoom);
+const viewport = document.getElementById('viewport');
+const sheetViews = new Map();
+let activeSheet = null;
+function visibleWordPage() {
+    const pages = Array.from(content.querySelectorAll('.docx-wrapper > section.docx'));
+    const frame = viewport.getBoundingClientRect();
+    return pages.reduce((best, page) => {
+        const rect = page.getBoundingClientRect();
+        const visible = Math.max(0, Math.min(rect.bottom, frame.bottom) - Math.max(rect.top, frame.top));
+        return visible > best.visible ? {page, visible} : best;
+    }, {page: pages[0], visible: -1}).page;
+}
+function zoomTarget() { return state.workbook ? content : visibleWordPage(); }
+function targetZoom(node) { return Number(node && node.style.zoom) || 1; }
+function fitZoom(node) {
+    const width = state.workbook ? content.querySelector('table.sheet')?.offsetWidth : node?.offsetWidth;
+    return Math.max(0.05, Math.min(1, (viewport.clientWidth - 16) / Math.max(1, width || 1)));
+}
+function applyZoom(node, value) {
+    if (!node) return;
+    state.zoom = Math.max(0.05, Math.min(8, Number(value) || 1));
+    node.style.zoom = String(state.zoom);
+}
+window.getOfficeZoom = function() { return targetZoom(zoomTarget()); };
+window.setOfficeZoom = function(value) { applyZoom(zoomTarget(), value); };
+window.changeOfficeZoom = function(delta) {
+    const node = zoomTarget(); applyZoom(node, targetZoom(node) + delta);
 };
+window.fitOfficePage = function() {
+    const node = zoomTarget(); applyZoom(node, fitZoom(node)); viewport.scrollLeft = 0;
+    if (node && !state.workbook) node.scrollIntoView({block:'start', inline:'start'});
+};
+// Native WebView zoom scales the whole document. Handle pinch on the touched
+// Word page/current worksheet instead; single-finger scrolling stays native.
+let pinch = null;
+const distance = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+viewport.addEventListener('touchstart', event => {
+    if (event.touches.length !== 2) return;
+    const node = state.workbook ? content : event.target.closest('section.docx') || visibleWordPage();
+    pinch = node ? {node, distance:distance(event.touches), zoom:targetZoom(node)} : null;
+    if (pinch) event.preventDefault();
+}, {passive:false});
+viewport.addEventListener('touchmove', event => {
+    if (!pinch || event.touches.length !== 2) return;
+    event.preventDefault();
+    const node = pinch.node, before = node.getBoundingClientRect();
+    const x = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    const y = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+    const old = targetZoom(node);
+    applyZoom(node, pinch.zoom * distance(event.touches) / Math.max(1, pinch.distance));
+    const after = node.getBoundingClientRect(), ratio = targetZoom(node) / old;
+    viewport.scrollLeft += after.left + (x - before.left) * ratio - x;
+    viewport.scrollTop += after.top + (y - before.top) * ratio - y;
+}, {passive:false});
+function endPinch(event) { if (event.touches.length < 2) pinch = null; }
+viewport.addEventListener('touchend', endPinch);
+viewport.addEventListener('touchcancel', () => { pinch = null; });
+
 function cellColor(color) {
     if (!color) return null;
     if (color.argb && /^[A-F\d]{8}$/i.test(color.argb)) return '#' + color.argb.substring(2);
@@ -89,6 +143,9 @@ function bounds(address) {
     const a=one(parts[0]),b=one(parts[1] || parts[0]);return {r:a[0],c:a[1],rows:b[0]-a[0]+1,cols:b[1]-a[1]+1};
 }
 function renderSheet(ws) {
+    if (activeSheet != null) sheetViews.set(activeSheet, {zoom:targetZoom(content), x:viewport.scrollLeft, y:viewport.scrollTop});
+    activeSheet = ws.id;
+    content.style.zoom='1';
     content.textContent='';
     state.truncated = ws.rowCount > MAX_SHEET_ROWS || ws.columnCount > MAX_SHEET_COLS;
     const extent = ws.dimensions || {top:1,left:1,bottom:ws.rowCount,right:ws.columnCount};
@@ -157,6 +214,10 @@ function renderSheet(ws) {
             td.appendChild(img);
         }
     } catch (_) { /* Unsupported image anchor is omitted rather than altering the workbook. */ }
+    const saved = sheetViews.get(ws.id);
+    applyZoom(content, saved ? saved.zoom : fitZoom(content));
+    viewport.scrollLeft = saved ? saved.x : 0;
+    viewport.scrollTop = saved ? saved.y : 0;
 }
 function escapeNotice() {
     while(state.images.length)URL.revokeObjectURL(state.images.pop());
@@ -226,6 +287,7 @@ async function loadWord(bytes) {
         renderFootnotes:true,renderEndnotes:true,renderAltChunks:false,
         ignoreLastRenderedPageBreak:false,debug:false
     });
+    content.querySelectorAll('.docx-wrapper > section.docx').forEach(page => applyZoom(page, fitZoom(page)));
     info('Word preview preserves rich layout where supported; desktop pagination may differ.');
 }
 // Print media ignores reader zoom. Refuse incomplete/truncated worksheets.
@@ -261,7 +323,7 @@ window.validateOfficeSnapshot = function() {
         await document.fonts.ready;
         await Promise.all(Array.from(content.querySelectorAll("img")).map(img => img.decode().catch(() => {})));
         clearMessage();
-        window.setOfficeZoom(0.5);
+        // Initial fit was applied independently to each page or worksheet.
         window.officeReady = true;
     }catch(error){
         message('Cannot display document: '+(error.message||String(error)));
@@ -303,6 +365,7 @@ window.captureWReaderPdfSnapshot = function() {
         }
         clone.querySelectorAll('script,iframe,object,embed').forEach(n=>n.remove());
         clone.style.zoom='1';clone.style.transform='none';
+        clone.querySelectorAll('section.docx').forEach(page => { page.style.zoom='1';page.style.transform='none'; });
         const html=clone.outerHTML;if(html.length>24*1024*1024)throw Error('Document is too large to export.');
         window.wReaderSnapshotHtml=html;window.wReaderSnapshotReady=true;
     }catch(e){window.wReaderSnapshotError=String(e&&e.message||e)}})();

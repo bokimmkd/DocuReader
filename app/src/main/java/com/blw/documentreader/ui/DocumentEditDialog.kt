@@ -12,6 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +40,7 @@ fun DocumentEditDialog(
     var creatingCategory by remember { mutableStateOf(false) }
     val choices = (listOf("Uncategorized") + categories + category)
         .map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }
+    val categoryScroll = rememberScrollState()
     val accent = MaterialTheme.colorScheme.primary
     val fields = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = accent, focusedLabelColor = accent,
@@ -72,10 +76,26 @@ fun DocumentEditDialog(
                     colors = fields, shape = RoundedCornerShape(10.dp),
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
-                    modifier = Modifier.heightIn(max = 260.dp)) {
+                    scrollState = categoryScroll,
+                    modifier = Modifier.heightIn(max = 260.dp).drawWithContent {
+                        drawContent()
+                        if (categoryScroll.maxValue > 0 && categoryScroll.maxValue != Int.MAX_VALUE) {
+                            val x = size.width - 5.dp.toPx()
+                            val track = size.height - 28.dp.toPx()
+                            val thumb = (track * size.height / (size.height + categoryScroll.maxValue)).coerceAtLeast(22.dp.toPx()).coerceAtMost(track)
+                            val top = 6.dp.toPx() + (track - thumb) * categoryScroll.value / categoryScroll.maxValue
+                            drawLine(accent.copy(alpha = .18f), Offset(x, 6.dp.toPx()), Offset(x, track + 6.dp.toPx()), 3.dp.toPx(), StrokeCap.Round)
+                            drawLine(accent, Offset(x, top), Offset(x, top + thumb), 3.dp.toPx(), StrokeCap.Round)
+                            if (categoryScroll.canScrollForward) {
+                                val y = size.height - 9.dp.toPx()
+                                drawLine(accent, Offset(x - 4.dp.toPx(), y - 4.dp.toPx()), Offset(x, y), 2.dp.toPx())
+                                drawLine(accent, Offset(x, y), Offset(x + 4.dp.toPx(), y - 4.dp.toPx()), 2.dp.toPx())
+                            }
+                        }
+                    }) {
                     choices.forEach { value ->
                         DropdownMenuItem(text = { Text(value, style = MaterialTheme.typography.bodyMedium) },
-                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            contentPadding = PaddingValues(start = 12.dp, end = 24.dp),
                             leadingIcon = { Icon(Icons.Default.FolderOpen, null, Modifier.size(18.dp)) }, onClick = {
                             onCategoryChange(value); expanded = false
                         }, trailingIcon = {
@@ -84,7 +104,7 @@ fun DocumentEditDialog(
                     }
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text("New category", color = accent, style = MaterialTheme.typography.bodyMedium) },
-                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 24.dp),
                         leadingIcon = { Icon(Icons.Default.Add, null, tint = accent) },
                         onClick = { expanded = false; creatingCategory = true; onCategoryChange("") })
                 }

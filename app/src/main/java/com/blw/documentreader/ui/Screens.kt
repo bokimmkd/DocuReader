@@ -148,7 +148,7 @@ fun HomeScreen(
     reopen: (DocumentEntry) -> Unit,
     onLibrary: (String) -> Unit
 ) {
-    val recents = vm.recent.filter { it.openedAt > 0L }
+    val recents = vm.recent.filter { it.isRecent() }
         .sortedByDescending { it.openedAt }.take(3)
     val favorites = vm.recent.filter { it.favorite }.take(3)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -255,9 +255,11 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
     var query by remember { mutableStateOf("") }
     var toolsMenu by remember { mutableStateOf(false) }
     var shareMenu by remember(doc.uri) { mutableStateOf(false) }
-    var zoom by remember { mutableFloatStateOf(1f) }
+    val pageZooms = remember(session) { mutableStateMapOf<Int, Float>() }
+    var singlePage by remember(session) { mutableStateOf(false) }
     var currentPage by remember(doc.uri) { mutableIntStateOf(doc.lastPage.coerceIn(0, session.pageCount - 1)) }
-    LaunchedEffect(session) {
+    LaunchedEffect(session, singlePage) {
+        if (singlePage) return@LaunchedEffect
         snapshotFlow {
             val layout = listState.layoutInfo
             layout.visibleItemsInfo.maxByOrNull { item ->
@@ -267,6 +269,11 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             currentPage = index
             vm.pageChanged(index)
         }
+    }
+    fun navigate(page: Int) {
+        val target = page.coerceIn(0, session.pageCount - 1)
+        currentPage = target; vm.pageChanged(target)
+        if (!singlePage) scope.launch { listState.scrollToItem(target) }
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -286,6 +293,13 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                         DocumentActionItem("Bookmarks", Icons.Default.Bookmark, { shareMenu = false; bookmarksOpen = true })
                         DocumentActionItem("Document view", Icons.Default.Description, { shareMenu = false; onDocumentView() })
                     }
+                    DocumentActionItem(if (singlePage) "Continuous scroll" else "Single page", Icons.Default.ChromeReaderMode, {
+                        shareMenu = false
+                        singlePage = !singlePage
+                        if (!singlePage) scope.launch { listState.scrollToItem(currentPage) }
+                    })
+                    if (!doc.savedLocally) DocumentActionItem("Save to Library", Icons.Default.Download,
+                        { shareMenu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc, reveal = false) })
                     DocumentActionItem("Share file", Icons.Default.Share, { shareMenu = false; onShare() })
                     DocumentActionItem("Share with password", Icons.Default.Lock, { shareMenu = false; onProtect() })
                 }
@@ -305,19 +319,30 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             }
         }
         HorizontalDivider()
-        LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(session.pageCount, key = { it }) { index ->
-                ReaderPage(session, index, zoom, onZoom = { zoom = it })
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (singlePage) BoxWithConstraints(Modifier.fillMaxSize().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 72.dp),
+                contentAlignment = Alignment.Center) {
+                key(session, currentPage) {
+                    ReaderPage(session, currentPage, pageZooms[currentPage] ?: 1f,
+                        onZoom = { pageZooms[currentPage] = it }, fitHeight = maxHeight.value)
+                }
+            } else LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 76.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(session.pageCount, key = { it }) { index ->
+                    ReaderPage(session, index, pageZooms[index] ?: 1f, onZoom = { pageZooms[index] = it })
+                }
             }
+            FloatingPageNavigation(currentPage, session.pageCount, { navigate(currentPage - 1) }, { navigate(currentPage + 1) },
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
         }
         if (readingMode) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            TextButton(enabled = currentPage > 0, onClick = { scope.launch { listState.animateScrollToItem(currentPage - 1) } }) {
+            TextButton(enabled = currentPage > 0, onClick = { navigate(currentPage - 1) }) {
                 Icon(Icons.Default.ChevronLeft, null, Modifier.size(18.dp)); Text("Previous")
             }
             TextButton(onClick = { bookmarksOpen = true }) { DialogActionLabel("Bookmarks", Icons.Default.Bookmark) }
-            TextButton(enabled = currentPage < session.pageCount - 1, onClick = { scope.launch { listState.animateScrollToItem(currentPage + 1) } }) {
+            TextButton(enabled = currentPage < session.pageCount - 1, onClick = { navigate(currentPage + 1) }) {
                 Text("Next"); Icon(Icons.Default.ChevronRight, null, Modifier.size(18.dp))
             }
         }
@@ -327,7 +352,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             Column {
                 if (bookmarks.isEmpty()) Text("Tap the bookmark icon to save this page.")
                 bookmarks.forEach { index -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { scope.launch { listState.scrollToItem(index) }; bookmarksOpen = false }, modifier = Modifier.weight(1f)) { Text("Page ${index + 1}") }
+                    TextButton(onClick = { navigate(index); bookmarksOpen = false }, modifier = Modifier.weight(1f)) { Text("Page ${index + 1}") }
                     IconButton(onClick = { saveBookmarks(bookmarks - index) }) { Icon(Icons.Default.DeleteOutline, "Remove bookmark on page ${index + 1}") }
                 } }
             }
@@ -335,7 +360,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
     if (goDialog) WReaderAlertDialog(onDismissRequest = { goDialog = false }, title = { WReaderDialogTitle("Go to page") },
         text = { OutlinedTextField(pageText, { pageText = it }, label = { Text("1–${session.pageCount}") }, singleLine = true) },
         confirmButton = { TextButton(onClick = {
-            pageText.toIntOrNull()?.let { if (it in 1..session.pageCount) scope.launch { listState.animateScrollToItem(it - 1) } }
+            pageText.toIntOrNull()?.let { if (it in 1..session.pageCount) navigate(it - 1) }
             goDialog = false
         }) { DialogActionLabel("Go", Icons.Default.ArrowForward) } }, dismissButton = { TextButton(onClick = { goDialog = false }) { DialogActionLabel("Cancel", Icons.Default.Close) } })
     if (searchDialog) WReaderAlertDialog(onDismissRequest = { searchDialog = false }, title = { WReaderDialogTitle("Search PDF") },
@@ -345,7 +370,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                 Spacer(Modifier.height(8.dp))
                 Text("Image-only scans cannot be searched without OCR.", style = MaterialTheme.typography.bodySmall)
                 vm.pdfMatches.take(30).forEach { index ->
-                    TextButton(onClick = { scope.launch { listState.animateScrollToItem(index) }; searchDialog = false }) {
+                    TextButton(onClick = { navigate(index); searchDialog = false }) {
                         Text("Match on page ${index + 1}")
                     }
                 }
@@ -357,7 +382,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
             LazyColumn(Modifier.heightIn(max = 400.dp)) {
                 items(session.pageCount) { index ->
                     Row(Modifier.fillMaxWidth().clickable {
-                        scope.launch { listState.animateScrollToItem(index) }; thumbDialog = false
+                        navigate(index); thumbDialog = false
                     }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         PdfThumb(session, index)
                         Spacer(Modifier.width(12.dp)); Text("Page ${index + 1}")
@@ -370,15 +395,15 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
 private data class PdfViewport(val width: Int, val height: Int, val zoom: Float, val x: Float, val y: Float)
 
 @Composable
-private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Float) -> Unit) {
+private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Float) -> Unit, fitHeight: Float? = null) {
     val density = LocalDensity.current.density
     val targetPixels = (LocalConfiguration.current.screenWidthDp * density).toInt()
     val image by produceState<Bitmap?>(initialValue = null, session, index, targetPixels) {
         value = try { session.render(index, targetPixels) } catch (_: Exception) { null }
     }
     var bounds by remember(session, index) { mutableStateOf(IntSize.Zero) }
-    var translateX by remember(session, index) { mutableFloatStateOf(0f) }
-    var translateY by remember(session, index) { mutableFloatStateOf(0f) }
+    var translateX by rememberSaveable(index) { mutableFloatStateOf(0f) }
+    var translateY by rememberSaveable(index) { mutableFloatStateOf(0f) }
     val currentZoom by rememberUpdatedState(zoom)
     val changeZoom by rememberUpdatedState(onZoom)
     val scale = zoom.coerceIn(1f, 8f)
@@ -393,7 +418,10 @@ private fun ReaderPage(session: PdfSession, index: Int, zoom: Float, onZoom: (Fl
             catch (_: Exception) { value = null }
         } else value = null
     }
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    val pageWidth = if (fitHeight != null && image != null)
+        ((fitHeight - 24f).coerceAtLeast(1f) * image!!.width / image!!.height).dp else androidx.compose.ui.unit.Dp.Unspecified
+    Column(if (pageWidth != androidx.compose.ui.unit.Dp.Unspecified) Modifier.widthIn(max = pageWidth).fillMaxWidth() else Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth().clipToBounds().onSizeChanged { bounds = it }
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .pointerInput(session, index) {

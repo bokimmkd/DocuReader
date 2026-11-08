@@ -101,6 +101,36 @@ class DirectPdfExportTest {
         }
     }
 
+    @Test fun officeZoomIsIndependentPerWordPageAndWorksheet() = runBlocking {
+        for ((name, type) in listOf("word.docx" to "Word", "excel.xlsx" to "Excel")) {
+            ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->
+                lateinit var web: WebView
+                scenario.onActivity { a -> web = OfficeWebView.create(a, fixture(name), type); a.setContentView(web) }
+                try {
+                    withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                    if (type == "Word") {
+                        assertTrue(js(web, "document.querySelectorAll('section.docx').length").toInt() >= 2)
+                        val otherZoom = js(web, "document.querySelectorAll('section.docx')[1].style.zoom")
+                        js(web, "window.setOfficeZoom(2)")
+                        assertEquals("2", js(web, "window.getOfficeZoom()"))
+                        assertEquals("Neighbor Word page changed zoom", otherZoom, js(web, "document.querySelectorAll('section.docx')[1].style.zoom"))
+                        js(web, "window.fitOfficePage()")
+                        assertTrue(js(web, "window.getOfficeZoom()").toFloat() <= 1f)
+                    } else {
+                        js(web, "window.setOfficeZoom(2)")
+                        js(web, "document.getElementById('sheet').selectedIndex=1;document.getElementById('sheet').onchange()")
+                        assertTrue("Next worksheet inherited zoom", js(web, "window.getOfficeZoom()").toFloat() <= 1f)
+                        js(web, "window.setOfficeZoom(1.5)")
+                        js(web, "document.getElementById('sheet').selectedIndex=0;document.getElementById('sheet').onchange()")
+                        assertEquals("2", js(web, "window.getOfficeZoom()"))
+                        js(web, "document.getElementById('sheet').selectedIndex=1;document.getElementById('sheet').onchange()")
+                        assertEquals("1.5", js(web, "window.getOfficeZoom()"))
+                    }
+                } finally { scenario.onActivity { web.destroy() } }
+            }
+        }
+    }
+
     @Test fun directWordExcelAndTextKeepContentCyrillicAndPaginationIndependentOfZoom() = runBlocking {
         for ((name, type, first, last) in listOf(
             listOf("word.docx", "Word", "WORD_START", "WORD_END"),

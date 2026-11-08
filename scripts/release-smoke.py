@@ -100,7 +100,7 @@ def main():
   if name.endswith('.docx'):await_text('WORD_START')
   if name.endswith('.xlsx'):await_text('EXCEL_START')
   capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
- tap('Library');await_node('release-image.png');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
+ tap('Library');tap('Recent');await_node('release-image.png');tap('Document actions');tap('Save locally');await_text('Saved locally');capture('saved-library');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
  # Match the reported phone's full logical viewport. The app manages the
  # actual banner slot; subtracting another banner from the display double-counts it.

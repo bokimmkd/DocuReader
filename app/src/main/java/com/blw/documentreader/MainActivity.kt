@@ -381,6 +381,7 @@ class MainActivity : ComponentActivity() {
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
                             onOpenSaved = { bookModeOnOpen = false; incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
+                            onSaveLocal = if (vm.current?.savedLocally == false) ({ vm.current?.let { vm.saveToLibrary(Uri.parse(it.uri), it, reveal = false) } }) else null,
                             onReady = vm::markReaderReady, report = vm::report, initialBookMode = bookModeOnOpen,
                             onBookTheme = { bookTheme = it },
                             imagePosition = if(vm.imageQueue.isNotEmpty()) "${vm.imageQueue.indexOf(vm.current?.uri)+1} / ${vm.imageQueue.size}" else null,
@@ -396,6 +397,7 @@ class MainActivity : ComponentActivity() {
                             onBusy = { outputBusy = it }, onSaved = ::keepExport,
                             onOpenSaved = { bookModeOnOpen = false; incomingUri = it; convertOnReady = false; vm.openDocument(it) },
                             onShareSaved = { uri, fileName -> share(uri, "application/pdf", fileName) },
+                            onSaveLocal = if (vm.current?.savedLocally == false) ({ vm.current?.let { vm.saveToLibrary(Uri.parse(it.uri), it, reveal = false) } }) else null,
                             onReady = vm::markReaderReady, report = vm::report
                         )
                     } else if (vm.current != null && vm.pdf != null) {

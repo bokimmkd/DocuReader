@@ -21,8 +21,14 @@ data class DocumentEntry(
     val tags: String = "",
     val savedLocally: Boolean = false,
     val addedAt: Long = 0L,
-    val sourceUris: List<String> = emptyList()
-)
+    val sourceUris: List<String> = emptyList(),
+    val inLibrary: Boolean = false,
+    val temporaryCopy: Boolean = false
+) {
+    val isSaved get() = inLibrary || savedLocally || favorite || addedAt > 0L
+    fun isRecent(now: Long = System.currentTimeMillis()) = openedAt > 0L && openedAt >= now - RECENT_WINDOW
+    companion object { const val RECENT_WINDOW = 30L * 24 * 60 * 60 * 1000 }
+}
 
 object DocumentTypes {
     const val PDF = "PDF"
@@ -54,19 +60,19 @@ class DocumentStore(private val context: Context) {
                 item.optBoolean("favorite", false), item.optInt("lastPage", 0), item.optLong("openedAt", 0),
                 item.optString("category", "Uncategorized"), item.optString("tags", ""), item.optBoolean("savedLocally", false),
                 item.optLong("addedAt", if (item.optBoolean("savedLocally", false)) item.optLong("openedAt", 0) else 0),
-                item.optJSONArray("sourceUris")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty())
+                item.optJSONArray("sourceUris")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(), item.optBoolean("inLibrary", true), item.optBoolean("temporaryCopy", false))
         }
     } catch (_: Exception) { emptyList() }
     fun save(items: List<DocumentEntry>) {
         val out = JSONArray()
         // Keep curated Library documents and favorites even when Recent exceeds 100.
-        val curated = items.filter { it.savedLocally || it.favorite || it.addedAt > 0L }
-        val limit = (curated + items.filterNot { it in curated }.take(100)).distinctBy { it.uri }
+        val curated = items.filter { it.isSaved }
+        val limit = (curated + items.filterNot { it in curated }.filter { it.isRecent() }).distinctBy { it.uri }
         limit.forEach { item ->
             out.put(JSONObject().put("uri", item.uri).put("name", item.name).put("type", item.type)
                 .put("favorite", item.favorite).put("lastPage", item.lastPage).put("openedAt", item.openedAt)
                 .put("category", item.category).put("tags", item.tags).put("savedLocally", item.savedLocally).put("addedAt", item.addedAt)
-                .put("sourceUris", JSONArray(item.sourceUris)))
+                .put("sourceUris", JSONArray(item.sourceUris)).put("inLibrary", item.inLibrary).put("temporaryCopy", item.temporaryCopy))
         }
         prefs.edit().putString("recent", out.toString()).apply()
     }

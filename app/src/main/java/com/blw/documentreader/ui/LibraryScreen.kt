@@ -106,13 +106,14 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                   onOpenFiltered: (DocumentEntry, List<DocumentEntry>) -> Unit = { doc, _ -> onOpen(doc) },
                   onLocate: (DocumentEntry) -> Unit = {}, showAds: Boolean = false) {
     val state = vm.libraryState
+    var collection by libraryField(vm, { it.collection }) { s, v -> s.copy(collection = v) }
     var filter by libraryField(vm, { it.type }) { s, v -> s.copy(type = v) }
     var search by libraryField(vm, { it.search }) { s, v -> s.copy(search = v) }
     var category by libraryField(vm, { it.category }) { s, v -> s.copy(category = v) }
     var tag by libraryField(vm, { it.tag }) { s, v -> s.copy(tag = v) }
     var order by libraryField(vm, { it.order }) { s, v -> s.copy(order = v) }
     val listState = rememberLazyListState(state.index, state.offset)
-    val filters = listOf(filter, search, category, tag, order)
+    val filters = listOf(collection, filter, search, category, tag, order)
     var priorFilters by remember { mutableStateOf(filters) }
     LaunchedEffect(filters) { if (filters != priorFilters) { listState.scrollToItem(0); priorFilters = filters } }
     LaunchedEffect(listState) { snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
@@ -130,7 +131,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     fun toggle(uri: String) { selected = ArrayList(if (uri in selected) selected - uri else selected + uri) }
     LaunchedEffect(vm.libraryReveal) {
         if (vm.libraryReveal > 0) {
-            filter = "All"; search = ""; category = "All categories"; tag = "All tags"; order = "Recent"
+            collection = "Saved"; filter = "All"; search = ""; category = "All categories"; tag = "All tags"; order = "Recent"
             listState.scrollToItem(0)
             vm.consumeLibraryReveal()
         }
@@ -148,7 +149,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         editError = null
     }
     val data = vm.recent.filter {
-        (filter == "All" || filter == "Recent" && it.openedAt > 0L ||
+        (if (collection == "Recent") it.isRecent() else it.isSaved) &&
+        (filter == "All" || filter == "Recent" && it.isRecent() ||
             filter == "Favorites" && it.favorite || com.blw.documentreader.data.DocumentFormats.matches(filter,it.type)) &&
         (category == "All categories" || it.category == category) &&
         (tag == "All tags" || it.tags.split(',').any { value -> value.trim().equals(tag, true) }) &&
@@ -158,7 +160,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
     val entries = when (order) {
         "Name" -> data.sortedBy { it.name.lowercase() }
         "Type" -> data.sortedWith(compareBy({ it.type }, { it.name.lowercase() }))
-        else -> data.sortedByDescending { if (filter == "Recent") it.openedAt else maxOf(it.openedAt, it.addedAt) }
+        else -> data.sortedByDescending { if (collection == "Recent") it.openedAt else maxOf(it.openedAt, it.addedAt) }
     }
     val categories = listOf("All categories", "Uncategorized") + (vm.categories + vm.recent.map { it.category })
         .filter { it.isNotBlank() }.distinct().sorted()
@@ -169,7 +171,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Library", fontSize = 18.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold)
-                Text("${vm.recent.size} documents · Local or linked", fontSize = 10.sp, lineHeight = 13.sp,
+                Text("${entries.size} documents · " + if (collection == "Recent") "Last 30 days" else "Saved in Library", fontSize = 10.sp, lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = { manageCategories = true }) { Icon(Icons.Default.FolderOpen, "Manage categories", Modifier.size(20.dp)) }
@@ -178,6 +180,11 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 colors = ButtonDefaults.buttonColors(containerColor = LibraryBlue, contentColor = Color.White)) {
                 Icon(Icons.Default.Add, null, Modifier.size(17.dp))
                 Text("Add", fontSize = 12.sp, lineHeight = 16.sp)
+            }
+        }
+        TabRow(selectedTabIndex = if (collection == "Saved") 0 else 1) {
+            listOf("Saved", "Recent").forEach { label ->
+                Tab(selected = collection == label, onClick = { collection = label; selected = arrayListOf() }, text = { Text(label) })
             }
         }
         // BasicTextField avoids Material's large built-in vertical content padding.
@@ -202,7 +209,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
             }
         }
         LazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            rowItems(listOf("All", "Recent", "Favorites", "PDF", "Word", "Excel", "TXT", "CSV", "PowerPoint", "EPUB", "RTF", "ODT", "Images")) { item ->
+            rowItems(listOf("All", "Favorites", "PDF", "Word", "Excel", "TXT", "CSV", "PowerPoint", "EPUB", "RTF", "ODT", "Images")) { item ->
                 FilterChip(selected = filter == item, onClick = { filter = item },
                     label = { Text(item, fontSize = 11.sp, lineHeight = 14.sp) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
@@ -276,7 +283,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                             if (missing) append("File unavailable · ")
                             append(doc.category)
                             if (doc.tags.isNotBlank()) append(" · ${doc.tags}")
-                            append(if (doc.savedLocally) " · Offline" else " · Linked")
+                            append(if (doc.savedLocally) " · Saved locally" else if (doc.temporaryCopy) " · Temporary copy" else " · Linked")
                         }, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -305,7 +312,7 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                                 { menu = false; onBookMode(doc) }, enabled = !missing)
                             DocumentActionItem("Rename", Icons.Default.DriveFileRenameOutline, { menu = false; edit(doc) })
                             DocumentActionItem("Category & tags", Icons.Default.Label, { menu = false; edit(doc) })
-                            if (!doc.savedLocally) DocumentActionItem("Keep offline copy", Icons.Default.Download,
+                            if (!doc.savedLocally) DocumentActionItem("Save locally", Icons.Default.Download,
                                 { menu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc) })
                             DocumentActionItem("Locate file", Icons.Default.FolderOpen, { menu = false; onLocate(doc) })
                             HorizontalDivider()

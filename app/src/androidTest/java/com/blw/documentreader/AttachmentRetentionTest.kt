@@ -39,6 +39,24 @@ class AttachmentRetentionTest {
         }
     }
 
+    @Test fun migrationPreservesLegacyEntriesAndExpiryDoesNotDeleteOriginals() {
+        val prefs = context.getSharedPreferences("metadata_only", android.content.Context.MODE_PRIVATE)
+        val before = prefs.getString("recent", "[]")
+        val original = File(context.filesDir, "library/migration-source.txt").also { it.parentFile!!.mkdirs(); it.writeText("Keep original") }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", original)
+        try {
+            val legacy = org.json.JSONArray().put(org.json.JSONObject().put("uri", uri.toString()).put("name", "old.txt").put("type", "TXT").put("openedAt", 1))
+            prefs.edit().putString("recent", legacy.toString()).commit()
+            val store = DocumentStore(context)
+            assertTrue(store.load().single().inLibrary)
+            store.save(store.load())
+            assertTrue(store.load().single().isSaved)
+            store.save(listOf(DocumentEntry(uri.toString(), "recent.txt", "TXT", openedAt = 1)))
+            assertTrue(store.load().isEmpty())
+            assertEquals("Keep original", original.readText())
+        } finally { prefs.edit().putString("recent", before).commit(); original.delete() }
+    }
+
     @Test fun oversizedTemporaryAttachmentLeavesNoHalfWrittenFile() {
         val library = File(context.filesDir, "library").also { it.mkdirs() }
         val original = File(library, "viber-large.pdf")

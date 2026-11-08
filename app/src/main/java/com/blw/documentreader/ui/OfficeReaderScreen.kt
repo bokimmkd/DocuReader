@@ -47,6 +47,7 @@ fun OfficeReaderScreen(
     onBusy: (Boolean) -> Unit,
     onSaved: (Uri, String) -> Unit,
     onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
+    onSaveLocal: (() -> Unit)? = null,
     onReady: () -> Unit,
     report: (String) -> Unit
 ) {
@@ -64,7 +65,15 @@ fun OfficeReaderScreen(
     }
     var searchText by remember(uri) { mutableStateOf("") }
     var showSearch by remember(uri) { mutableStateOf(false) }
-    var scale by remember(uri) { mutableFloatStateOf(0.5f) }
+    var scale by remember(uri) { mutableFloatStateOf(1f) }
+    LaunchedEffect(webView, ready) {
+        if (ready) while (true) {
+            webView.evaluateJavascript("window.getOfficeZoom && window.getOfficeZoom()") { value ->
+                value.toFloatOrNull()?.let { scale = it }
+            }
+            delay(200)
+        }
+    }
     DisposableEffect(webView) {
         onDispose {
             webView.stopLoading()
@@ -86,7 +95,7 @@ fun OfficeReaderScreen(
                     style = MaterialTheme.typography.labelSmall)
             }
             IconButton(onClick = { showSearch = true }) { Icon(Icons.Default.Search, "Search") }
-            IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share original") }
+            ReaderShareMenu(onShare, onSaveLocal)
             DocumentOutputActions(webView, name, ready, excel = type == DocumentTypes.EXCEL,
                 snapshot = { com.blw.documentreader.printing.DirectPdf.officeSnapshot(webView) },
                 prepare = { landscape, done ->
@@ -100,16 +109,15 @@ fun OfficeReaderScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center) {
             TextButton(onClick = {
-                scale = (scale - .10f).coerceIn(.25f, 2.5f)
-                webView.evaluateJavascript("window.setOfficeZoom && window.setOfficeZoom($scale)", null)
+                webView.evaluateJavascript("window.changeOfficeZoom && window.changeOfficeZoom(-0.1)", null)
             }) { Icon(Icons.Default.ZoomOut, "Zoom out") }
             Text("${(scale * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
             TextButton(onClick = {
-                scale = (scale + .10f).coerceIn(.25f, 2.5f)
-                webView.evaluateJavascript("window.setOfficeZoom && window.setOfficeZoom($scale)", null)
+                webView.evaluateJavascript("window.changeOfficeZoom && window.changeOfficeZoom(0.1)", null)
             }) { Icon(Icons.Default.ZoomIn, "Zoom in") }
-            Text("Layout may differ from Microsoft Office", style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(start = 10.dp))
+            TextButton(onClick = { webView.evaluateJavascript("window.fitOfficePage && window.fitOfficePage()", null) }) {
+                Icon(Icons.Default.FitScreen, "Fit to width", Modifier.size(20.dp)); Spacer(Modifier.width(4.dp)); Text("Fit")
+            }
         }
         AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
     }

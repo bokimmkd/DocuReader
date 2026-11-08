@@ -52,7 +52,7 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
                      autoExport: Boolean = false, onAutoHandled: () -> Unit = {},
                      onBusy: (Boolean) -> Unit, onSaved: (Uri, String) -> Unit,
                      onOpenSaved: (Uri) -> Unit = {}, onShareSaved: (Uri, String) -> Unit = { _, _ -> },
-                     onReady: () -> Unit, report: (String) -> Unit,
+                     onSaveLocal: (() -> Unit)? = null, onReady: () -> Unit, report: (String) -> Unit,
                      initialBookMode: Boolean = false, onBookTheme: (String?) -> Unit = {}, imagePosition: String? = null, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
     val context = LocalContext.current
     var bookMode by androidx.compose.runtime.saveable.rememberSaveable(uri.toString()) { mutableStateOf(initialBookMode && !autoExport) }
@@ -110,7 +110,7 @@ fun TextReaderScreen(uri: Uri, name: String, type: String = "TXT", onBack: () ->
             Text(name, maxLines = 1, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if(type in setOf("EPUB","TXT")) IconButton(onClick={bookMode=true}){Icon(Icons.Default.MenuBook,"Book mode")}
             IconButton(onClick = { showSearch = true }, enabled = loaded) { Icon(Icons.Default.Search, "Search text") }
-            IconButton(onClick = onShare) { Icon(Icons.Default.Share, "Share file") }
+            ReaderShareMenu(onShare, onSaveLocal)
             DocumentOutputActions(web, name, loaded && error == null, defaultLandscape = type in setOf("CSV","PowerPoint"),
                 snapshot = { com.blw.documentreader.printing.PdfSnapshot.local(sourceHtml, type in com.blw.documentreader.data.DocumentFormats.images) },
                 autoExport = autoExport, onAutoHandled = onAutoHandled, onBusy = onBusy,

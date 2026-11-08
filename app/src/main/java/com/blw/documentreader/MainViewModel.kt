@@ -34,10 +34,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
     private val appContext = getApplication<Application>()
     private val store = DocumentStore(appContext)
     var recent by mutableStateOf(store.load()); private set
+    init { store.save(recent) }
     var libraryState by mutableStateOf(LibraryState(
         savedState["library.type"] ?: "All", savedState["library.search"] ?: "",
         savedState["library.category"] ?: "All categories", savedState["library.tag"] ?: "All tags",
-        savedState["library.order"] ?: "Recent", savedState["library.index"] ?: 0, savedState["library.offset"] ?: 0
+        savedState["library.order"] ?: "Recent", savedState["library.index"] ?: 0, savedState["library.offset"] ?: 0, savedState["library.collection"] ?: "Saved"
     )); private set
     var categories by mutableStateOf((store.categories() + recent.map { it.category }).filter { it != "Uncategorized" }.distinctBy { it.lowercase() }); private set
     val unavailable = mutableStateMapOf<String, Boolean>()
@@ -51,9 +52,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         libraryState = value
         savedState["library.type"] = value.type; savedState["library.search"] = value.search
         savedState["library.category"] = value.category; savedState["library.tag"] = value.tag
+        savedState["library.collection"] = value.collection
         savedState["library.order"] = value.order; savedState["library.index"] = value.index; savedState["library.offset"] = value.offset
     }
-    fun showLibrary(type: String) { libraryState(libraryState.copy(type = type, index = 0, offset = 0)) }
+    fun showLibrary(type: String) { libraryState(libraryState.copy(type = if (type == "Recent") "All" else type,
+        collection = if (type == "Recent") "Recent" else "Saved", index = 0, offset = 0)) }
     fun checkAvailability(doc: DocumentEntry) {
         if (!checking.add(doc.uri)) return
         viewModelScope.launch {
@@ -65,7 +68,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             } finally { checking.remove(doc.uri) }
         }
     }
-    fun refreshAvailability() { availabilityEpoch++ }
+    fun refreshAvailability() {
+        val kept = recent.filter { it.isSaved || it.isRecent() || it.uri == current?.uri }
+        if (kept != recent) { recent = kept; store.save(recent) }
+        availabilityEpoch++
+    }
     fun addCategory(value: String) {
         val name = value.trim().take(45)
         if (name.isNotEmpty() && name != "Uncategorized" && categories.none { it.equals(name, true) }) {
@@ -101,7 +108,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                 val type = withContext(Dispatchers.IO) { DocumentTypes.detect(appContext, uri, DocumentTypes.displayName(appContext, uri)) }
                 require(type == doc.type) { "Choose another ${doc.type} file." }
                 require(recent.none { it.uri == uri.toString() && it.uri != doc.uri }) { "That file is already in Library." }
-                recent = recent.map { if (it.uri == doc.uri) it.copy(uri = uri.toString(), savedLocally = false, addedAt = maxOf(1L, it.addedAt)) else it }
+                recent = recent.map { if (it.uri == doc.uri) it.copy(uri = uri.toString(), savedLocally = false, temporaryCopy = false, inLibrary = true, addedAt = maxOf(1L, it.addedAt)) else it }
                 unavailable.remove(doc.uri); unavailable.remove(uri.toString()); store.save(recent)
                 report("File located. Name, category, tags and favorite are kept.")
             } catch (cancel: CancellationException) { throw cancel }
@@ -147,12 +154,16 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
     fun updateRemember(on: Boolean) { remember = on; store.setRememberPosition(on) }
     fun clearRecent() {
         // Clearing history must not discard separately starred documents.
-        recent = recent.filter { it.favorite || it.savedLocally || it.addedAt > 0L }.map { it.copy(openedAt = 0L, lastPage = 0) }
+        recent = recent.filter { it.isSaved }.map { it.copy(openedAt = 0L, lastPage = 0) }
         store.save(recent)
     }
     fun favorite(doc: DocumentEntry) {
-        recent = recent.map { if (it.uri == doc.uri) it.copy(favorite = !it.favorite) else it }
-        current = current?.let { if (it.uri == doc.uri) it.copy(favorite = !it.favorite) else it }
+        if (!doc.favorite && !doc.savedLocally) {
+            saveToLibrary(Uri.parse(doc.uri), doc, makeFavorite = true, reveal = false)
+            return
+        }
+        recent = recent.map { if (it.uri == doc.uri) it.copy(favorite = !it.favorite, inLibrary = true) else it }
+        current = current?.let { c -> recent.find { it.uri == c.uri } ?: c }
         store.save(recent)
     }
     fun updateLibraryInfo(doc: DocumentEntry, category: String, tags: String) {
@@ -173,7 +184,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         return true
     }
     /** Explicit user opt-in. Keep copies in app-private storage without changing source. */
-    fun saveToLibrary(uri: Uri, document: DocumentEntry? = null) {
+    fun saveToLibrary(uri: Uri, document: DocumentEntry? = null, makeFavorite: Boolean = false, reveal: Boolean = true) {
+        if (busy) return
         busy = true
         viewModelScope.launch {
             try {
@@ -182,21 +194,29 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                     libraryReveal++; message = "Already saved in Library."; return@launch
                 }
                 val name = original?.name ?: DocumentTypes.displayName(appContext, uri)
-                val type = document?.type ?: DocumentTypes.detect(appContext, uri, name)
+                val type = original?.type ?: DocumentTypes.detect(appContext, uri, name)
                 require(type != null) { "Supported: ${com.blw.documentreader.data.DocumentFormats.supported}." }
-                val savedUri = withContext(Dispatchers.IO) { store.keepOffline(uri, name) }
+                val sourceUri = original?.let { Uri.parse(it.uri) } ?: uri
+                val savedUri = withContext(Dispatchers.IO) {
+                    if (original?.temporaryCopy == true) {
+                        appContext.contentResolver.openInputStream(sourceUri)?.use { } ?: error("Reopen this document from its source.")
+                        sourceUri
+                    } else store.keepOffline(sourceUri, name, maxBytes = 128L * 1024 * 1024)
+                }
                 val newEntry = DocumentEntry(
-                    savedUri.toString(), name, type, original?.favorite ?: false,
+                    savedUri.toString(), name, type, makeFavorite || original?.favorite == true,
                     original?.lastPage ?: 0, original?.openedAt ?: 0L,
                     original?.category ?: "Uncategorized", original?.tags ?: "", true, System.currentTimeMillis(),
-                    (original?.sourceUris.orEmpty() + withContext(Dispatchers.IO) { store.sourceKeys(uri) }).distinct()
+                    (original?.sourceUris.orEmpty() + withContext(Dispatchers.IO) { store.sourceKeys(uri) }).distinct(), inLibrary = true
                 )
                 recent = listOf(newEntry) + recent.filter {
-                    it.uri != newEntry.uri && it.uri != uri.toString()
+                    it.uri != newEntry.uri && it.uri != uri.toString() && it.uri != original?.uri
                 }
+                current = current?.let { c -> if (c.uri == original?.uri || c.uri == uri.toString()) newEntry else c }
+                unavailable.remove(newEntry.uri)
                 store.save(recent)
-                libraryReveal++
-                message = "Saved to Library. Original document unchanged."
+                if (reveal) libraryReveal++
+                message = "Saved locally. Available offline in Library."
             } catch (ex: Exception) {
                 message = "Could not save Library copy: ${ex.message ?: "Check access and storage."}"
             } finally { busy = false }
@@ -243,7 +263,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                     store.save(recent)
                 }
                 val existing = migrated ?: known
-                if (retainTemporary && existing?.savedLocally != true &&
+                if (retainTemporary && existing?.savedLocally != true && existing?.temporaryCopy != true &&
                     requestedUri.authority != "${appContext.packageName}.files") {
                     // Copy only supported attachments, while the messaging app's
                     // temporary URI permission is still valid. Keep source aliases
@@ -258,9 +278,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                         val entry = DocumentEntry(saved.toString(), name, type,
                             existing?.favorite ?: false, existing?.lastPage ?: 0,
                             System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                            existing?.tags ?: "", true,
-                            existing?.addedAt?.takeIf { it > 0L } ?: System.currentTimeMillis(),
-                            (existing?.sourceUris.orEmpty() + keys).distinct())
+                            existing?.tags ?: "", false,
+                            existing?.addedAt ?: 0L,
+                            (existing?.sourceUris.orEmpty() + keys).distinct(),
+                            inLibrary = existing?.isSaved ?: false, temporaryCopy = true)
                         recent = listOf(entry) + recent.filterNot {
                             it.uri == entry.uri || it.uri == requestedUri.toString() ||
                                 (existing != null && it.uri == existing.uri)
@@ -295,7 +316,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
             val record = DocumentEntry(
                 uri.toString(), name, type, existing?.favorite ?: false,
                 0, System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct()
+                existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct(), existing?.inLibrary ?: false, existing?.temporaryCopy ?: false
             )
             current = record
             recent = listOf(record) + recent.filter { it.uri != record.uri }
@@ -314,7 +335,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
                 val record = DocumentEntry(uri.toString(), name, type, existing?.favorite ?: false,
                     if (remember) existing?.lastPage ?: 0 else 0,
                     System.currentTimeMillis(), existing?.category ?: "Uncategorized",
-                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct())
+                    existing?.tags ?: "", existing?.savedLocally ?: false, existing?.addedAt ?: 0L, (existing?.sourceUris.orEmpty() + keys).distinct(), existing?.inLibrary ?: false, existing?.temporaryCopy ?: false)
                 current = record
                 recent = listOf(record) + recent.filter { it.uri != record.uri }
                 store.save(recent)

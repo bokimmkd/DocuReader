@@ -3,7 +3,7 @@ package com.blw.documentreader.data
 /** Kept by MainViewModel while the Library is temporarily replaced by a reader. */
 data class LibraryState(
     val type: String = "All", val search: String = "", val category: String = "All categories",
-    val tag: String = "All tags", val order: String = "Recent", val index: Int = 0, val offset: Int = 0
+    val tag: String = "All tags", val order: String = "Recent", val index: Int = 0, val offset: Int = 0, val collection: String = "Saved"
 )
 
 object LibraryActions {

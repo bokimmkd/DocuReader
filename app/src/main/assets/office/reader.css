@@ -4,11 +4,15 @@ body{margin:0;padding:0;background:#edf2f7;color:#182b43;font:14px/1.4 system-ui
 #status{padding:12px;color:#62778c}
 #sheetbar{position:sticky;top:0;z-index:3;background:#e8f0fc;padding:7px 10px;border-bottom:1px solid #c7d7ec}
 #sheet{font:14px system-ui;max-width:100%;padding:8px;border:1px solid #92aec8;border-radius:8px;background:white;color:#16334f}
-#viewport{width:100%;overflow:auto}
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column}
+#viewport{width:100%;overflow:auto;flex:1;min-height:0;overscroll-behavior:contain}
+#sheetbar{flex-shrink:0}
+#notice{flex-shrink:0;max-height:48px;overflow:auto}
 #content{transform-origin:top left;min-height:100px}
 #notice{background:#fff4d6;color:#6b5100;padding:10px;font-size:12px}
 .docx-wrapper{background:transparent!important;padding:12px 0!important}
-.docx-wrapper>section.docx{box-shadow:0 2px 8px #0002!important;margin:0 auto 12px!important;max-width:100%!important;overflow:hidden}
+.docx-wrapper>section.docx{box-shadow:0 2px 8px #0002!important;margin:0 0 12px!important;max-width:none!important;overflow:hidden}
 .sheet{border-spacing:0;border-collapse:separate;font-size:12px;white-space:nowrap;background:#fff;color:#141e29}
 .sheet th,.sheet td{border-right:1px solid #d7dfe9;border-bottom:1px solid #d7dfe9;padding:5px 7px;min-width:70px;max-width:420px;height:26px;text-overflow:ellipsis;overflow:hidden}
 .sheet th{position:sticky;background:#eff4fa;color:#57697e;z-index:1;top:0;font-weight:500}
@@ -21,12 +25,12 @@ body{margin:0;padding:0;background:#edf2f7;color:#182b43;font:14px/1.4 system-ui
 
 @media print {
   :root{color-scheme:light}
-  html,body{background:white!important;color:#111!important;margin:0!important;padding:0!important}
+  html,body{display:block!important;height:auto!important;overflow:visible!important;background:white!important;color:#111!important;margin:0!important;padding:0!important}
   #status,#notice,#sheetbar{display:none!important}
-  #viewport{overflow:visible!important;width:auto!important}
+  #viewport{display:block!important;overflow:visible!important;width:auto!important}
   #content{zoom:1!important;min-height:0!important;transform:none!important}
   .docx-wrapper{padding:0!important;background:white!important;display:block!important}
-  .docx-wrapper>section.docx{box-shadow:none!important;margin:0!important;max-width:100%!important;min-height:0!important;height:auto!important;overflow:visible!important;break-after:page;page-break-after:always}
+  .docx-wrapper>section.docx{zoom:1!important;box-shadow:none!important;margin:0!important;max-width:100%!important;min-height:0!important;height:auto!important;overflow:visible!important;break-after:page;page-break-after:always}
   .docx-wrapper>section.docx:last-child{break-after:auto;page-break-after:auto}
   .sheet{zoom:var(--sheet-print-scale,1);border-collapse:collapse;white-space:normal}
   .sheet thead,.sheet .rowhead{display:none!important}

@@ -71,6 +71,45 @@ class WorkflowFeaturesTest {
             } finally { before.recycle() }
         }
     }
+    @Test fun floatingPdfNavigationKeepsNeighborUnzoomedAndSinglePageFits() {
+        val source = pdf()
+        val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+            .setDataAndType(uri(source), "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        ActivityScenario.launch<MainActivity>(intent).use {
+            assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 20000))
+            device.findObject(By.desc("Next page")).click()
+            assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
+            device.waitForIdle(); Thread.sleep(700)
+            val rect = device.findObject(By.desc("Page 2")).visibleBounds
+            val before = inst.uiAutomation.takeScreenshot()
+            try {
+                device.findObject(By.desc("Previous page")).click()
+                val first = device.wait(Until.findObject(By.desc("Page 1")), 10000)!!
+                first.pinchOpen(.65f); device.waitForIdle(); Thread.sleep(400)
+                device.findObject(By.desc("Next page")).click()
+                assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
+                device.waitForIdle(); Thread.sleep(700)
+                val after = inst.uiAutomation.takeScreenshot()
+                try {
+                    var changed = 0; var samples = 0
+                    for (y in rect.top + 10 until rect.bottom - 80 step 2) for (x in rect.left + 10 until rect.right - 10 step 2) {
+                        samples++; if (before.getPixel(x,y) != after.getPixel(x,y)) changed++
+                    }
+                    assertTrue("Zoom on page 1 changed page 2 pixels ($changed/$samples)", changed < samples / 200)
+                } finally { after.recycle() }
+                device.findObject(By.desc("Share options")).click(); click("Single page")
+                assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
+                assertFalse(device.hasObject(By.desc("Page 1")))
+                assertFalse(device.findObject(By.desc("Next page")).isEnabled)
+                val dir = File(context.getExternalFilesDir(null), "workflow-qa").also { it.mkdirs() }
+                device.takeScreenshot(File(dir, "pdf-single-page-floating.png"))
+                device.findObject(By.desc("Previous page")).click()
+                assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 10000))
+                assertFalse(device.findObject(By.desc("Previous page")).isEnabled)
+            } finally { before.recycle() }
+        }
+    }
+
     @Test fun bookDarkThemeCoversChromeAndRestoresAppInBothNavigationModes() {
         val store=DocumentStore(context);val oldTheme=store.appearance()
         val prefs=context.getSharedPreferences("book-reader",android.content.Context.MODE_PRIVATE)
@@ -322,7 +361,7 @@ class WorkflowFeaturesTest {
                 }
                 val deadline = android.os.SystemClock.uptimeMillis() + 20000
                 while (android.os.SystemClock.uptimeMillis() < deadline) {
-                    saved = store.load().singleOrNull { it.savedLocally }
+                    saved = store.load().singleOrNull { it.temporaryCopy }
                     if (saved != null && device.hasObject(By.desc("Print"))) break
                     Thread.sleep(100)
                 }
@@ -345,6 +384,16 @@ class WorkflowFeaturesTest {
                 Thread.sleep(1300)
                 assertEquals("Repeat attachment created a duplicate", 1, store.load().size)
                 assertEquals(doc.uri, store.load().single().uri)
+                assertFalse("Temporary attachment must not enter Saved", store.load().single().isSaved)
+                scenario.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].favorite(doc) }
+                val savedDeadline = android.os.SystemClock.uptimeMillis() + 10000
+                while (!store.load().single().favorite && android.os.SystemClock.uptimeMillis() < savedDeadline) Thread.sleep(80)
+                val favorite = store.load().single()
+                assertTrue(favorite.favorite); assertTrue(favorite.savedLocally); assertFalse(favorite.temporaryCopy)
+                assertEquals("Save must promote the existing copy", doc.uri, favorite.uri)
+                scenario.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].clearRecent() }
+                assertTrue(store.load().single().favorite)
+                assertEquals(0L, store.load().single().openedAt)
             }
         } finally {
             saved?.let { entry ->
