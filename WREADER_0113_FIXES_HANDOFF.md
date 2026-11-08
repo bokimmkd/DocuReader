@@ -1,3 +1,41 @@
+# W Reader 0.1.17 — Library saving and page zoom
+
+The user authorized implementing the agreed backlog and preparing the next Closed Alpha release on November 8, 2026. Production remains excluded. Continue on `fix/wreader-0113-viber-billing-zoom-excel`; no main merge or signing-key changes.
+
+## Implemented behavior
+- Library now separates Saved from Recent. Recent uses the last-opened time and a 30-day window; Home keeps three latest entries and See all. Explicit imports, Tools outputs, saved copies and Favorites remain Saved. All pre-existing entries migrate conservatively to Saved.
+- External attachments retain the existing private-copy protection against expired Viber/browser grants, but new transient opens appear in Recent until deliberately saved. Save locally in the Library menu and Save to Library in document readers promote the existing entry, preserve metadata and source aliases, and avoid duplicate copies. A Favorite also becomes durable. History expiry removes metadata only; it does not delete originals or private copies. Automatic temporary-file cleanup is deliberately separate and is not implemented in this release.
+- PDF zoom belongs to each page. Continuous scrolling remains the default. A compact floating Previous/current-total/Next bar sits inside the reading area above ads/system insets, with bottom content clearance and disabled end controls. Share options offers Single page, which fits a new page to the viewport; revisited pages retain their zoom while the session stays open. PDF Book mode keeps its existing navigation without a duplicate floating bar.
+- Word pinch and zoom controls affect the touched/current page. Excel keeps zoom and scroll position per worksheet. Fit resets the current page/sheet to its available width. Native WebView global zoom is disabled; single-finger scrolling remains native. Office print/export snapshots remove all display zoom.
+- Category dropdowns have a visible scrollbar and a downward continuation chevron while more items remain below.
+- Billing, signing, accepted Excel-to-PDF margin/fitting logic, attachment retention, Settings and Book themes are preserved.
+
+## Verification / submission — AAB uploaded, declaration confirmation pending
+Final code candidate `0d2ce96b2a50d925eeeab6c08b58b4e971a7ef0e`, tree `b9fa90c92ca67214bf1573bf21afbaff3b34d5a8`, version `0.1.17-closed` / code `19`.
+CI https://github.com/bokimmkd/DocuReader/actions/runs/42508429470 succeeded: **57 unit tests + 38 Android tests, zero failures/skips**, followed by the actual optimized release-AAB APK smoke. The smoke requires OCR-visible Word/Excel markers, not merely accessible DOM text. Inspected final Word/Excel screenshots: both visibly render rich content, Cyrillic and table columns. Inspected PDF Single page screenshot: page 2 fits, floating navigation is above the banner, Next is disabled. Word one-finger horizontal/vertical pan, independent Word-page and Excel-worksheet zoom, wide Excel/CSV export margins and existing reader/retention/settings workflows passed.
+
+Evidence artifact `13629485404`, ZIP SHA-256 `d578d810e353f91a3522ced426cbff58466d0c15214317890ad7bb6c62b0f39b`.
+Unsigned artifact `13628704631`, ZIP SHA-256 `0fe7316d9d7f6e4cee60223b9543d420d5c5e3457d6013bb04ec34a94942c420`; unsigned AAB SHA-256 `197bbc530be24349dd09238b1ed62766191ff96a70ad7b4c4428b052ec9db80e`.
+Signed deliverable `/workspace/shared/WReader-0.1.17-closed-v19-signed.aab`, 19,267,531 bytes, SHA-256 `d353830e6903b3222a8b2188a6b125457e7a3b124e5d0efdc91409325d913746`, Library `libfile_68673e91bfc481919950da907df88f62`.
+JAR signature verified; every original ZIP payload entry is byte-identical after signing. Bundle manifest confirms `com.blw.wreader`, code 19, minSdk 26, targetSdk 36, four ABIs, ReTrace mapping, no debug/test Activities. Same accepted upload certificate SHA-256 `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`. No key changes.
+
+Play accepted bundle 19 into existing Closed Alpha track `4699280419648890924`, release `14`, title `0.1.17 - Library saving and page zoom`. Saved the release at 100% of this Closed track. Supported-device counts unchanged; the only bundle validation warning is missing native debug symbols.
+**Not submitted for review yet.** Publishing overview showed the sole pending release item `Closed testing - Alpha / 0.1.17 - Library saving and page zoom / Start full rollout`. Quick checks block submission on an incomplete app-level Trader status declaration. The form says the developer account is already a Trader and defaults this app to Yes. Terms of Service URL is optional and blank. No declaration was saved and no Terms were accepted.
+Automatic approval review rejected both (1) `Proceed anyway`, because skipping the declaration lacked explicit user approval, and (2) saving the inherited Yes/Trader declaration, because the user has not explicitly confirmed this legal status applies to W Reader. Do not retry either action without the required confirmation. Ask Boki to confirm **Yes, my trader status applies to W Reader** and authorize saving it. Then save that declaration, return to Publishing overview, inspect the release + declaration changes and submit the authorized Closed update for review. Production remains excluded.
+Verified continuation URL: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/app-content/trader-status?source=publishing-overview
+Publishing overview: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+Form screenshot `/workspace/shared/WReader-0.1.17-trader-confirmation.png`, Library `libfile_e431da0865f88191940a7cb8c22724ad`. Cloud tab 27 is marked for continuation. Stable 0.1.16 remains available to testers until approval of the new release.
+
+## Superseded candidates — do not upload
+CI 42501153050 passed 57 unit + 34/36 Android tests; the failures were an edge-zone test swipe invoking Android Back and a PDF disabled-state query on the icon instead of its button. Both fixed.
+CI 42502684851 passed 57 unit + 37 Android tests and its former weak release smoke, but manual screenshot review caught blank Word/Excel content despite accessible DOM text. Its signed AAB is quarantined as `qa19-final/not-for-upload-signed.aab`; it was never uploaded.
+CI 42504846023 correctly caught the actual-reader blank surface: body/viewport heights were zero despite window.innerHeight=590. Its other failure was shared test history, fixed by a unique import source. The 100vh attempt in CI 42506738237 still failed the Word screen check (37/38 Android tests passed).
+The final passing candidate restores baseline natural document height and native vertical scrolling, keeps horizontal overflow in the document container, and adapts independent zoom anchors/worksheet vertical scroll restoration accordingly. It retains the bounded weighted native Office view, disabled overview/global zoom, visual-state readiness, pixel checks and OCR release checks.
+
+The historical next-update plans below are implemented by this candidate; their earlier backlog-only status is superseded by this section.
+
+---
+
 # Next update — floating PDF page navigation (2026-11-08)
 
 Status: user-requested next-update UI plan, not implemented or released.
