@@ -18,7 +18,7 @@ const sheetViews = new Map();
 let activeSheet = null;
 function visibleWordPage() {
     const pages = Array.from(content.querySelectorAll('.docx-wrapper > section.docx'));
-    const frame = viewport.getBoundingClientRect();
+    const frame = {top:0, bottom:window.innerHeight};
     return pages.reduce((best, page) => {
         const rect = page.getBoundingClientRect();
         const visible = Math.max(0, Math.min(rect.bottom, frame.bottom) - Math.max(rect.top, frame.top));
@@ -65,7 +65,7 @@ viewport.addEventListener('touchmove', event => {
     applyZoom(node, pinch.zoom * distance(event.touches) / Math.max(1, pinch.distance));
     const after = node.getBoundingClientRect(), ratio = targetZoom(node) / old;
     viewport.scrollLeft += after.left + (x - before.left) * ratio - x;
-    viewport.scrollTop += after.top + (y - before.top) * ratio - y;
+    window.scrollBy(0, after.top + (y - before.top) * ratio - y);
 }, {passive:false});
 function endPinch(event) { if (event.touches.length < 2) pinch = null; }
 viewport.addEventListener('touchend', endPinch);
@@ -143,7 +143,7 @@ function bounds(address) {
     const a=one(parts[0]),b=one(parts[1] || parts[0]);return {r:a[0],c:a[1],rows:b[0]-a[0]+1,cols:b[1]-a[1]+1};
 }
 function renderSheet(ws) {
-    if (activeSheet != null) sheetViews.set(activeSheet, {zoom:targetZoom(content), x:viewport.scrollLeft, y:viewport.scrollTop});
+    if (activeSheet != null) sheetViews.set(activeSheet, {zoom:targetZoom(content), x:viewport.scrollLeft, y:window.scrollY});
     activeSheet = ws.id;
     content.style.zoom='1';
     content.textContent='';
@@ -217,7 +217,7 @@ function renderSheet(ws) {
     const saved = sheetViews.get(ws.id);
     applyZoom(content, saved ? saved.zoom : fitZoom(content));
     viewport.scrollLeft = saved ? saved.x : 0;
-    viewport.scrollTop = saved ? saved.y : 0;
+    window.scrollTo(0, saved ? saved.y : 0);
 }
 function escapeNotice() {
     while(state.images.length)URL.revokeObjectURL(state.images.pop());

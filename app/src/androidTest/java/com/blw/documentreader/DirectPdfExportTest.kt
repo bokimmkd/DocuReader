@@ -156,6 +156,14 @@ class DirectPdfExportTest {
                         js(web, "window.setOfficeZoom(2)")
                         assertEquals("2", js(web, "window.getOfficeZoom()"))
                         assertEquals("Neighbor Word page changed zoom", otherZoom, js(web, "document.querySelectorAll('section.docx')[1].style.zoom"))
+                        val rect = view.visibleBounds
+                        js(web, "window.scrollTo(0,0);document.getElementById('viewport').scrollLeft=0")
+                        device.swipe(rect.left + rect.width() * 4 / 5, rect.centerY(), rect.left + rect.width() / 5, rect.centerY(), 30)
+                        device.waitForIdle(); delay(300)
+                        assertTrue("Zoomed Word did not pan horizontally", js(web, "document.getElementById('viewport').scrollLeft").toFloat() > 20f)
+                        device.swipe(rect.centerX(), rect.top + rect.height() * 4 / 5, rect.centerX(), rect.top + rect.height() / 3, 30)
+                        device.waitForIdle(); delay(300)
+                        assertTrue("Zoomed Word did not scroll vertically", js(web, "window.scrollY").toFloat() > 20f)
                         js(web, "window.fitOfficePage()")
                         assertTrue(js(web, "window.getOfficeZoom()").toFloat() <= 1f)
                     } else {
