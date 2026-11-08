@@ -15,6 +15,46 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class DocumentDialogTest {
+    @Test fun longCategoryListScrollsToLastItemInBothThemes() {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val context = inst.targetContext
+        val device = UiDevice.getInstance(inst)
+        val store = DocumentStore(context)
+        val original = store.load(); val originalCategories = store.categories()
+        val source = File(context.filesDir, "library/long-categories.txt").also { it.parentFile!!.mkdirs(); it.writeText("Preserved source") }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", source)
+        val output = File(context.getExternalFilesDir(null), "dialog-qa").also { it.mkdirs() }
+        try {
+            store.categories((1..20).map { "Category %02d".format(it) })
+            for (dark in listOf(false, true)) {
+                store.save(listOf(DocumentEntry(uri.toString(), source.name, "TXT", savedLocally = true)))
+                ActivityScenario.launch<DocumentDialogTestActivity>(Intent(context, DocumentDialogTestActivity::class.java).putExtra("dark", dark)).use {
+                    device.wait(Until.findObject(By.desc("Document actions")), 10000)!!.click()
+                    device.wait(Until.findObject(By.text("Rename")), 10000)!!.click()
+                    device.wait(Until.findObject(By.text("Uncategorized")), 10000)!!.click()
+                    val first = device.wait(Until.findObject(By.text("Category 01")), 10000)!!
+                    var menu: UiObject2? = first
+                    while (menu != null && !menu.isScrollable) menu = menu.parent
+                    assertNotNull("Category menu must scroll", menu)
+                    val scroller = requireNotNull(menu)
+                    device.waitForIdle()
+                    device.takeScreenshot(File(output, "category-long-start-$dark.png"))
+                    scroller.scroll(Direction.DOWN, .7f); device.waitForIdle()
+                    device.takeScreenshot(File(output, "category-long-middle-$dark.png"))
+                    var attempts = 0
+                    while (!device.hasObject(By.text("New category")) && attempts++ < 20) scroller.scroll(Direction.DOWN, .7f)
+                    assertTrue("End of category list is unreachable", device.hasObject(By.text("New category")))
+                    device.takeScreenshot(File(output, "category-long-end-$dark.png"))
+                    device.findObject(By.text("Category 20")).click()
+                    device.wait(Until.findObject(By.text("Save")), 10000)!!.click()
+                    device.waitForIdle()
+                    assertEquals("Category 20", store.load().single().category)
+                    assertEquals("Preserved source", source.readText())
+                }
+            }
+        } finally { store.save(original); store.categories(originalCategories) }
+    }
+
     @Test fun dropdownExistingNewCategoryAndCancelPreserveDocumentInBothThemes() {
         val inst = InstrumentationRegistry.getInstrumentation()
         val context = inst.targetContext

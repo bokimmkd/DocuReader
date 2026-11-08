@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 
 @Composable
 internal fun FloatingPageNavigation(page: Int, count: Int, previous: () -> Unit, next: () -> Unit,
@@ -16,9 +18,9 @@ internal fun FloatingPageNavigation(page: Int, count: Int, previous: () -> Unit,
     Surface(modifier, shape = RoundedCornerShape(28.dp), shadowElevation = 5.dp,
         color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp) {
         Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = previous, enabled = page > 0) { Icon(Icons.Default.ChevronLeft, "Previous page") }
+            IconButton(onClick = previous, enabled = page > 0, modifier = Modifier.semantics { contentDescription = "Previous page" }) { Icon(Icons.Default.ChevronLeft, null) }
             Text("${page + 1} / $count", Modifier.padding(horizontal = 14.dp), style = MaterialTheme.typography.labelLarge)
-            IconButton(onClick = next, enabled = page < count - 1) { Icon(Icons.Default.ChevronRight, "Next page") }
+            IconButton(onClick = next, enabled = page < count - 1, modifier = Modifier.semantics { contentDescription = "Next page" }) { Icon(Icons.Default.ChevronRight, null) }
         }
     }
 }

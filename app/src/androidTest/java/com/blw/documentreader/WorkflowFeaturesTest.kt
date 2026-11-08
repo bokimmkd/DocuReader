@@ -100,9 +100,10 @@ class WorkflowFeaturesTest {
                 device.findObject(By.desc("Share options")).click(); click("Single page")
                 assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
                 assertFalse(device.hasObject(By.desc("Page 1")))
-                assertFalse(device.findObject(By.desc("Next page")).isEnabled)
                 val dir = File(context.getExternalFilesDir(null), "workflow-qa").also { it.mkdirs() }
                 device.takeScreenshot(File(dir, "pdf-single-page-floating.png"))
+                device.dumpWindowHierarchy(File(dir, "pdf-single-page-floating.xml"))
+                assertFalse("Last-page Next control is enabled", device.findObject(By.desc("Next page")).isEnabled)
                 device.findObject(By.desc("Previous page")).click()
                 assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 10000))
                 assertFalse(device.findObject(By.desc("Previous page")).isEnabled)

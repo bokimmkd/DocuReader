@@ -127,7 +127,7 @@ class DirectPdfExportTest {
                     } else {
                         js(web, "window.setOfficeZoom(2);document.getElementById('viewport').scrollLeft=0")
                         val rect = view.visibleBounds
-                        device.swipe(rect.right - 30, rect.centerY(), rect.left + 30, rect.centerY(), 30)
+                        device.swipe(rect.left + rect.width() * 4 / 5, rect.centerY(), rect.left + rect.width() / 5, rect.centerY(), 30)
                         device.waitForIdle(); delay(300)
                         assertTrue("Zoomed Excel did not pan with one finger", js(web, "document.getElementById('viewport').scrollLeft").toFloat() > 20f)
                         js(web, "document.getElementById('sheet').selectedIndex=1;document.getElementById('sheet').onchange()")
@@ -138,7 +138,7 @@ class DirectPdfExportTest {
                         js(web, "document.getElementById('sheet').selectedIndex=1;document.getElementById('sheet').onchange()")
                         assertEquals("1.5", js(web, "window.getOfficeZoom()"))
                     }
-                } finally { scenario.onActivity { web.destroy() } }
+                } finally { withContext(Dispatchers.Main) { web.destroy() } }
             }
         }
     }
