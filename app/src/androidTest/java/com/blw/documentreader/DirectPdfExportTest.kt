@@ -108,7 +108,15 @@ class DirectPdfExportTest {
                 scenario.onActivity { a -> web = OfficeWebView.create(a, fixture(name), type); a.setContentView(web) }
                 try {
                     withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                    val device = UiDevice.getInstance(inst)
+                    val view = device.wait(Until.findObject(By.clazz(WebView::class.java.name)), 10000)!!
+                    val beforePinch = js(web, "window.getOfficeZoom()").toFloat()
+                    val neighborBeforePinch = if (type == "Word") js(web, "document.querySelectorAll('section.docx')[1].style.zoom") else null
+                    view.pinchOpen(.65f)
+                    device.waitForIdle(); delay(400)
+                    assertTrue("$type pinch did not zoom content", js(web, "window.getOfficeZoom()").toFloat() > beforePinch * 1.1f)
                     if (type == "Word") {
+                        assertEquals("Pinch changed neighboring Word page", neighborBeforePinch, js(web, "document.querySelectorAll('section.docx')[1].style.zoom"))
                         assertTrue(js(web, "document.querySelectorAll('section.docx').length").toInt() >= 2)
                         val otherZoom = js(web, "document.querySelectorAll('section.docx')[1].style.zoom")
                         js(web, "window.setOfficeZoom(2)")
@@ -117,7 +125,11 @@ class DirectPdfExportTest {
                         js(web, "window.fitOfficePage()")
                         assertTrue(js(web, "window.getOfficeZoom()").toFloat() <= 1f)
                     } else {
-                        js(web, "window.setOfficeZoom(2)")
+                        js(web, "window.setOfficeZoom(2);document.getElementById('viewport').scrollLeft=0")
+                        val rect = view.visibleBounds
+                        device.swipe(rect.right - 30, rect.centerY(), rect.left + 30, rect.centerY(), 30)
+                        device.waitForIdle(); delay(300)
+                        assertTrue("Zoomed Excel did not pan with one finger", js(web, "document.getElementById('viewport').scrollLeft").toFloat() > 20f)
                         js(web, "document.getElementById('sheet').selectedIndex=1;document.getElementById('sheet').onchange()")
                         assertTrue("Next worksheet inherited zoom", js(web, "window.getOfficeZoom()").toFloat() <= 1f)
                         js(web, "window.setOfficeZoom(1.5)")

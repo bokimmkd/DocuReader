@@ -333,7 +333,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                     ReaderPage(session, index, pageZooms[index] ?: 1f, onZoom = { pageZooms[index] = it })
                 }
             }
-            FloatingPageNavigation(currentPage, session.pageCount, { navigate(currentPage - 1) }, { navigate(currentPage + 1) },
+            if (!readingMode) FloatingPageNavigation(currentPage, session.pageCount, { navigate(currentPage - 1) }, { navigate(currentPage + 1) },
                 Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
         }
         if (readingMode) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
