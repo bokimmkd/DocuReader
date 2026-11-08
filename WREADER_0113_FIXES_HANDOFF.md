@@ -1,3 +1,15 @@
+# Next update — floating PDF page navigation (2026-11-08)
+
+Status: user-requested next-update UI plan, not implemented or released.
+
+- Add a compact floating page-navigation bar centered at the bottom of the PDF reader: Previous arrow, current / total page count, Next arrow.
+- Position it above any banner ad and Android navigation/gesture insets. Provide enough reading-area clearance that bottom-page content remains reachable; do not overlap the ad or intercept document gestures outside the controls.
+- Previous and Next change PDF pages, not app screens. Disable the appropriate control on the first/last page, with clear accessible labels and usable touch targets. Support Light/Dark and narrow screens.
+- Context: user reports that document-wide zoom enlarging neighboring pages is distracting. The proposed solution discussed is an optional single-page mode, with zoom and one-finger pan scoped to that page, and a newly visited page initially fit to the viewport; continuous scrolling remains an alternative. Floating navigation placement is now explicitly requested. Exact mode/default and revisited-page zoom behavior remain design details to settle before implementation; do not silently replace the accepted continuous reader.
+- Verify page navigation at zoom, first/last-page boundaries, page count, pan/zoom gesture handling, reading position, ad/no-ad layouts and system insets.
+
+---
+
 # Next update — Save locally from Library menu (2026-11-07)
 
 Status: addition to the agreed next-update plan, not implemented yet.
