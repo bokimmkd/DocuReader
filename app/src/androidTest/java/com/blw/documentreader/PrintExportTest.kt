@@ -144,14 +144,19 @@ class PrintExportTest {
         }
     }
     @Test fun libraryImportPersistsAndClearRecentKeepsCopy() = runBlocking {
-        val uri=fixture("word.docx")
+        // Other reader tests deliberately open word.docx first. Import a new
+        // source here: saving an already-opened document must keep its history.
+        val source=File(context.filesDir,"library/import-only-${System.nanoTime()}.docx")
+        source.parentFile!!.mkdirs()
+        inst.context.assets.open("word.docx").use { input -> source.outputStream().use { input.copyTo(it) } }
+        val uri=FileProvider.getUriForFile(context,"${context.packageName}.files",source)
         val vm=withContext(Dispatchers.Main){MainViewModel(context.applicationContext as android.app.Application)}
         withContext(Dispatchers.Main){vm.saveToLibrary(uri)}
         withTimeout(30_000){while(withContext(Dispatchers.Main){vm.busy})delay(100)}
-        val saved=withContext(Dispatchers.Main){vm.recent.first{it.name=="word.docx" && it.savedLocally}}
+        val saved=withContext(Dispatchers.Main){vm.recent.first{it.name==source.name && it.savedLocally}}
         assertEquals(0L,saved.openedAt);assertTrue(saved.addedAt>0)
         withContext(Dispatchers.Main){vm.clearRecent()}
-        assertTrue(DocumentStore(context).load().any{it.uri==saved.uri && it.savedLocally})
+        assertTrue(DocumentStore(context).load().any{it.uri==saved.uri && it.savedLocally && it.openedAt==0L})
         context.contentResolver.openInputStream(Uri.parse(saved.uri))!!.use { assertTrue(it.readBytes().isNotEmpty()) }
     }
 }

@@ -4,7 +4,9 @@ body{margin:0;padding:0;background:#edf2f7;color:#182b43;font:14px/1.4 system-ui
 #status{padding:12px;color:#62778c}
 #sheetbar{position:sticky;top:0;z-index:3;background:#e8f0fc;padding:7px 10px;border-bottom:1px solid #c7d7ec}
 #sheet{font:14px system-ui;max-width:100%;padding:8px;border:1px solid #92aec8;border-radius:8px;background:white;color:#16334f}
-html,body{height:100%;overflow:hidden}
+/* Android WebView can resolve percentage root height against a zero-height
+   initial containing block. Viewport units track the actual reader surface. */
+html,body{height:100vh;overflow:hidden}
 body{display:flex;flex-direction:column}
 #viewport{width:100%;overflow:auto;flex:1;min-height:0;overscroll-behavior:contain}
 #sheetbar{flex-shrink:0}
