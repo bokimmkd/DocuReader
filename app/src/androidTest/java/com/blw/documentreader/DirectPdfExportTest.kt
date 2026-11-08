@@ -101,6 +101,40 @@ class DirectPdfExportTest {
         }
     }
 
+    @Test fun officeDocumentsPaintInsideTheActualReaderScreen() = runBlocking {
+        for ((name, mime) in listOf("word.docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "excel.xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+            val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                .setDataAndType(fixture(name), mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+                var found: WebView? = null
+                fun find(view: android.view.View): WebView? {
+                    if (view is WebView && view.url.orEmpty().contains("/assets/office/reader.html")) return view
+                    if (view is android.view.ViewGroup) for (i in 0 until view.childCount) find(view.getChildAt(i))?.let { return it }
+                    return null
+                }
+                withTimeout(20000) { while (found == null) { scenario.onActivity { found = find(it.window.decorView) }; delay(100) } }
+                val web = requireNotNull(found)
+                withTimeout(90000) { while (js(web, "window.officeReady===true") != "true") delay(150) }
+                delay(1500)
+                val geometry = js(web, "JSON.stringify({innerWidth,innerHeight,scrollX,scrollY,body:document.body.getBoundingClientRect().toJSON(),viewport:document.getElementById('viewport').getBoundingClientRect().toJSON(),content:document.getElementById('content').getBoundingClientRect().toJSON()})")
+                File(output, "$name-screen-geometry.json").writeText(geometry)
+                val rect = android.graphics.Rect()
+                scenario.onActivity { val xy = IntArray(2); web.getLocationOnScreen(xy); rect.set(xy[0],xy[1],xy[0]+web.width,xy[1]+web.height) }
+                val bitmap = inst.uiAutomation.takeScreenshot()
+                try {
+                    File(output, "$name-reader-screen.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                    var paper = 0; var ink = 0; var samples = 0
+                    for (y in (rect.top+20).coerceAtLeast(0) until (rect.bottom-20).coerceAtMost(bitmap.height) step 3)
+                        for (x in (rect.left+20).coerceAtLeast(0) until (rect.right-20).coerceAtMost(bitmap.width) step 3) {
+                            val c=bitmap.getPixel(x,y); val r=android.graphics.Color.red(c); val g=android.graphics.Color.green(c); val b=android.graphics.Color.blue(c)
+                            samples++; if (r>248 && g>248 && b>248) paper++; if (r<160 && g<160 && b<160) ink++
+                        }
+                    assertTrue("$name screen is blank: paper=$paper ink=$ink samples=$samples geometry=$geometry", paper>samples/10 && ink>100)
+                } finally { bitmap.recycle() }
+            }
+        }
+    }
+
     @Test fun officeZoomIsIndependentPerWordPageAndWorksheet() = runBlocking {
         for ((name, type) in listOf("word.docx" to "Word", "excel.xlsx" to "Excel")) {
             ActivityScenario.launch(PrintTestActivity::class.java).use { scenario ->

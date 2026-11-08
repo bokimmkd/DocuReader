@@ -59,7 +59,19 @@ fun OfficeReaderScreen(
             val loaded = suspendCancellableCoroutine<Boolean> { cont ->
                 webView.evaluateJavascript("window.officeReady === true") { if (cont.isActive) cont.resume(it == "true") }
             }
-            if (loaded) { ready = true; onReady(); return@LaunchedEffect }
+            if (loaded) {
+                // DOM readiness can precede the AndroidView's first painted frame.
+                // Enable output only after WebView has committed the document visually.
+                suspendCancellableCoroutine<Unit> { cont ->
+                    webView.postVisualStateCallback(1L, object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            webView.invalidate()
+                            if (cont.isActive) cont.resume(Unit)
+                        }
+                    })
+                }
+                ready = true; onReady(); return@LaunchedEffect
+            }
             delay(500)
         }
     }
@@ -119,7 +131,7 @@ fun OfficeReaderScreen(
                 Icon(Icons.Default.FitScreen, "Fit to width", Modifier.size(20.dp)); Spacer(Modifier.width(4.dp)); Text("Fit")
             }
         }
-        AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+        AndroidView(factory = { webView }, modifier = Modifier.weight(1f).fillMaxWidth())
     }
     if (showSearch) WReaderAlertDialog(
         onDismissRequest = { showSearch = false },

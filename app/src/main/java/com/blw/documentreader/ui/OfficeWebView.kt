@@ -23,7 +23,8 @@ object OfficeWebView {
             settings.setSupportZoom(false)
             settings.builtInZoomControls = false
             settings.displayZoomControls = false
-            settings.loadWithOverviewMode = true
+            // The document viewport and Fit control own scaling.
+            settings.loadWithOverviewMode = false
             settings.useWideViewPort = true
         }
         val loader = WebViewAssetLoader.Builder()

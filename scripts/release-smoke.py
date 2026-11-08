@@ -35,6 +35,19 @@ def await_text(fragment,timeout=20):
    if clean(fragment) in clean(visible):return
   time.sleep(.4)
  raise AssertionError('Release document content missing: '+fragment)
+def await_office_pixels(marker,name,timeout=30):
+ # Accessibility text can exist even when WebView paints a blank frame.
+ end=time.monotonic()+timeout
+ clean=lambda value:re.sub('[^A-Z0-9]','',value.upper())
+ while time.monotonic()<end:
+  capture(name)
+  shot=ROOT/(name+'.png')
+  visible=subprocess.check_output(['tesseract',str(shot),'stdout','--psm','11'],stderr=subprocess.DEVNULL).decode(errors='replace')
+  (ROOT/(name+'-pixels.txt')).write_text(visible)
+  if clean(marker) in clean(visible):return
+  time.sleep(1)
+ raise AssertionError('Release Office document was not painted: '+marker)
+
 def menu_item(value):
  for _ in range(3):
   tree=dump()
@@ -97,8 +110,8 @@ def main():
  adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  for name in ['release-word.docx','release-sheet.xlsx','release-image.png']:
   open_file(name);await_node('Print',enabled=True)
-  if name.endswith('.docx'):await_text('WORD_START')
-  if name.endswith('.xlsx'):await_text('EXCEL_START')
+  if name.endswith('.docx'):await_office_pixels('WORD_START','release-word')
+  if name.endswith('.xlsx'):await_office_pixels('EXCEL_START','release-sheet')
   capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  tap('Library');tap('Recent');await_node('release-image.png');tap('Document actions');tap('Save locally');await_text('Saved locally');capture('saved-library');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
