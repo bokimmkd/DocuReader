@@ -66,8 +66,8 @@ def capture(name,require_blue=False):
  if require_blue:
   im=Image.open(out).convert('RGB');n=sum(1 for y in range(0,im.height,4) for x in range(0,im.width,4) if (lambda c:c[2]>150 and c[2]>c[0]+60 and c[2]>c[1]+40)(im.getpixel((x,y))))
   assert n>500,(name,'blank frame',n)
-def open_file(name):
- tap('Open document');await_node('Show roots');tap('Search')
+def open_file(name,control='Open document'):
+ tap(control);await_node('Show roots');tap('Search')
  end=time.monotonic()+15
  while time.monotonic()<end:
   field=next((n for n in dump().iter('node') if n.get('resource-id')=='com.google.android.documentsui:id/search_src_text'),None)
@@ -119,10 +119,24 @@ def main():
  adb('push',str(pdfs[0]),'/sdcard/Download/release-signature.pdf')
  adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file:///sdcard/Download/release-signature.pdf')
  open_file('release-signature.pdf');await_node('Share options');tap('Share options');tap('Sign PDF')
- node=await_node('Draw signature here');a,b,c,d=[int(x) for x in re.findall(r'\d+',node.get('bounds',''))]
+ tap('Blue');node=await_node('Draw signature here');a,b,c,d=[int(x) for x in re.findall(r'\d+',node.get('bounds',''))]
  adb('shell','input','swipe',str(a+40),str((b+d)//2),str(c-40),str((b+d)//2-30),'600')
  await_node('Place signature',enabled=True);capture('signature-drawing');tap('Place signature')
  await_node('Signature placement preview');capture('signature-placement');await_node('Save signed copy',enabled=True)
+ tap('Draw new signature')
+ # Use an existing PNG through the actual release picker; drawing colors must not tint it.
+ image_path=ROOT/'import-ink.png'
+ ink=Image.new('RGBA',(160,60),(0,0,0,0))
+ for y in range(10,50):
+  for x in range(10,150):ink.putpixel((x,y),(210,20,25,255) if x<80 else (20,50,210,255))
+ ink.save(image_path)
+ adb('push',str(image_path),'/sdcard/Download/import-ink.png')
+ adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file:///sdcard/Download/import-ink.png')
+ menu_item('Import PNG / JPG');open_file('import-ink.png','Import PNG / JPG')
+ await_node('Signature placement preview');capture('signature-imported-png');await_node('Export PNG',enabled=True)
+ imported=Image.open(ROOT/'signature-imported-png.png').convert('RGB')
+ red=sum(1 for r,g,b in imported.getdata() if r>170 and g<70 and b<80)
+ assert red>100,('Imported PNG was recolored or missing',red)
  tap('Cancel');adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  # Bring the image back to the top of Recent for the existing promotion test.
  open_file('release-image.png');await_node('Print',enabled=True);adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')

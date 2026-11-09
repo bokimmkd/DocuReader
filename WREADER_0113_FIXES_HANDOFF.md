@@ -1,3 +1,15 @@
+# W Reader 0.1.19 — signature images, ink colors and Library spacing (in verification)
+
+Boki authorized another AAB after v20 phone feedback. Continue the same fix branch, same upload certificate and Closed testing scope. No Production change.
+- Import PNG / JPG from Sign PDF; retain decoded colors, transparency and background without recoloring/cropping. Bounded decode: 16 MB input, 4096 pixels per side, 8 megapixels. Optional Save for reuse also applies to imports.
+- Black / Blue / Red affect only strokes drawn in the tool. Existing/imported bitmap signatures are unchanged. Default drawing ink is black.
+- Export PNG saves the current signature separately via Android's destination picker, preserving transparency. No implicit external export or private reuse.
+- Library action rows 44dp to 36dp, tabs 36dp to 30dp minimum, reduced padding/search/filter space; text can expand rows for larger fonts. Saved remains default.
+- Version 0.1.19-closed / code21. Tests cover PNG/JPEG import, malformed/oversized input, decoded pixel/alpha preservation through PNG export and PDF embedding, all drawing colors, UI color selection/PNG export, and actual optimized-release PNG import. Existing full regression suite remains required.
+- CI, signing and Play upload pending. Do not claim success from this planning section.
+
+---
+
 # W Reader 0.1.18 — submitted to Closed Alpha review
 
 Boki authorized this update on November 9, 2026: "Pukni go. Ako e ok relase verzija". Continued `fix/wreader-0113-viber-billing-zoom-excel`; no main merge, Production rollout or key change.

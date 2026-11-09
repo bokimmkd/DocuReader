@@ -19,9 +19,9 @@ enum class PdfLibraryAction { ShareWithPassword, AddPages, DeletePages, ExtractP
 internal fun DocumentActionItem(label: String, icon: ImageVector, onClick: () -> Unit,
     enabled: Boolean = true, destructive: Boolean = false, submenu: Boolean = false) {
     val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    Row(Modifier.widthIn(min = 208.dp, max = 320.dp).fillMaxWidth().heightIn(min = 44.dp)
+    Row(Modifier.widthIn(min = 208.dp, max = 320.dp).fillMaxWidth().heightIn(min = 36.dp)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        .padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(18.dp), tint = tint.copy(alpha = if (enabled) 1f else .38f))
         Spacer(Modifier.width(12.dp))
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,

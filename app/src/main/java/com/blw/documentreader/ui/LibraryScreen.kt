@@ -81,7 +81,7 @@ private fun LibraryFilter(label: String, values: List<String>, onSelect: (String
                           modifier: Modifier = Modifier, icon: ImageVector = Icons.Default.FolderOpen) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
-        TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().height(40.dp),
+        TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
             shape = RoundedCornerShape(8.dp)) {
             Icon(icon, null, Modifier.size(15.dp))
@@ -188,10 +188,10 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 val chosen = collection == label
                 Surface(color = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = 36.dp)
+                    Row(Modifier.fillMaxWidth().heightIn(min = 30.dp)
                         .selectable(selected = chosen, role = androidx.compose.ui.semantics.Role.Tab,
                             onClick = { collection = label; selected = arrayListOf() })
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 3.dp),
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         if (chosen) { Icon(Icons.Default.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)) }
                         Text(label, style = MaterialTheme.typography.labelLarge)
@@ -200,12 +200,12 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
             }
         }
         // BasicTextField avoids Material's large built-in vertical content padding.
-        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
+        Row(Modifier.fillMaxWidth().heightIn(min = 40.dp)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(9.dp))
             .padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Search, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(8.dp))
-            BasicTextField(search, { search = it }, modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+            BasicTextField(search, { search = it }, modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 singleLine = true, textStyle = TextStyle(fontSize = 12.sp, lineHeight = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -220,17 +220,19 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 Icon(Icons.Default.Close, "Clear search", Modifier.size(17.dp))
             }
         }
-        LazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            rowItems(listOf("All", "Favorites", "PDF", "Word", "Excel", "TXT", "CSV", "PowerPoint", "EPUB", "RTF", "ODT", "Images")) { item ->
-                FilterChip(selected = filter == item, onClick = { filter = item },
-                    label = { Text(item, fontSize = 11.sp, lineHeight = 14.sp) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
+            LazyRow(contentPadding = PaddingValues(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                rowItems(listOf("All", "Favorites", "PDF", "Word", "Excel", "TXT", "CSV", "PowerPoint", "EPUB", "RTF", "ODT", "Images")) { item ->
+                    FilterChip(selected = filter == item, onClick = { filter = item },
+                        label = { Text(item, fontSize = 11.sp, lineHeight = 14.sp) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primaryContainer))
+                }
             }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            LibraryFilter(category, categories, { category = it }, Modifier.weight(1f))
-            LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f), Icons.Default.Label)
-            LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(92.dp), Icons.Default.Sort)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                LibraryFilter(category, categories, { category = it }, Modifier.weight(1f))
+                LibraryFilter(tag, tags, { tag = it }, Modifier.weight(1f), Icons.Default.Label)
+                LibraryFilter(order, listOf("Recent", "Name", "Type"), { order = it }, Modifier.width(92.dp), Icons.Default.Sort)
+            }
         }
         if (selected.isNotEmpty()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

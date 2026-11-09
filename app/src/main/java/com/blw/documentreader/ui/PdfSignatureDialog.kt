@@ -55,6 +55,9 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
     var stored by remember { mutableStateOf<Bitmap?>(null) }
     var drawing by remember { mutableStateOf(true) }
     var reuse by remember { mutableStateOf(false) }
+    var inkColor by rememberSaveable { mutableIntStateOf(android.graphics.Color.BLACK) }
+    var importedUri by remember { mutableStateOf<Uri?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
     var strokes by remember { mutableStateOf(listOf<List<Offset>>()) }
     var drawingAspect by remember { mutableFloatStateOf(2f) }
     var active by remember { mutableStateOf(listOf<Offset>()) }
@@ -91,6 +94,31 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                 file.delete(); staged = null
             } catch(e: CancellationException) { throw e }
             catch(e: Exception) { error = "PDF was not saved. Choose another folder." }
+            finally { working = false; onBusy(false) }
+        }
+    }
+    val importImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { selected ->
+        if (selected != null) scope.launch {
+            working = true; onBusy(true); error = null; notice = null
+            try {
+                val bitmap = withContext(Dispatchers.IO) { SignatureImages.load(context, selected) }
+                if (reuse) { withContext(Dispatchers.IO) { SignatureStore.save(context, bitmap) }; stored = bitmap }
+                signature = bitmap; importedUri = selected; placement = SignaturePlacement(); drawing = false
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error = e.message ?: "Could not import signature image." }
+            finally { working = false; onBusy(false) }
+        }
+    }
+    val exportImage = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { output ->
+        if (output != null) scope.launch {
+            working = true; onBusy(true); error = null; notice = null
+            try {
+                require(output != importedUri) { "Choose a new file for the PNG copy." }
+                val bitmap = requireNotNull(signature)
+                withContext(Dispatchers.IO) { SignatureImages.export(context, output, bitmap) }
+                notice = "Signature PNG saved"
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error = e.message ?: "Could not export signature PNG." }
             finally { working = false; onBusy(false) }
         }
     }
@@ -132,6 +160,13 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                 if(drawing) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Spacer(Modifier.height(8.dp))
                     Text("Draw your signature", style = MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Black" to android.graphics.Color.BLACK, "Blue" to 0xff1565c0.toInt(), "Red" to 0xffc62828.toInt()).forEach { (label, color) ->
+                            FilterChip(selected = inkColor == color, onClick = { inkColor = color }, enabled = !working,
+                                label = { Text(label) },
+                                leadingIcon = { Box(Modifier.size(12.dp).background(Color(color), androidx.compose.foundation.shape.CircleShape)) })
+                        }
+                    }
                     Canvas(Modifier.fillMaxWidth().height(180.dp).background(Color.White)
                         // Protect only the drawing pad; edge strokes must not become Back.
                         // Its 180dp height stays within Android's 200dp exclusion budget.
@@ -147,7 +182,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                         }) {
                         drawLine(Color.LightGray,Offset(16f,size.height*.8f),Offset(size.width-16f,size.height*.8f),1f)
                         (strokes+listOf(active)).forEach { points -> points.zipWithNext().forEach { (a,b) ->
-                            drawLine(Color(0xff172c50),Offset(a.x*size.width,a.y*size.height),Offset(b.x*size.width,b.y*size.height),3.dp.toPx(),StrokeCap.Round)
+                            drawLine(Color(inkColor),Offset(a.x*size.width,a.y*size.height),Offset(b.x*size.width,b.y*size.height),3.dp.toPx(),StrokeCap.Round)
                         } }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -155,8 +190,12 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                         Checkbox(reuse,{reuse=it}); Text("Save for reuse",style=MaterialTheme.typography.bodyMedium)
                     }
                     Text("Saved only on this device. You can delete it at any time.",style=MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { importImage.launch(arrayOf("image/png", "image/jpeg")) }, enabled = !working) {
+                        Icon(Icons.Default.Image, null); Spacer(Modifier.width(8.dp)); Text("Import PNG / JPG")
+                    }
+                    Text("Imported images keep their colors and background.", style = MaterialTheme.typography.bodySmall)
                     if(stored != null) {
-                        OutlinedButton(onClick = { signature = stored; drawing = false }) { Icon(Icons.Default.Draw,null); Spacer(Modifier.width(8.dp)); Text("My signature") }
+                        OutlinedButton(onClick = { signature = stored; importedUri = null; drawing = false; notice = null }) { Icon(Icons.Default.Draw,null); Spacer(Modifier.width(8.dp)); Text("My signature") }
                         TextButton(onClick = { scope.launch { withContext(Dispatchers.IO) { SignatureStore.delete(context) }; stored = null } }) { Text("Delete saved signature") }
                     }
                 } else {
@@ -175,9 +214,13 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                                 enabled=!working, valueRange=minOf(.08f, ink.width.toFloat()/ink.height/(p.bitmap.width.toFloat()/p.bitmap.height)*.8f)..minOf(.8f,ink.width.toFloat()/ink.height/(p.bitmap.width.toFloat()/p.bitmap.height)*.8f), modifier=Modifier.weight(1f))
                         }
                     } else Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment=Alignment.Center) { if(error==null) CircularProgressIndicator() }
-                    TextButton(onClick = { drawing=true; strokes=emptyList(); reuse=false },enabled=!working) { Text("Draw new signature") }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        TextButton(onClick = { drawing=true; strokes=emptyList(); reuse=false; notice=null },enabled=!working) { Text("Draw new signature") }
+                        TextButton(onClick = { exportImage.launch("signature.png") },enabled=!working && signature!=null) { Text("Export PNG") }
+                    }
                     OutlinedTextField(filename,{filename=it},label={Text("New PDF name")},singleLine=true,enabled=!working,modifier=Modifier.fillMaxWidth())
                 }
+                notice?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall) }
                 if(working) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
@@ -189,9 +232,9 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                             scope.launch {
                                 try {
                                     if(drawing) {
-                                        val bitmap=signatureBitmap(strokes, drawingAspect)
+                                        val bitmap=signatureBitmap(strokes, drawingAspect, inkColor)
                                         if(reuse) { withContext(Dispatchers.IO) { SignatureStore.save(context,bitmap) }; stored=bitmap }
-                                        signature=bitmap; drawing=false
+                                        signature=bitmap; importedUri=null; notice=null; drawing=false
                                     } else {
                                         staged?.let{File(it).delete()}; staged=null
                                         val file=PdfSignatures.sign(context,uri,current,requireNotNull(signature),placement)
@@ -209,7 +252,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
     }
 }
 
-private fun signatureBitmap(strokes: List<List<Offset>>, aspect: Float): Bitmap {
+internal fun signatureBitmap(strokes: List<List<Offset>>, aspect: Float, inkColor: Int): Bitmap {
     val canvasHeight = 1000f / aspect
     val points=strokes.flatten(); require(points.size>1)
     val minX=points.minOf{it.x}; val maxX=points.maxOf{it.x}; val minY=points.minOf{it.y}; val maxY=points.maxOf{it.y}
@@ -218,7 +261,7 @@ private fun signatureBitmap(strokes: List<List<Offset>>, aspect: Float): Bitmap 
     val bitmap=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
     val canvas=android.graphics.Canvas(bitmap)
     val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color=0xff172c50.toInt(); strokeWidth=8f; style=android.graphics.Paint.Style.STROKE
+        color=inkColor; strokeWidth=8f; style=android.graphics.Paint.Style.STROKE
         strokeCap=android.graphics.Paint.Cap.ROUND; strokeJoin=android.graphics.Paint.Join.ROUND
     }
     strokes.forEach { stroke -> if(stroke.size>1) {

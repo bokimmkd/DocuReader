@@ -87,7 +87,71 @@ class SignatureTest {
             } finally { output.delete() }
         } finally { if(old!=null) SignatureStore.save(context,old) else SignatureStore.delete(context); signature.recycle() }
     }
-    private fun click(text:String) { val obj=device.wait(Until.findObject(By.text(text)),15000); assertNotNull(text,obj);obj!!.click();device.waitForIdle() }
+    @Test fun imageImportAndPngExportPreserveColorsTransparencyAndOriginalBytes() = runBlocking {
+        val mark = Bitmap.createBitmap(100,60,Bitmap.Config.ARGB_8888).also { bitmap ->
+            val canvas = Canvas(bitmap)
+            canvas.drawRect(10f,10f,50f,50f,Paint().apply { color = Color.RED })
+            canvas.drawRect(50f,10f,90f,50f,Paint().apply { color = Color.BLUE })
+        }
+        try {
+            for ((extension, format) in listOf("png" to Bitmap.CompressFormat.PNG, "jpg" to Bitmap.CompressFormat.JPEG)) {
+                val input = File(context.filesDir,"library/import-signature.$extension")
+                input.outputStream().use { assertTrue(mark.compress(format,100,it)) }
+                val bytes = input.readBytes()
+                val expected = BitmapFactory.decodeFile(input.path)
+                val loaded = SignatureImages.load(context,uri(input))
+                assertTrue("Import must not recolor or crop $extension", expected.sameAs(loaded))
+                assertEquals(100,loaded.width); assertEquals(60,loaded.height)
+                if (extension == "png") assertEquals(0,Color.alpha(loaded.getPixel(0,0)))
+                val output = File(context.filesDir,"library/export-signature-$extension.png")
+                SignatureImages.export(context,uri(output),loaded)
+                val exported = BitmapFactory.decodeFile(output.path)
+                assertTrue("PNG export must preserve decoded colors and alpha", loaded.sameAs(exported))
+                val signed = PdfSignatures.sign(context,uri(source()),0,loaded,SignaturePlacement())
+                PDDocument.load(signed).use { doc ->
+                    val resources = doc.getPage(0).resources
+                    val image = resources.getXObject(resources.xObjectNames.first()) as com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+                    val embedded = image.image
+                    assertEquals(loaded.width,embedded.width);assertEquals(loaded.height,embedded.height)
+                    for (y in 0 until loaded.height) for (x in 0 until loaded.width) {
+                        val expectedPixel=loaded.getPixel(x,y); val actualPixel=embedded.getPixel(x,y)
+                        assertEquals(Color.alpha(expectedPixel),Color.alpha(actualPixel))
+                        if(Color.alpha(expectedPixel)>0) assertEquals(expectedPixel,actualPixel)
+                    }
+                }
+                assertArrayEquals(bytes,input.readBytes())
+                expected.recycle(); loaded.recycle(); exported.recycle(); signed.delete(); input.delete(); output.delete()
+            }
+            val invalid = File(context.filesDir,"library/not-signature.png").also { it.writeText("not an image") }
+            assertTrue(runCatching { SignatureImages.load(context,uri(invalid)) }.isFailure)
+            invalid.delete()
+            val huge = Bitmap.createBitmap(4097,1,Bitmap.Config.ARGB_8888)
+            val largeFile = File(context.filesDir,"library/too-wide.png")
+            largeFile.outputStream().use { huge.compress(Bitmap.CompressFormat.PNG,100,it) }; huge.recycle()
+            assertTrue(runCatching { SignatureImages.load(context,uri(largeFile)) }.isFailure); largeFile.delete()
+        } finally { mark.recycle() }
+    }
+    @Test fun drawnInkExportsEachSelectedColorWithTransparentBackground() {
+        for (color in listOf(Color.BLACK,0xff1565c0.toInt(),0xffc62828.toInt())) {
+            val bitmap = com.blw.documentreader.ui.signatureBitmap(listOf(listOf(
+                androidx.compose.ui.geometry.Offset(.2f,.3f),androidx.compose.ui.geometry.Offset(.8f,.6f))),2f,color)
+            try {
+                assertEquals(0,Color.alpha(bitmap.getPixel(0,0)))
+                var solid = 0
+                for (y in 0 until bitmap.height) for(x in 0 until bitmap.width) {
+                    val pixel = bitmap.getPixel(x,y)
+                    if(Color.alpha(pixel)==255) { assertEquals(color,pixel); solid++ }
+                }
+                assertTrue("Selected ink color must be rendered",solid>100)
+            } finally { bitmap.recycle() }
+        }
+    }
+    private fun click(text:String) { var obj=device.wait(Until.findObject(By.text(text)),3000)
+        if(obj==null && device.hasObject(By.scrollable(true))) {
+            runCatching { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) }
+            obj=device.wait(Until.findObject(By.text(text)),12000)
+        }
+        assertNotNull(text,obj);obj!!.click();device.waitForIdle() }
     private fun screenshot(name:String) { device.waitForIdle();Thread.sleep(250);val b=inst.uiAutomation.takeScreenshot();try { File(evidence,name).outputStream().use{b.compress(Bitmap.CompressFormat.PNG,100,it)} } finally{b.recycle()} }
     private fun outline():Rect {
         device.waitForIdle()
@@ -116,12 +180,23 @@ class SignatureTest {
                 scenario.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].openDocument(uri(input)) }
                 assertNotNull(device.wait(Until.findObject(By.desc("Share options")),20000))
                 device.findObject(By.desc("Share options")).click();click("Sign PDF")
+                click("Blue")
                 val canvas=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
                 device.swipe(arrayOf(Point(canvas.left+40,canvas.centerY()),Point(canvas.centerX(),canvas.top+30),Point(canvas.centerX()-20,canvas.bottom-35),Point(canvas.right-40,canvas.centerY())),12)
                 val check=device.findObject(By.clazz("android.widget.CheckBox"));assertNotNull(check);check.click()
                 screenshot("signature-drawing-light.png");click("Place signature")
                 assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))
                 screenshot("signature-placement-light.png")
+                val savedInk=SignatureStore.load(context)!!
+                assertEquals(0xff1565c0.toInt(),run {
+                    (0 until savedInk.height).asSequence().flatMap { y -> (0 until savedInk.width).asSequence().map { x -> savedInk.getPixel(x,y) } }.first { Color.alpha(it)==255 }
+                }); savedInk.recycle()
+                click("Export PNG")
+                val pngField=device.wait(Until.findObject(By.pkg(java.util.regex.Pattern.compile("com\\..*documentsui")).clazz("android.widget.EditText")),30000)
+                assertNotNull(pngField);pngField!!.text="WReader-signature-${System.nanoTime()}.png"
+                device.findObject(By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE))).click()
+                assertTrue(device.wait(Until.hasObject(By.text("Signature PNG saved")),15000))
+                screenshot("signature-png-exported.png")
                 val preview=device.findObject(By.desc("Signature placement preview"))
                 val initial=outline();val target=preview.visibleBounds
                 device.swipe(initial.centerX(),initial.centerY(),target.centerX(),target.centerY(),25)
@@ -164,6 +239,7 @@ class SignatureTest {
                 scenario.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].updateAppearance("Dark") }
                 device.waitForIdle();screenshot("library-compact-tabs-dark.png")
                 device.findObject(By.desc("Document actions")).click();screenshot("library-compact-menu-dark.png");click("Sign PDF")
+                click("Red")
                 val second=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
                 // Deliberately start near the edge: drawing must not trigger system Back.
                 device.swipe(second.left+35,second.centerY(),second.right-35,second.centerY()-40,20)

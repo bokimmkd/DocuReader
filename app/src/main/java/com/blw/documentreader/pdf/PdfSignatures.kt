@@ -38,6 +38,37 @@ object SignatureStore {
     fun delete(context: Context) = file(context).delete()
 }
 
+/** Decode a user-selected PNG/JPEG without tinting, cropping or removing its background. */
+object SignatureImages {
+    fun load(context: Context, uri: Uri): Bitmap {
+        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(16384)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer); if (count < 0) break
+                total += count
+                require(total <= 16 * 1024 * 1024) { "Choose a PNG or JPG smaller than 16 MB." }
+                out.write(buffer, 0, count)
+            }
+            out.toByteArray()
+        } ?: error("Image unavailable. Choose it again.")
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        require(bounds.outMimeType in listOf("image/png", "image/jpeg")) { "Choose a PNG or JPG image." }
+        require(bounds.outWidth in 1..4096 && bounds.outHeight in 1..4096 &&
+            bounds.outWidth.toLong() * bounds.outHeight <= 8_000_000) { "Choose an image up to 4096 pixels per side and 8 megapixels." }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+            BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888; inScaled = false })
+            ?: error("This image could not be opened.")
+    }
+    fun export(context: Context, uri: Uri, bitmap: Bitmap) {
+        context.contentResolver.openOutputStream(uri, "wt")?.use {
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "Could not save signature PNG." }
+        } ?: error("Destination unavailable")
+    }
+}
+
 data class SignaturePage(val bitmap: Bitmap, val count: Int)
 
 object PdfSignatures {
