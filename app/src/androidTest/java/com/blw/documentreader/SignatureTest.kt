@@ -151,6 +151,9 @@ class SignatureTest {
                 screenshot("library-compact-menu-light.png");click("Sign PDF")
                 assertNotNull(device.wait(Until.findObject(By.desc("Draw signature here")),10000));click("Cancel")
                 screenshot("library-compact-tabs-light.png")
+                // This scenario began with ACTION_VIEW; configuration recreation must
+                // not replay that external test intent after we returned to Library.
+                scenario.onActivity { a -> a.intent = Intent(a, MainActivity::class.java) }
                 device.executeShellCommand("settings put system font_scale 1.5")
                 Thread.sleep(1200);device.waitForIdle()
                 click("Library");assertTrue(device.wait(Until.hasObject(By.text("Saved")),10000))
