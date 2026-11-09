@@ -113,7 +113,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
         if (output != null) scope.launch {
             working = true; onBusy(true); error = null; notice = null
             try {
-                require(output != importedUri) { "Choose a new file for the PNG copy." }
+                require(output != importedUri && output != uri) { "Choose a new file for the PNG copy." }
                 val bitmap = requireNotNull(signature)
                 withContext(Dispatchers.IO) { SignatureImages.export(context, output, bitmap) }
                 notice = "Signature PNG saved"
@@ -158,7 +158,14 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                 }
                 Text("New PDF copy · Original unchanged", style = MaterialTheme.typography.bodySmall)
                 if(drawing) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = { importImage.launch(arrayOf("image/png", "image/jpeg")) }, enabled = !working) {
+                        Icon(Icons.Default.Image, null); Spacer(Modifier.width(8.dp)); Text("Import PNG / JPG")
+                    }
+                    if(stored != null) {
+                        OutlinedButton(onClick = { signature = stored; importedUri = null; drawing = false; notice = null }) { Icon(Icons.Default.Draw,null); Spacer(Modifier.width(8.dp)); Text("My signature") }
+                        TextButton(onClick = { scope.launch { withContext(Dispatchers.IO) { SignatureStore.delete(context) }; stored = null } }) { Text("Delete saved signature") }
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text("Draw your signature", style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf("Black" to android.graphics.Color.BLACK, "Blue" to 0xff1565c0.toInt(), "Red" to 0xffc62828.toInt()).forEach { (label, color) ->
@@ -190,14 +197,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                         Checkbox(reuse,{reuse=it}); Text("Save for reuse",style=MaterialTheme.typography.bodyMedium)
                     }
                     Text("Saved only on this device. You can delete it at any time.",style=MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { importImage.launch(arrayOf("image/png", "image/jpeg")) }, enabled = !working) {
-                        Icon(Icons.Default.Image, null); Spacer(Modifier.width(8.dp)); Text("Import PNG / JPG")
-                    }
-                    Text("Imported images keep their colors and background.", style = MaterialTheme.typography.bodySmall)
-                    if(stored != null) {
-                        OutlinedButton(onClick = { signature = stored; importedUri = null; drawing = false; notice = null }) { Icon(Icons.Default.Draw,null); Spacer(Modifier.width(8.dp)); Text("My signature") }
-                        TextButton(onClick = { scope.launch { withContext(Dispatchers.IO) { SignatureStore.delete(context) }; stored = null } }) { Text("Delete saved signature") }
-                    }
+
                 } else {
                     Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically, horizontalArrangement=Arrangement.SpaceBetween) {
                         IconButton(onClick = { current--; placement=SignaturePlacement() },enabled=!working && current>0 && source!=null) { Icon(Icons.Default.ChevronLeft,"Previous signature page") }
