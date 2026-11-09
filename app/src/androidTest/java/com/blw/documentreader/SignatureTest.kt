@@ -132,8 +132,7 @@ class SignatureTest {
                 screenshot("signature-placement-zoomed.png")
                 click("Fit")
                 click("Save signed copy")
-                assertNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")),30000))
-                assertTrue(device.currentPackageName.orEmpty().endsWith("documentsui"))
+                assertNotNull("System PDF save picker must open",device.wait(Until.findObject(By.pkg(java.util.regex.Pattern.compile("com\\..*documentsui")).clazz("android.widget.EditText")),30000))
                 device.pressBack();assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),10000))
                 assertFalse(device.hasObject(By.text("PDF saved")));assertArrayEquals(original,input.readBytes())
                 device.findObject(By.desc("Next signature page")).click()
@@ -171,9 +170,8 @@ class SignatureTest {
                 assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))
                 screenshot("signature-placement-dark.png")
                 click("Save signed copy")
-                val field=device.wait(Until.findObject(By.clazz("android.widget.EditText")),30000)
+                val field=device.wait(Until.findObject(By.pkg(java.util.regex.Pattern.compile("com\\..*documentsui")).clazz("android.widget.EditText")),30000)
                 assertNotNull("Signature must use file-save picker",field)
-                assertTrue(device.currentPackageName.orEmpty().endsWith("documentsui"))
                 field!!.text="WReader-signature-${System.nanoTime()}.pdf"
                 device.findObject(By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE))).click()
                 assertTrue(device.wait(Until.hasObject(By.text("PDF saved")),30000))
@@ -188,6 +186,10 @@ class SignatureTest {
                 assertTrue(device.wait(Until.hasObject(By.pkg("com.android.intentresolver")),20000) || device.hasObject(By.pkg("android")))
                 device.pressBack();assertArrayEquals(original,input.readBytes())
             }
+        } catch (failure: Throwable) {
+            screenshot("signature-ui-failure.png")
+            device.dumpWindowHierarchy(File(evidence,"signature-ui-failure.xml"))
+            throw failure
         } finally { device.executeShellCommand("settings put system font_scale $oldScale");store.save(oldEntries);store.setAppearance(oldTheme);if(old!=null)SignatureStore.save(context,old) else SignatureStore.delete(context) }
     }
 }
