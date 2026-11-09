@@ -20,6 +20,7 @@ Boki reported “Se drugo e perfektno” after testing and supplied a Library do
 ## Next update — handwritten PDF signature (November 9, 2026)
 Boki reminded us that adding a signature is still missing. Record alongside the compact Library menu and Saved/Recent tabs for the next update; this is not implemented in v19.
 - Current implementation has a text Stamp PDF tool (presets/custom text, color, fixed position and optional date); it has no handwritten signature canvas or reusable signature placement.
+- Confirmed entry points: Tools → Sign PDF opens the PDF picker; the PDF document's ⋮ menu opens Sign PDF directly for that document. Expose it from Library document actions and the opened PDF reader's overflow menu, using the current page when available. All entry points share one signing flow. Keep the existing Stamp PDF action separate.
 - Add a clearly named Sign PDF action. Proposed first version: draw a signature with a finger, clear/retry, preview it on a chosen page, drag to position and resize before applying.
 - Optionally retain a signature locally for reuse only at the user's choice, with a way to delete it. Keep signature data on-device.
 - Save the signed result as a new PDF, preserve the original, then offer Open, Share and Print through the existing output flow. Word/Excel signing can use the existing convert-to-PDF flow.
