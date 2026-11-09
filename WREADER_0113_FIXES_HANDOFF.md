@@ -1,12 +1,45 @@
-# W Reader 0.1.19 — signature images, ink colors and Library spacing (in verification)
+# W Reader 0.1.19 — submitted to Closed Alpha review
 
-Boki authorized another AAB after v20 phone feedback. Continue the same fix branch, same upload certificate and Closed testing scope. No Production change.
-- Import PNG / JPG from Sign PDF; retain decoded colors, transparency and background without recoloring/cropping. Bounded decode: 16 MB input, 4096 pixels per side, 8 megapixels. Optional Save for reuse also applies to imports.
-- Black / Blue / Red affect only strokes drawn in the tool. Existing/imported bitmap signatures are unchanged. Default drawing ink is black.
-- Export PNG saves the current signature separately via Android's destination picker, preserving transparency. No implicit external export or private reuse.
-- Library action rows 44dp to 36dp, tabs 36dp to 30dp minimum, reduced padding/search/filter space; text can expand rows for larger fonts. Saved remains default.
-- Version 0.1.19-closed / code21. Tests cover PNG/JPEG import, malformed/oversized input, decoded pixel/alpha preservation through PNG export and PDF embedding, all drawing colors, UI color selection/PNG export, and actual optimized-release PNG import. Existing full regression suite remains required.
-- CI, signing and Play upload pending. Do not claim success from this planning section.
+Boki authorized another AAB after v20 feedback. Continued `fix/wreader-0113-viber-billing-zoom-excel`, without main merge, Production rollout or upload-key change.
+
+## Delivered
+- Import PNG / JPG from Sign PDF; preserve decoded colors, transparency and background without recoloring or cropping. Optional Save for reuse applies to imports. Limits:16 MiB input,4096px per side,8 megapixels.
+- Black / Blue / Red affect only finger-drawn strokes. Existing/imported signatures keep their original bitmap. Black is default.
+- Export PNG saves the current signature through Android's destination picker. Source image/PDF overwrite is rejected. Private reusable signature remains opt-in and deletable.
+- Import and saved-signature choices sit above the drawing canvas; canvas edge-gesture protection retained.
+- Library action minimum44→36dp, Saved/Recent36→30dp, reduced padding/search/filter space. Rows grow for larger fonts. Saved stays initial default.
+- Help and Privacy explain local image import/export. Existing Viber, Buy/Restore, wide Excel/CSV exports and PDF/Word page zoom are preserved.
+
+## Verification
+Final source `16aa0259e10e94448d481d59e517d46d89a50ad3`, tree `7548314a94a45270b1ab52bcf6e6c95d758388c9`, version `0.1.19-closed` / code21.
+CI https://github.com/bokimmkd/DocuReader/actions/runs/42717177124 succeeded, job129501617063.
+**57 unit +43 Android tests: zero failures/errors/skips.** Final run rebuilt the app, reran unit tests and passed actual optimized release-AAB APK smoke. Full Android results came from run42712300138/source49a1434195a2f79bb6be1a20679d72a13e834597/artifact13718170697, reused only after git verified identical app/build/reader-assets/fixture inputs and strict XML counts passed. These are not143 or200 distinct tests. All later source changes concerned release-test navigation and explicit baseline verification, not app behavior.
+PNG/JPEG import tests compare original bytes, decoded colors/alpha, PNG export and embedded PDF pixels; malformed/oversized input rejected. All3 drawn colors tested. Actual UI covers blue/red, optional reuse/delete, PNG export, rotated/cropped PDF cases, placement pan/zoom, save/cancel/reopen/print/share. Release smoke imports transparent red/blue PNG through the real system picker and verifies visible red pixels. Word/Excel OCR and library/settings/lifecycle checks passed. Light/Dark and large-font menus, drawing and PNG export screenshots inspected.
+
+Evidence artifact13718663214, ZIP SHA256 `fa0ea1f0d66cc855d5c306ddb87f65bcea3bf11b9b970bcd7b0f15a852abdc00`.
+Unsigned artifact13719381619, ZIP SHA256 `3d12b303c4dd2076499cd9599e6c8b1755e04610489474d63b0509f909f588c0`; unsigned AAB SHA256 `2da0be9e65d874122f5839e84a30f4aea4aa2547f0be33958b52044164615e18`.
+Signed `WReader-0.1.19-closed-v21-signed.aab`,19320667bytes, SHA256 `759b359042a15e777c17c3397763c27f204d066bc6ba10793b29fe11fa9ccca1`; Library `libfile_2e3edde3a04c81918d77ec92b6988b2c`.
+JAR signature verified; all original ZIP payload entries byte-identical after signing. Manifest com.blw.wreader, minSdk26,targetSdk36,4ABIs, ReTrace mapping, no debug/TestActivity. Same accepted certificate SHA256 `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`.
+
+## Google Play — November9,2026 approximately23:17UTC (November10 local Skopje)
+Uploaded and saved code21 in Closed Alpha track4699280419648890924, release16, name `0.1.19 - Signature images and ink colors`. Rollout100% applies only to this Closed track; code20 excluded from new release. Supported-device counts unchanged. No validation errors; only missing native debug symbols warning.
+Submitted exactly one change: Closed testing - Alpha / Start full rollout. Publishing overview visibly confirms **Changes in review**. Google's quick checks are running; review follows successful checks. This does not establish approval or v21 tester availability. Managed publishing off; Production unchanged.
+Version20 was already available to selected testers before this submission; its marketing listing/artwork was published. No store artwork or listing edits in this submission.
+Verified URL: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+Proof `/workspace/shared/WReader-0.1.19-closed-in-review.png`; browser tab3 marked as deliverable.
+Marketing/publishing handoff `libfile_9d09662069a88191adf787b4d93162e5` updated to version2, preserving approved assets/order and historical v20 record.
+
+## Phone acceptance after availability
+Import transparent PNG and JPG; verify original appearance; draw black/blue/red; export PNG; optional reuse/delete; position/resize on page2 while zoomed; save/reopen new PDF without modifying original. Inspect compact Saved/Recent and menus. Spot-check existing purchase entitlement and PDF/Word/Excel zoom. Automated tests do not establish a new live Play purchase result.
+
+## Superseded verification candidates
+- a7590b1/run42709375148 canceled to move image/saved choices above the canvas.
+- 03dbe71/run42710113571 canceled: color chips expose checkbox roles; reuse test needed explicit Save signature for reuse description.
+- d33ddff/run42712000265 canceled: new coroutine test needed explicit Unit return for JUnit.
+- 49a1434/run42712300138 passed all57+43 tests; release smoke failed to recognize the image-grid tile despite PNG being present. This is the validated unchanged-app Android baseline.
+- f486cbe/run42715581669 passed real PNG import/color check, then immediate Back raced dialog dismissal. Final test waits for PDF reader Share options and taps its Back control. No app workaround or relaxed image assertion was introduced.
+
+The v21 section supersedes pending signature-image/spacing plans below; older sections remain historical.
 
 ---
 
