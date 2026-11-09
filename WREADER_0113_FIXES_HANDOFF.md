@@ -1,17 +1,39 @@
-# W Reader 0.1.18 — PDF signatures and compact Library (in verification)
+# W Reader 0.1.18 — submitted to Closed Alpha review
 
-Boki authorized implementing the agreed update and preparing a release candidate on November 9, 2026: "Pukni go. Ako e ok relase verzija". Continue the existing fix branch and Closed Alpha scope. No Production rollout or key change.
+Boki authorized this update on November 9, 2026: "Pukni go. Ako e ok relase verzija". Continued `fix/wreader-0113-viber-billing-zoom-excel`; no main merge, Production rollout or key change.
 
-- New Sign PDF entry points: Tools picker, Library document menu, and the PDF reader's Share options / Tools menus. Shared drawing, opt-in local reuse, deletion, page selection, drag/resize, pinch preview and new-copy save flow. Existing text Stamp PDF remains separate.
-- Reusable signature PNG is stored in noBackupFilesDir, outside FileProvider roots. Signing itself does not save reusable ink; deletion does not modify exported PDFs.
-- Compact Saved/Recent controls preserve Saved as the initial default and existing data behavior. File actions use smaller rows that grow for large text; Share with password moves into the Library PDF tools submenu to keep the primary menu manageable.
-- Initial code commit `051a7801d9749963ef15e8d0352bf24ee80a1325`, CI `42675828491`: 57 unit tests passed; 40/41 Android tests passed. Only failure was the new Library entry-point test selecting a Word entry left by another test instead of its PDF fixture; corrected by isolating the Library fixture. All eight cropped/rotated portrait/landscape signature exports and optional reuse/deletion tests passed. Additional gesture assertions, save/cancel/open/print/share UI checks, large-font/Light/Dark evidence and actual optimized-release signature smoke are included in the next candidate. This section is NOT a claim that a releasable AAB is verified or uploaded.
-- Marketing handoff `WReader-Marketing-Publishing-Handoff.txt`, Library `libfile_9d09662069a88191adf787b4d93162e5`, has been read. Console draft is verified: new ASO includes signing/reuse, approved feature graphic and eight screenshots (Home, EPUB, Tools, Library light, PDF/StayGuide, Home dark, Bookmarks, Library dark). Submit with this update only after signature QA succeeds. AI-asset labeling is complete; do not conflate saved changes with submission.
-- Current code/test candidate: `0d8aa0a3f4a35a882ef2a256fa86fcec224f0589`, tree `3a6121b42ab91a8002e7a621f839d7f2522f3b50`, full CI `42687586026` in progress. No signed v20 AAB or upload yet. Closed Alpha draft 15 title/notes are saved.
-- Debug history: CI `42680284570` passed 57 unit and 40/41 Android tests; its UI test matched the app's filename EditText before the system picker opened. Candidate `1b46e1fbd70abc186172ef361357af16bf2aaa08` / CI `42684051529` fixes the wait with a documentsui-scoped selector and passed save-picker cancellation, reuse/delete, Tools/Library entry points and Light/Dark/large-font Library checks, then exposed a real gesture conflict: the dark drawing stroke from x=77 triggered Android system Back (log explicitly says edge-swipe stole input). Its 57 unit and other 40 Android tests passed. Current candidate protects only the 180dp drawing canvas using systemGestureExclusion, preserving ordinary Back elsewhere; the failing edge-stroke regression remains unchanged. Failed/cancelled candidates must not be released. Evidence artifact `13705647213`, ZIP SHA256 `a26d9d3072cc68544d333594c7cd2c96e6cf48127cde9b9f6392ab329ba8a0ca`, was verified and inspected.
-- Embedded Help and both copies of Privacy Policy now explain local, opt-in signature reuse/deletion and the signing flow. Policy date November 9, 2026. No monetization, attachment-retention or Office rendering implementation changes.
-- Play listing was saved beyond draft into **Changes ready to send for review**, including the new ASO, banner and eight ordered screenshots. AI-edited promotional artwork labels were applied; app icon label retained. NOT sent for review yet. New Closed Alpha release draft `15` is open, title `0.1.18 - PDF signatures and compact Library`, with release notes entered. Bundle upload is pending QA; previous code 19 is not included. Console confirms 0.1.17 is available to selected testers since November 8. Production unchanged.
-- Accepted upload certificate was reverified from the existing private backup: `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`.
+## Delivered behavior
+- Sign PDF from Tools, Library PDF actions, and reader Share options / Tools. Draw, clear/retry, optional Save for reuse, My signature, Draw new and Delete saved signature. Select a page, drag/resize ink, pinch/pan preview and Fit, then save a new PDF copy with Open/Share/Print. Original stays unchanged; existing text Stamp PDF stays separate.
+- Optional reusable PNG is private in `noBackupFilesDir`, outside FileProvider and backup roots; no cloud upload. Deleting reusable ink does not modify exported PDFs.
+- Android system Back no longer steals strokes near the drawing edge: gesture exclusion applies only to the 180dp drawing canvas. Ordinary Back elsewhere remains available.
+- Smaller Saved/Recent controls and compact Library action rows; Saved remains initial default. Rows grow for large fonts. Share with password is in the PDF tools submenu.
+- Help and both Privacy copies explain signing/local reuse/deletion, dated November 9. Existing Viber, Buy/Restore, wide Excel fitting/export margins, per-page PDF/Word zoom and per-sheet Excel behavior preserved. No Office or monetization implementation changes.
+
+## Verified release
+Tested source `95db9690f94fcc1bde238a56a5e1eb5d3e86619e`, tree `b8aea4c5b92c5202be772e530ebfb3999a7af9b5`, version `0.1.18-closed` / code `20`.
+CI https://github.com/bokimmkd/DocuReader/actions/runs/42691508594 succeeded: **57 unit + 41 Android tests, zero failures/errors/skips**, plus the optimized release-AAB APK smoke. Downloaded XML was independently counted. UI evidence includes Light/Dark, large fonts, edge drawing, zoomed placement, save/cancel/reopen/print/share, reuse/delete and Library entry points; eight rotated/cropped portrait/landscape export cases pass. Final signature placement and PDF neighbor screenshots inspected.
+
+Evidence artifact `13708408756`, ZIP SHA256 `a6502baebe03a089bc058a2ef28517cc39d5c75210ba25951459fa27f6f15c4f`.
+Unsigned artifact `13708263865`, ZIP SHA256 `98565d670ae2754c08f085ca509d18d597fd548f20384a4fc10399c3c4e467d6`; unsigned AAB SHA256 `d7500aa61da299bd7def267f63c15363498c2ede71a7107db87d7b06bf9ddba5`.
+Signed `WReader-0.1.18-closed-v20-signed.aab`, 19,306,684 bytes, SHA256 `9ebaf0d2ff2bb3abcd7f7ab51c2cd43e54d3d53b12944a672302c35edca42633`, Library `libfile_23581e1e522c8191b6f7ab7d4a644a1f`.
+JAR signature verified; every original ZIP payload entry byte-identical after signing. Manifest: `com.blw.wreader`, minSdk26, targetSdk36, four ABIs, ReTrace mapping, no debug or test Activity. Actual signed certificate matches accepted upload key SHA256 `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`.
+
+## Google Play submission — November 9, 2026, approximately 20:51 UTC
+Play accepted code20 into Closed Alpha track `4699280419648890924`, release `15`, name `0.1.18 - PDF signatures and compact Library`, 100% of this Closed track. Previous code19 is excluded from this release. Device counts unchanged. No validation errors; only missing native debug symbols warning.
+Submitted **six changes together**: Closed Alpha full rollout; English store title `W Reader: PDF & Office Reader`; short description; full description; phone screenshots; feature graphic. Approved banner and eight screenshots retained in order: Home, EPUB, Tools, Library light, PDF/StayGuide, Home dark, Bookmarks, Library dark. Settings is reserve only. Promotional artwork declarations completed; existing app icon retained.
+Publishing overview visibly confirms **Changes in review**. Quick checks are still running; changes proceed to review after they pass. This is not Google approval or code20 tester availability. Managed publishing remains off; Production unchanged. Existing code19 was available to selected testers before this submission.
+Verified result: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+Proof: `/workspace/shared/WReader-0.1.18-closed-in-review.png` (not uploaded to Library).
+Marketing handoff `libfile_9d09662069a88191adf787b4d93162e5` updated to version1 with the actual submission state. This section supersedes historical pending-signature/UI-polish plans below.
+
+## Remaining acceptance
+Await Google checks/review. After tester availability, physically verify signature drawing/reuse and placement, saved PDF copy, compact menus/tabs and an existing Play purchase. Automated checks do not establish a new live-purchase result.
+
+## Superseded failed candidates — do not release
+- CI `42675828491`: Library test selected another test's Word fixture.
+- CI `42680284570`: save-picker selector matched the app filename field; corrected to system DocumentsUI.
+- CI `42684051529`: exposed actual Android Back edge-gesture conflict; fixed canvas exclusion while retaining the failing stroke regression.
+- CI `42687586026`: signature save/reopen/print/share passed, then teardown failed after changing Activity Intent; PDF pixel fixture also shared state. Final candidate launches MAIN from outset without Intent mutation and isolates PDF history/ad viewport; original strict pixel comparison retained. All 41 Android tests then passed.
 
 ---
 
