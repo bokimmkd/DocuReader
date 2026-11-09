@@ -26,6 +26,12 @@ Verified result: https://play.google.com/console/u/0/developers/4766816481672407
 Proof: `/workspace/shared/WReader-0.1.18-closed-in-review.png` (not uploaded to Library).
 Marketing handoff `libfile_9d09662069a88191adf787b4d93162e5` updated to version1 with the actual submission state. This section supersedes historical pending-signature/UI-polish plans below.
 
+## Tester feedback — further Library compactness (November 9, 2026)
+Boki supplied two phone screenshots after v20 submission. Saved/Recent is visibly the new segmented control, but he still wants less vertical height and tighter spacing in the Library document-action popup. This feedback is pending for the next UI update, not a change already included in the uploaded v20 AAB.
+- Reduce excess vertical space in Saved/Recent and the document-action menu; also inspect gaps between search, file-type chips and category/tag/sort rows so more documents fit on screen. Preserve readable labels, comfortable hit targets, scrolling and large-font accessibility; validate Light/Dark at the supplied phone layout.
+- Keep Saved as initial default and preserve saving/Recent behavior. The screenshot now shows Save locally for a linked item; no new Save visibility defect is alleged.
+- Immediate v20 phone acceptance: draw/sign via Tools and a PDF menu, save/reuse/delete the reusable signature, place/resize on page 2 while zoomed, export/reopen/share/print a new copy, verify original unchanged. Regression spot-check PDF page-local zoom/navigation, Word/Excel pan/fit, external-document Save locally without duplicate entries and existing purchase entitlement.
+
 ## Remaining acceptance
 Await Google checks/review. After tester availability, physically verify signature drawing/reuse and placement, saved PDF copy, compact menus/tabs and an existing Play purchase. Automated checks do not establish a new live-purchase result.
 
