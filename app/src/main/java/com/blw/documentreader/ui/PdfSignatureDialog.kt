@@ -194,7 +194,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { strokes = emptyList(); active = emptyList() }) { Text("Clear / Retry") }
-                        Checkbox(reuse,{reuse=it}); Text("Save for reuse",style=MaterialTheme.typography.bodyMedium)
+                        Checkbox(reuse,{reuse=it}, modifier = Modifier.semantics { contentDescription = "Save signature for reuse" }); Text("Save for reuse",style=MaterialTheme.typography.bodyMedium)
                     }
                     Text("Saved only on this device. You can delete it at any time.",style=MaterialTheme.typography.bodySmall)
 

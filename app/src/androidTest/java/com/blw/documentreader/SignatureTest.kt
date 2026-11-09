@@ -183,7 +183,7 @@ class SignatureTest {
                 click("Blue")
                 val canvas=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
                 device.swipe(arrayOf(Point(canvas.left+40,canvas.centerY()),Point(canvas.centerX(),canvas.top+30),Point(canvas.centerX()-20,canvas.bottom-35),Point(canvas.right-40,canvas.centerY())),12)
-                val check=device.findObject(By.clazz("android.widget.CheckBox"));assertNotNull(check);check.click()
+                val check=device.findObject(By.desc("Save signature for reuse"));assertNotNull(check);check.click()
                 screenshot("signature-drawing-light.png");click("Place signature")
                 assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))
                 screenshot("signature-placement-light.png")
