@@ -87,7 +87,7 @@ class SignatureTest {
             } finally { output.delete() }
         } finally { if(old!=null) SignatureStore.save(context,old) else SignatureStore.delete(context); signature.recycle() }
     }
-    @Test fun imageImportAndPngExportPreserveColorsTransparencyAndOriginalBytes() = runBlocking {
+    @Test fun imageImportAndPngExportPreserveColorsTransparencyAndOriginalBytes() = runBlocking<Unit> {
         val mark = Bitmap.createBitmap(100,60,Bitmap.Config.ARGB_8888).also { bitmap ->
             val canvas = Canvas(bitmap)
             canvas.drawRect(10f,10f,50f,50f,Paint().apply { color = Color.RED })
