@@ -165,6 +165,7 @@ class SignatureTest {
                 device.waitForIdle();screenshot("library-compact-tabs-dark.png")
                 device.findObject(By.desc("Document actions")).click();screenshot("library-compact-menu-dark.png");click("Sign PDF")
                 val second=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
+                // Deliberately start near the edge: drawing must not trigger system Back.
                 device.swipe(second.left+35,second.centerY(),second.right-35,second.centerY()-40,20)
                 screenshot("signature-drawing-dark.png");click("Place signature")
                 assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))

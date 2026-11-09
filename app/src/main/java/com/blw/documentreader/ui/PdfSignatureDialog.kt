@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -132,6 +133,9 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
                     Spacer(Modifier.height(8.dp))
                     Text("Draw your signature", style = MaterialTheme.typography.titleMedium)
                     Canvas(Modifier.fillMaxWidth().height(180.dp).background(Color.White)
+                        // Protect only the drawing pad; edge strokes must not become Back.
+                        // Its 180dp height stays within Android's 200dp exclusion budget.
+                        .systemGestureExclusion()
                         .onSizeChanged { drawingAspect = it.width.toFloat()/it.height.coerceAtLeast(1) }
                         .semantics { contentDescription = "Draw signature here" }
                         .pointerInput(Unit) {
