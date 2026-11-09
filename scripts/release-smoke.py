@@ -140,7 +140,7 @@ def main():
  imported=Image.open(ROOT/'signature-imported-png.png').convert('RGB')
  red=sum(1 for r,g,b in imported.getdata() if r>170 and g<70 and b<80)
  assert red>100,('Imported PNG was recolored or missing',red)
- tap('Cancel');adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
+ tap('Cancel');await_node('Share options');tap('Back');await_node('Open document')
  # Bring the image back to the top of Recent for the existing promotion test.
  open_file('release-image.png');await_node('Print',enabled=True);adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  tap('Library');tap('Recent');await_node('release-image.png');tap('Document actions');tap('Save locally');await_text('Saved locally');capture('saved-library');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
