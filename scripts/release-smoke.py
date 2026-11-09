@@ -77,8 +77,11 @@ def open_file(name,control='Open document'):
  adb('shell','input','text',name);adb('shell','input','keyevent','KEYCODE_ENTER')
  end=time.monotonic()+30
  while time.monotonic()<end:
-  # Do not mistake the query EditText for the actual file result.
-  node=next((n for n in dump().iter('node') if n.get('resource-id')=='android:id/title' and n.get('text')==name),None)
+  # DocumentsUI exposes image-grid tiles by accessible filename + metadata,
+  # while document-list rows expose android:id/title. Never select the query field.
+  node=next((n for n in dump().iter('node') if
+   (n.get('resource-id')=='android:id/title' and n.get('text')==name) or
+   (n.get('package')=='com.google.android.documentsui' and n.get('content-desc','').startswith(name+', '))),None)
   if node is not None:
    a,b,c,d=[int(x) for x in re.findall(r'\d+',node.get('bounds',''))]
    if c>a and d>b:

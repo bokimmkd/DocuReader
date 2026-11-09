@@ -49,7 +49,7 @@ jobs:
       - name: Check whether the already-passed Android QA inputs are identical
         id: qa
         run: |
-          if git diff --quiet ad295e8318c0fb8272db8009c3971f57bcba2962 HEAD -- app build.gradle.kts settings.gradle.kts gradle.properties scripts/prepare-office-assets.sh scripts/create-print-fixtures.py scripts/create-format-fixtures.py; then
+          if git diff --quiet 49a1434195a2f79bb6be1a20679d72a13e834597 HEAD -- app build.gradle.kts settings.gradle.kts gradle.properties scripts/prepare-office-assets.sh scripts/create-print-fixtures.py scripts/create-format-fixtures.py; then
             echo 'reuse=true' >> "$GITHUB_OUTPUT"
           else
             echo 'reuse=false' >> "$GITHUB_OUTPUT"
@@ -58,8 +58,8 @@ jobs:
         if: steps.qa.outputs.reuse == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: WReader-0.1.11-test-evidence
-          run-id: 41270899777
+          name: WReader-0.1.19-test-evidence
+          run-id: 42712300138
           github-token: ${{ github.token }}
           path: verification/prior-qa
       - name: Validate the prior full-suite XML before reusing it
