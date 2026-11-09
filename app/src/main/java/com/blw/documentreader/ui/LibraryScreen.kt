@@ -183,12 +183,12 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 Text("Add", fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("Saved", "Recent").forEach { label ->
                 val chosen = collection == label
                 Surface(color = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp)
+                    Row(Modifier.fillMaxWidth().heightIn(min = 36.dp)
                         .selectable(selected = chosen, role = androidx.compose.ui.semantics.Role.Tab,
                             onClick = { collection = label; selected = arrayListOf() })
                         .padding(horizontal = 12.dp, vertical = 6.dp),

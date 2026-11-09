@@ -88,13 +88,31 @@ class SignatureTest {
         } finally { if(old!=null) SignatureStore.save(context,old) else SignatureStore.delete(context); signature.recycle() }
     }
     private fun click(text:String) { val obj=device.wait(Until.findObject(By.text(text)),15000); assertNotNull(text,obj);obj!!.click();device.waitForIdle() }
-    private fun screenshot(name:String) { val b=inst.uiAutomation.takeScreenshot();try { File(evidence,name).outputStream().use{b.compress(Bitmap.CompressFormat.PNG,100,it)} } finally{b.recycle()} }
+    private fun screenshot(name:String) { device.waitForIdle();Thread.sleep(250);val b=inst.uiAutomation.takeScreenshot();try { File(evidence,name).outputStream().use{b.compress(Bitmap.CompressFormat.PNG,100,it)} } finally{b.recycle()} }
+    private fun outline():Rect {
+        device.waitForIdle()
+        val bounds=device.findObject(By.desc("Signature placement preview")).visibleBounds
+        val image=inst.uiAutomation.takeScreenshot()
+        try {
+            var left=bounds.right;var top=bounds.bottom;var right=bounds.left;var bottom=bounds.top
+            for(y in bounds.top until bounds.bottom) for(x in bounds.left until bounds.right) {
+                val c=image.getPixel(x,y)
+                if(Color.red(c) in 15..35 && Color.green(c) in 90..125 && Color.blue(c) in 170..215) {
+                    left=minOf(left,x);top=minOf(top,y);right=maxOf(right,x);bottom=maxOf(bottom,y)
+                }
+            }
+            assertTrue("Signature outline is not visible",right>left && bottom>top)
+            return Rect(left,top,right,bottom)
+        } finally {image.recycle()}
+    }
     @Test fun drawingPlacementReuseAndEntryPointsWorkInActualReader() {
         val old=SignatureStore.load(context); val store=DocumentStore(context);val oldEntries=store.load();val oldTheme=store.appearance()
+        val oldScale=device.executeShellCommand("settings get system font_scale").trim().toFloatOrNull() ?: 1f
         val input=source();val original=input.readBytes()
         try {
             SignatureStore.delete(context);store.setAppearance("Light")
-            ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(uri(input),"application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)).use {
+            store.save(listOf(com.blw.documentreader.data.DocumentEntry(uri(input).toString(), "signature-source.pdf", "PDF", inLibrary=true)))
+            ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java).setAction(Intent.ACTION_VIEW).setDataAndType(uri(input),"application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)).use { scenario ->
                 assertNotNull(device.wait(Until.findObject(By.desc("Share options")),20000))
                 device.findObject(By.desc("Share options")).click();click("Sign PDF")
                 val canvas=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
@@ -103,9 +121,21 @@ class SignatureTest {
                 screenshot("signature-drawing-light.png");click("Place signature")
                 assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))
                 screenshot("signature-placement-light.png")
-                val preview=device.findObject(By.desc("Signature placement preview"));preview.pinchOpen(.5f)
+                val preview=device.findObject(By.desc("Signature placement preview"))
+                val initial=outline();val target=preview.visibleBounds
+                device.swipe(initial.centerX(),initial.centerY(),target.centerX(),target.centerY(),25)
+                val moved=outline();assertTrue("One-finger signature placement did not move",moved.centerY()<initial.centerY()-20)
+                preview.pinchOpen(.35f)
+                val enlarged=outline();assertTrue("Preview pinch did not zoom signature",enlarged.width()>moved.width()*1.1f)
+                device.swipe(enlarged.centerX(),enlarged.centerY(),enlarged.centerX()-60,enlarged.centerY(),25)
+                val dragged=outline();assertTrue("Signature must move with a fresh finger after zoom",dragged.centerX()<enlarged.centerX()-20)
                 screenshot("signature-placement-zoomed.png")
                 click("Fit")
+                click("Save signed copy")
+                assertNotNull(device.wait(Until.findObject(By.clazz("android.widget.EditText")),30000))
+                assertTrue(device.currentPackageName.orEmpty().endsWith("documentsui"))
+                device.pressBack();assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),10000))
+                assertFalse(device.hasObject(By.text("PDF saved")));assertArrayEquals(original,input.readBytes())
                 device.findObject(By.desc("Next signature page")).click()
                 assertTrue(device.wait(Until.hasObject(By.text("Page 2 / 2")),10000))
                 click("Draw new signature");click("My signature")
@@ -121,7 +151,40 @@ class SignatureTest {
                 screenshot("library-compact-menu-light.png");click("Sign PDF")
                 assertNotNull(device.wait(Until.findObject(By.desc("Draw signature here")),10000));click("Cancel")
                 screenshot("library-compact-tabs-light.png")
+                device.executeShellCommand("settings put system font_scale 1.5")
+                Thread.sleep(1200);device.waitForIdle()
+                click("Library");assertTrue(device.wait(Until.hasObject(By.text("Saved")),10000))
+                screenshot("library-compact-tabs-large.png")
+                device.findObject(By.desc("Document actions")).click()
+                assertTrue(device.wait(Until.hasObject(By.text("Sign PDF")),10000));screenshot("library-compact-menu-large.png")
+                device.pressBack();device.executeShellCommand("settings put system font_scale $oldScale")
+                Thread.sleep(1200);device.waitForIdle();click("Library")
+                scenario.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[MainViewModel::class.java].updateAppearance("Dark") }
+                device.waitForIdle();screenshot("library-compact-tabs-dark.png")
+                device.findObject(By.desc("Document actions")).click();screenshot("library-compact-menu-dark.png");click("Sign PDF")
+                val second=device.wait(Until.findObject(By.desc("Draw signature here")),10000)!!.visibleBounds
+                device.swipe(second.left+35,second.centerY(),second.right-35,second.centerY()-40,20)
+                screenshot("signature-drawing-dark.png");click("Place signature")
+                assertNotNull(device.wait(Until.findObject(By.desc("Signature placement preview")),20000))
+                screenshot("signature-placement-dark.png")
+                click("Save signed copy")
+                val field=device.wait(Until.findObject(By.clazz("android.widget.EditText")),30000)
+                assertNotNull("Signature must use file-save picker",field)
+                assertTrue(device.currentPackageName.orEmpty().endsWith("documentsui"))
+                field!!.text="WReader-signature-${System.nanoTime()}.pdf"
+                device.findObject(By.text(java.util.regex.Pattern.compile("SAVE",java.util.regex.Pattern.CASE_INSENSITIVE))).click()
+                assertTrue(device.wait(Until.hasObject(By.text("PDF saved")),30000))
+                assertTrue(device.hasObject(By.text("Share")));assertTrue(device.hasObject(By.text("Print")))
+                screenshot("signature-saved-actions.png");click("Open")
+                assertNotNull(device.wait(Until.findObject(By.desc("Print")),20000))
+                screenshot("signature-reopened.png")
+                device.findObject(By.desc("Print")).click()
+                assertTrue(device.wait(Until.hasObject(By.pkg("com.android.printspooler")),20000));device.pressBack()
+                assertNotNull(device.wait(Until.findObject(By.desc("Share options")),10000))
+                device.findObject(By.desc("Share options")).click();click("Share file")
+                assertTrue(device.wait(Until.hasObject(By.pkg("com.android.intentresolver")),20000) || device.hasObject(By.pkg("android")))
+                device.pressBack();assertArrayEquals(original,input.readBytes())
             }
-        } finally { store.save(oldEntries);store.setAppearance(oldTheme);if(old!=null)SignatureStore.save(context,old) else SignatureStore.delete(context) }
+        } finally { device.executeShellCommand("settings put system font_scale $oldScale");store.save(oldEntries);store.setAppearance(oldTheme);if(old!=null)SignatureStore.save(context,old) else SignatureStore.delete(context) }
     }
 }

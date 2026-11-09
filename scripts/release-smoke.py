@@ -113,6 +113,19 @@ def main():
   if name.endswith('.docx'):await_office_pixels('WORD_START','release-word')
   if name.endswith('.xlsx'):await_office_pixels('EXCEL_START','release-sheet')
   capture(name.split('.')[0],name.endswith('.png'));adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
+ # Check signing through the optimized release, including the placement surface.
+ pdfs=sorted(Path('verification/android-print/workflow-qa').glob('signature-*.pdf'))
+ assert pdfs,'Missing validated signature PDF fixture'
+ adb('push',str(pdfs[0]),'/sdcard/Download/release-signature.pdf')
+ adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file:///sdcard/Download/release-signature.pdf')
+ open_file('release-signature.pdf');await_node('Share options');tap('Share options');tap('Sign PDF')
+ node=await_node('Draw signature here');a,b,c,d=[int(x) for x in re.findall(r'\d+',node.get('bounds',''))]
+ adb('shell','input','swipe',str(a+40),str((b+d)//2),str(c-40),str((b+d)//2-30),'600')
+ await_node('Place signature',enabled=True);capture('signature-drawing');tap('Place signature')
+ await_node('Signature placement preview');capture('signature-placement');await_node('Save signed copy',enabled=True)
+ tap('Cancel');adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
+ # Bring the image back to the top of Recent for the existing promotion test.
+ open_file('release-image.png');await_node('Print',enabled=True);adb('shell','input','keyevent','KEYCODE_BACK');await_node('Open document')
  tap('Library');tap('Recent');await_node('release-image.png');tap('Document actions');tap('Save locally');await_text('Saved locally');capture('saved-library');tap('Document actions');tap('Rename');tap('Uncategorized');menu_item('New category');capture('category-menu');adb('shell','input','keyevent','KEYCODE_BACK');tap('Cancel')
  tap('Document actions');tap('Remove from Library');tap('Remove');tap('Undo');await_node('release-image.png');capture('library-removal-undo')
  # Match the reported phone's full logical viewport. The app manages the

@@ -20,12 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -34,6 +37,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import com.blw.documentreader.data.DocumentNames
 import com.blw.documentreader.data.DocumentTypes
 import com.blw.documentreader.pdf.*
@@ -62,7 +67,7 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
     var savedName by rememberSaveable { mutableStateOf("") }
     var filename by rememberSaveable { mutableStateOf(DocumentNames.renamed(name.substringBeforeLast('.')+"_signed", "PDF")) }
     val latestStage by rememberUpdatedState(staged)
-    DisposableEffect(Unit) { onDispose { latestStage?.let { File(it).delete() }; onBusy(false) } }
+    DisposableEffect(Unit) { onDispose { if ((context as? android.app.Activity)?.isChangingConfigurations != true) latestStage?.let { File(it).delete() }; onBusy(false) } }
     LaunchedEffect(Unit) { stored = withContext(Dispatchers.IO) { SignatureStore.load(context) } }
     LaunchedEffect(uri, current, drawing) {
         if (!drawing) {
@@ -100,9 +105,24 @@ fun PdfSignatureDialog(uri: Uri, name: String, page: Int, onDismiss: () -> Unit,
         } }, confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } })
         return
     }
-    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !working, dismissOnClickOutside = false)) {
-        Surface(Modifier.fillMaxSize().systemBarsPadding(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !working, dismissOnClickOutside = false, decorFitsSystemWindows = false)) {
+        val view = LocalView.current
+        val background = MaterialTheme.colorScheme.background
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = background.luminance() > .5f
+                    isAppearanceLightNavigationBars = background.luminance() > .5f
+                }
+                @Suppress("DEPRECATION")
+                window.statusBarColor = background.toArgb()
+                @Suppress("DEPRECATION")
+                window.navigationBarColor = background.toArgb()
+                if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+            }
+        }
+        Surface(Modifier.fillMaxSize(), color = background) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = ::close, enabled = !working) { Icon(Icons.Default.Close,"Close signature") }
                     Text("Sign PDF", style = MaterialTheme.typography.titleLarge)
@@ -194,7 +214,7 @@ private fun signatureBitmap(strokes: List<List<Offset>>, aspect: Float): Bitmap 
     val bitmap=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888)
     val canvas=android.graphics.Canvas(bitmap)
     val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color=0xff172c50.toInt(); strokeWidth=5f; style=android.graphics.Paint.Style.STROKE
+        color=0xff172c50.toInt(); strokeWidth=8f; style=android.graphics.Paint.Style.STROKE
         strokeCap=android.graphics.Paint.Cap.ROUND; strokeJoin=android.graphics.Paint.Join.ROUND
     }
     strokes.forEach { stroke -> if(stroke.size>1) {
@@ -224,14 +244,21 @@ private fun SignaturePlacementPreview(page: Bitmap, signature: Bitmap, placement
                     val p=latest.bounded(inkAspect,pageAspect)
                     val local=down.position-origin
                     val moveInk=local.x in (p.left*dw)..((p.left+p.width)*dw) && local.y in (p.top*dh)..(p.top*dh+p.width*dw/inkAspect)
+                    var transformed = false
                     do {
                         val event=awaitPointerEvent(); val delta=event.calculatePan()
                         if(event.changes.count{it.pressed}>=2) {
-                            zoom=(zoom*event.calculateZoom()).coerceIn(1f,3f)
-                            pan=if(zoom==1f) Offset.Zero else pan+delta
-                        } else if(moveInk) {
+                            transformed = true
+                            val oldZoom = zoom
+                            val nextZoom = (oldZoom*event.calculateZoom()).coerceIn(1f,3f)
+                            val center = Offset(size.width/2f, size.height/2f)
+                            val focus = event.calculateCentroid(useCurrent = false)
+                            pan = if(nextZoom==1f) Offset.Zero else
+                                (pan + center - focus)*(nextZoom/oldZoom) + focus - center + delta
+                            zoom = nextZoom
+                        } else if(moveInk && !transformed) {
                             onPlacement(latest.copy(left=latest.left+delta.x/(page.width*fit*zoom),top=latest.top+delta.y/(page.height*fit*zoom)).bounded(inkAspect,pageAspect))
-                        } else if(zoom>1f) pan+=delta
+                        } else if(zoom>1f && !transformed) pan+=delta
                         val mx=page.width*fit*(zoom-1)/2; val my=page.height*fit*(zoom-1)/2
                         pan=Offset(pan.x.coerceIn(-mx,mx),pan.y.coerceIn(-my,my))
                         event.changes.forEach{it.consume()}

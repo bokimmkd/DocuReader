@@ -1,3 +1,16 @@
+# W Reader 0.1.18 — PDF signatures and compact Library (in verification)
+
+Boki authorized implementing the agreed update and preparing a release candidate on November 9, 2026: "Pukni go. Ako e ok relase verzija". Continue the existing fix branch and Closed Alpha scope. No Production rollout or key change.
+
+- New Sign PDF entry points: Tools picker, Library document menu, and the PDF reader's Share options / Tools menus. Shared drawing, opt-in local reuse, deletion, page selection, drag/resize, pinch preview and new-copy save flow. Existing text Stamp PDF remains separate.
+- Reusable signature PNG is stored in noBackupFilesDir, outside FileProvider roots. Signing itself does not save reusable ink; deletion does not modify exported PDFs.
+- Compact Saved/Recent controls preserve Saved as the initial default and existing data behavior. File actions use smaller rows that grow for large text; Share with password moves into the Library PDF tools submenu to keep the primary menu manageable.
+- Initial code commit `051a7801d9749963ef15e8d0352bf24ee80a1325`, CI `42675828491`: 57 unit tests passed; 40/41 Android tests passed. Only failure was the new Library entry-point test selecting a Word entry left by another test instead of its PDF fixture; corrected by isolating the Library fixture. All eight cropped/rotated portrait/landscape signature exports and optional reuse/deletion tests passed. Additional gesture assertions, save/cancel/open/print/share UI checks, large-font/Light/Dark evidence and actual optimized-release signature smoke are included in the next candidate. This section is NOT a claim that a releasable AAB is verified or uploaded.
+- Marketing handoff `WReader-Marketing-Publishing-Handoff.txt`, Library `libfile_9d09662069a88191adf787b4d93162e5`, has been read. Console draft is verified: new ASO includes signing/reuse, approved feature graphic and eight screenshots (Home, EPUB, Tools, Library light, PDF/StayGuide, Home dark, Bookmarks, Library dark). Submit with this update only after signature QA succeeds. AI-asset labeling review is pending; do not conflate draft with submission.
+- Accepted upload certificate was reverified from the existing private backup: `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`.
+
+---
+
 # W Reader 0.1.17 — Library saving and page zoom
 
 The user authorized implementing the agreed backlog and preparing the next Closed Alpha release on November 8, 2026. Production remains excluded. Continue on `fix/wreader-0113-viber-billing-zoom-excel`; no main merge or signing-key changes.
