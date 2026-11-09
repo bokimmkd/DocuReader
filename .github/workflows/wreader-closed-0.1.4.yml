@@ -1,4 +1,4 @@
-name: W Reader 0.1.17 - Library saving and page zoom (unsigned)
+name: W Reader 0.1.18 - PDF signatures and compact Library (unsigned)
 on:
   push:
     branches: [release/wreader-closed-0.1.4, fix/wreader-0113-viber-billing-zoom-excel]
@@ -99,7 +99,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.17-test-evidence
+          name: WReader-0.1.18-test-evidence
           path: |
             app/build/reports/androidTests
             app/build/reports/tests/testDebugUnitTest
@@ -119,7 +119,7 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: WReader-0.1.17-closed-test-UNSIGNED-aab
+          name: WReader-0.1.18-closed-test-UNSIGNED-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30

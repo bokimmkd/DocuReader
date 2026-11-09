@@ -1,5 +1,6 @@
 package com.blw.documentreader.ui
 
+import androidx.compose.foundation.selection.selectable
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -182,9 +183,20 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                 Text("Add", fontSize = 12.sp, lineHeight = 16.sp)
             }
         }
-        TabRow(selectedTabIndex = if (collection == "Saved") 0 else 1) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("Saved", "Recent").forEach { label ->
-                Tab(selected = collection == label, onClick = { collection = label; selected = arrayListOf() }, text = { Text(label) })
+                val chosen = collection == label
+                Surface(color = if (chosen) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f)) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp)
+                        .selectable(selected = chosen, role = androidx.compose.ui.semantics.Role.Tab,
+                            onClick = { collection = label; selected = arrayListOf() })
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        if (chosen) { Icon(Icons.Default.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)) }
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
         // BasicTextField avoids Material's large built-in vertical content padding.
@@ -299,8 +311,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                             DocumentActionItem("Select", Icons.Default.CheckBox, { menu = false; toggle(doc.uri) })
                             DocumentActionItem("Share file", Icons.Default.Share, { menu = false; onShare(doc) })
                             if (doc.type == "PDF") {
-                                DocumentActionItem("Share with password", Icons.Default.Lock,
-                                    { menu = false; onPdfAction(doc, PdfLibraryAction.ShareWithPassword) }, enabled = !missing)
+                                DocumentActionItem("Sign PDF", Icons.Default.Draw,
+                                    { menu = false; onPdfAction(doc, PdfLibraryAction.Sign) }, enabled = !missing)
                                 DocumentActionItem("PDF tools", Icons.Default.Build,
                                     { menu = false; pdfMenu = true }, enabled = !missing, submenu = true)
                             }
@@ -320,6 +332,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
                                 { menu = false; remove = setOf(doc.uri) }, destructive = true)
                         }
                         DropdownMenu(pdfMenu, { pdfMenu = false }) {
+                            DocumentActionItem("Share with password", Icons.Default.Lock,
+                                { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.ShareWithPassword) }, enabled = !missing)
                             DocumentActionItem("Add pages", Icons.Default.AddBox,
                                 { pdfMenu = false; onPdfAction(doc, PdfLibraryAction.AddPages) })
                             DocumentActionItem("Delete pages", Icons.Default.DeleteOutline,

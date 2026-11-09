@@ -234,7 +234,7 @@ fun HomeScreen(
 @Composable
 fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                  onShare: () -> Unit, onPrint: () -> Unit, onOrganize: () -> Unit,
-                 onStamp: (Int) -> Unit = {}, onProtect: () -> Unit = {},
+                 onSign: (Int) -> Unit = {}, onStamp: (Int) -> Unit = {}, onProtect: () -> Unit = {},
                  readingMode: Boolean = false, onDocumentView: () -> Unit = {}) {
     val doc = vm.current ?: return
     val session = vm.pdf ?: return
@@ -301,6 +301,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                     if (!doc.savedLocally) DocumentActionItem("Save to Library", Icons.Default.Download,
                         { shareMenu = false; vm.saveToLibrary(Uri.parse(doc.uri), doc, reveal = false) })
                     DocumentActionItem("Share file", Icons.Default.Share, { shareMenu = false; onShare() })
+                    DocumentActionItem("Sign PDF", Icons.Default.Draw, { shareMenu = false; onSign(currentPage) })
                     DocumentActionItem("Share with password", Icons.Default.Lock, { shareMenu = false; onProtect() })
                 }
             }
@@ -314,6 +315,7 @@ fun ReaderScreen(vm: MainViewModel, onBack: () -> Unit,
                 TextButton(onClick = { toolsMenu = true }) { Icon(Icons.Default.Build, null); Text("Tools") }
                 DropdownMenu(toolsMenu, { toolsMenu = false }) {
                     DocumentActionItem("Organize pages", Icons.Default.Dashboard, { toolsMenu = false; onOrganize() })
+                    DocumentActionItem("Sign PDF", Icons.Default.Draw, { toolsMenu = false; onSign(currentPage) })
                     DocumentActionItem("Stamp PDF", Icons.Default.Approval, { toolsMenu = false; onStamp(currentPage) })
                 }
             }
@@ -497,13 +499,14 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
 }
 
 @Composable
-fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit, onSign: () -> Unit = {}) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ToolChoice(Icons.Default.PictureAsPdf, "Convert to PDF", "Documents, books or images · Save as PDF", BrandBlue, onConvert)
         Text("PDF Tools", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Edit pages. Keep your original unchanged.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ToolChoice(Icons.Default.Draw, "Sign PDF", "Draw, place and reuse your signature", BrandBlue, onSign)
         ToolChoice(Icons.Default.PostAdd, "Add Pages", "Import pages from another PDF", PdfRed, onChoosePdf)
         ToolChoice(Icons.Default.ContentCut, "Extract Pages", "Save selected pages to a new PDF", BrandBlue, onChoosePdf)
         ToolChoice(Icons.Default.SwapVert, "Organize Pages", "Reorder, rotate or delete pages", Color(0xFF6B59D9), onChoosePdf)

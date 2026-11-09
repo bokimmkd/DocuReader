@@ -66,6 +66,10 @@ class MainActivity : ComponentActivity() {
     private var preparingShare by mutableStateOf(false)
     private var protectedShare by mutableStateOf<Pair<Uri, String>?>(null)
     private var stampRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
+    private var signatureRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
+    private val pickSignature = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) { persistIfAvailable(uri); signatureRequest = Triple(uri, DocumentTypes.displayName(this, uri), 0) }
+    }
     private var locating: DocumentEntry? = null
     private val locateDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val doc = locating; locating = null
@@ -406,6 +410,7 @@ class MainActivity : ComponentActivity() {
                             onShare = { vm.current?.let(::shareDocument) },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
                             onOrganize = { vm.current?.let { toolFromLibrary = false; vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
+                            onSign = { page -> vm.current?.let { signatureRequest = Triple(Uri.parse(it.uri), it.name, page) } },
                             onStamp = { page -> vm.current?.let { stampRequest = Triple(Uri.parse(it.uri), it.name, page) } },
                             onProtect = { vm.current?.let { protectedShare = Uri.parse(it.uri) to it.name } })
                     } else when (tab) {
@@ -425,6 +430,7 @@ class MainActivity : ComponentActivity() {
                                 val uri = Uri.parse(doc.uri)
                                 when (action) {
                                     PdfLibraryAction.ShareWithPassword -> protectedShare = uri to doc.name
+                                    PdfLibraryAction.Sign -> signatureRequest = Triple(uri, doc.name, 0)
                                     PdfLibraryAction.Stamp -> stampRequest = Triple(uri, doc.name, 0)
                                     else -> {
                                         pendingPdfAction = action; toolFromLibrary = true
@@ -444,7 +450,7 @@ class MainActivity : ComponentActivity() {
                             openOutput = { bookModeOnOpen = false; incomingUri = it; vm.openDocument(it) },
                             shareOutput = { share(it, "application/pdf") },
                             initialAction = pendingPdfAction, onInitialActionHandled = { pendingPdfAction = null })
-                        else ToolsStartScreen(onChoosePdf = { pendingPdfAction = null; toolFromLibrary = false; pickTool.launch(arrayOf("application/pdf")) },
+                        else ToolsStartScreen(onSign = { pickSignature.launch(arrayOf("application/pdf")) }, onChoosePdf = { pendingPdfAction = null; toolFromLibrary = false; pickTool.launch(arrayOf("application/pdf")) },
                             onConvert = { convertDocument.launch(DocumentFormats.pickerTypes.filterNot { it == "application/pdf" }.toTypedArray()) })
                         else -> SettingsScreen(vm, removeAds = { billing.buy() }, restore = { billing.restore() },
                             price = if (BuildConfig.BILLING_ENABLED) billing.localizedPrice else "Closed test",
@@ -475,6 +481,12 @@ class MainActivity : ComponentActivity() {
             if (infoPage != null) InfoScreen(infoPage!!, onBack = { infoPage = null })
             protectedShare?.let { (uri, name) -> PdfPasswordDialog(uri, name, onDismiss = { protectedShare = null },
                 onBusy = { outputBusy = it }, onShare = ::shareGenerated, report = vm::report) }
+            signatureRequest?.let { (uri, name, page) ->
+                PdfSignatureDialog(uri, name, page, onDismiss = { signatureRequest = null },
+                    onBusy = { outputBusy = it }, onSaved = ::keepExport,
+                    onOpen = { signatureRequest = null; incomingUri = it; vm.openDocument(it) },
+                    onShare = { uri, name -> share(uri, "application/pdf", name) })
+            }
             stampRequest?.let { (uri, name, page) ->
                 PdfStampDialog(uri, name, page, onDismiss = { stampRequest = null },
                     onBusy = { outputBusy = it }, onSaved = ::keepExport,
