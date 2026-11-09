@@ -73,41 +73,57 @@ class WorkflowFeaturesTest {
     }
     @Test fun floatingPdfNavigationKeepsNeighborUnzoomedAndSinglePageFits() {
         val source = pdf()
-        val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
-            .setDataAndType(uri(source), "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        ActivityScenario.launch<MainActivity>(intent).use {
-            assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 20000))
-            device.findObject(By.desc("Next page")).click()
-            assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
-            device.waitForIdle(); Thread.sleep(700)
-            val rect = device.findObject(By.desc("Page 2")).visibleBounds
-            val before = inst.uiAutomation.takeScreenshot()
-            try {
-                device.findObject(By.desc("Previous page")).click()
-                val first = device.wait(Until.findObject(By.desc("Page 1")), 10000)!!
-                first.pinchOpen(.65f); device.waitForIdle(); Thread.sleep(400)
+        val store = DocumentStore(context); val oldEntries = store.load()
+        val entitlement = context.getSharedPreferences("entitlement", android.content.Context.MODE_PRIVATE)
+        val oldEntitlement = entitlement.getBoolean("play_confirmed_offline", false)
+        // Pixel comparisons need a fixed viewport and an explicit starting page;
+        // asynchronous ad slots and remembered test documents are unrelated inputs.
+        store.save(listOf(DocumentEntry(uri(source).toString(), source.name, "PDF", lastPage=0)))
+        entitlement.edit().putBoolean("play_confirmed_offline", true).commit()
+        try {
+            val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                .setDataAndType(uri(source), "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            ActivityScenario.launch<MainActivity>(intent).use {
+                assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 20000))
                 device.findObject(By.desc("Next page")).click()
                 assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
                 device.waitForIdle(); Thread.sleep(700)
-                val after = inst.uiAutomation.takeScreenshot()
-                try {
-                    var changed = 0; var samples = 0
-                    for (y in rect.top + 10 until rect.bottom - 80 step 2) for (x in rect.left + 10 until rect.right - 10 step 2) {
-                        samples++; if (before.getPixel(x,y) != after.getPixel(x,y)) changed++
-                    }
-                    assertTrue("Zoom on page 1 changed page 2 pixels ($changed/$samples)", changed < samples / 200)
-                } finally { after.recycle() }
-                device.findObject(By.desc("Share options")).click(); click("Single page")
-                assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
-                assertFalse(device.hasObject(By.desc("Page 1")))
+                val rect = device.findObject(By.desc("Page 2")).visibleBounds
+                val before = inst.uiAutomation.takeScreenshot()
                 val dir = File(context.getExternalFilesDir(null), "workflow-qa").also { it.mkdirs() }
-                device.takeScreenshot(File(dir, "pdf-single-page-floating.png"))
-                device.dumpWindowHierarchy(File(dir, "pdf-single-page-floating.xml"))
-                assertFalse("Last-page Next control is enabled", device.findObject(By.desc("Next page")).isEnabled)
-                device.findObject(By.desc("Previous page")).click()
-                assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 10000))
-                assertFalse(device.findObject(By.desc("Previous page")).isEnabled)
-            } finally { before.recycle() }
+                File(dir,"pdf-neighbor-before.png").outputStream().use { before.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                try {
+                    device.findObject(By.desc("Previous page")).click()
+                    val first = device.wait(Until.findObject(By.desc("Page 1")), 10000)!!
+                    first.pinchOpen(.65f); device.waitForIdle(); Thread.sleep(400)
+                    device.findObject(By.desc("Next page")).click()
+                    assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
+                    device.waitForIdle(); Thread.sleep(700)
+                    val after = inst.uiAutomation.takeScreenshot()
+                    File(dir,"pdf-neighbor-after.png").outputStream().use { after.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+                    device.dumpWindowHierarchy(File(dir,"pdf-neighbor-after.xml"))
+                    try {
+                        var changed = 0; var samples = 0
+                        for (y in rect.top + 10 until rect.bottom - 80 step 2) for (x in rect.left + 10 until rect.right - 10 step 2) {
+                            samples++; if (before.getPixel(x,y) != after.getPixel(x,y)) changed++
+                        }
+                        assertTrue("Zoom on page 1 changed page 2 pixels ($changed/$samples)", changed < samples / 200)
+                    } finally { after.recycle() }
+                    device.findObject(By.desc("Share options")).click(); click("Single page")
+                    assertTrue(device.wait(Until.hasObject(By.desc("Page 2")), 10000))
+                    assertFalse(device.hasObject(By.desc("Page 1")))
+                    val dir = File(context.getExternalFilesDir(null), "workflow-qa").also { it.mkdirs() }
+                    device.takeScreenshot(File(dir, "pdf-single-page-floating.png"))
+                    device.dumpWindowHierarchy(File(dir, "pdf-single-page-floating.xml"))
+                    assertFalse("Last-page Next control is enabled", device.findObject(By.desc("Next page")).isEnabled)
+                    device.findObject(By.desc("Previous page")).click()
+                    assertTrue(device.wait(Until.hasObject(By.desc("Page 1")), 10000))
+                    assertFalse(device.findObject(By.desc("Previous page")).isEnabled)
+                } finally { before.recycle() }
+            }
+        } finally {
+            store.save(oldEntries)
+            entitlement.edit().putBoolean("play_confirmed_offline",oldEntitlement).commit()
         }
     }
 
