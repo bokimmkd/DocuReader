@@ -26,8 +26,13 @@ data class DocumentEntry(
     val temporaryCopy: Boolean = false
 ) {
     val isSaved get() = inLibrary || savedLocally || favorite || addedAt > 0L
-    fun isRecent(now: Long = System.currentTimeMillis()) = openedAt > 0L && openedAt >= now - RECENT_WINDOW
-    companion object { const val RECENT_WINDOW = 30L * 24 * 60 * 60 * 1000 }
+    fun isRecent(now: Long = System.currentTimeMillis(), days: Int = DEFAULT_RECENT_DAYS) =
+        openedAt > 0L && openedAt >= now - java.util.concurrent.TimeUnit.DAYS.toMillis(days.toLong())
+
+    companion object {
+        const val DEFAULT_RECENT_DAYS = 30
+        val RECENT_DAYS_RANGE = 1..365
+    }
 }
 
 object DocumentTypes {
@@ -65,9 +70,11 @@ class DocumentStore(private val context: Context) {
     } catch (_: Exception) { emptyList() }
     fun save(items: List<DocumentEntry>) {
         val out = JSONArray()
-        // Keep curated Library documents and favorites even when Recent exceeds 100.
+        val days = recentDays()
+        val now = System.currentTimeMillis()
+        // Keep saved documents and favorites independently of the history window.
         val curated = items.filter { it.isSaved }
-        val limit = (curated + items.filterNot { it in curated }.filter { it.isRecent() }).distinctBy { it.uri }
+        val limit = (curated + items.filterNot { it in curated }.filter { it.isRecent(now, days) }).distinctBy { it.uri }
         limit.forEach { item ->
             out.put(JSONObject().put("uri", item.uri).put("name", item.name).put("type", item.type)
                 .put("favorite", item.favorite).put("lastPage", item.lastPage).put("openedAt", item.openedAt)
@@ -75,6 +82,12 @@ class DocumentStore(private val context: Context) {
                 .put("sourceUris", JSONArray(item.sourceUris)).put("inLibrary", item.inLibrary).put("temporaryCopy", item.temporaryCopy))
         }
         prefs.edit().putString("recent", out.toString()).apply()
+    }
+    fun recentDays() = prefs.getInt("recent_days", DocumentEntry.DEFAULT_RECENT_DAYS)
+        .takeIf { it in DocumentEntry.RECENT_DAYS_RANGE } ?: DocumentEntry.DEFAULT_RECENT_DAYS
+    fun setRecentDays(days: Int) {
+        require(days in DocumentEntry.RECENT_DAYS_RANGE)
+        prefs.edit().putInt("recent_days", days).apply()
     }
     fun appearance() = prefs.getString("appearance", "System") ?: "System"
     fun setAppearance(value: String) = prefs.edit().putString("appearance", value).apply()

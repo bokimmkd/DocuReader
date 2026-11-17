@@ -1,6 +1,8 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.blw.documentreader.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -148,7 +150,7 @@ fun HomeScreen(
     reopen: (DocumentEntry) -> Unit,
     onLibrary: (String) -> Unit
 ) {
-    val recents = vm.recent.filter { it.isRecent() }
+    val recents = vm.recent.filter { it.isRecent(days = vm.recentDays) }
         .sortedByDescending { it.openedAt }.take(3)
     val favorites = vm.recent.filter { it.favorite }.take(3)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -724,6 +726,8 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                    price: String, adFree: Boolean, privacy: () -> Unit,
                    privacyOptions: () -> Unit, feedback: () -> Unit, checkUpdates: () -> Unit, rateApp: () -> Unit,
                    billingAvailable: Boolean = com.blw.documentreader.BuildConfig.BILLING_ENABLED) {
+    val context = LocalContext.current
+    var retentionInput by rememberSaveable { mutableStateOf<String?>(null) }
     var clearDialog by remember { mutableStateOf(false) }
     val closedTest = !billingAvailable
     val priceLoading = price.contains("Loading", ignoreCase = true)
@@ -825,9 +829,25 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 tint = MaterialTheme.colorScheme.primary)
             Text("Data & help", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
+        val duration = if (vm.recentDays == 1) "1 day" else "${vm.recentDays} days"
+        SettingsAction(Icons.Default.Schedule, "Keep Recent files · $duration", {
+            retentionInput = vm.recentDays.toString()
+        })
         SettingsAction(Icons.Default.History, "Clear Recent History", { clearDialog = true })
         SettingsAction(Icons.Default.SystemUpdate, "Check for updates", checkUpdates)
         SettingsAction(Icons.Default.StarRate, "Rate app", rateApp)
+        SettingsAction(Icons.Default.Share, "Share app", {
+            val share = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "W Reader")
+                putExtra(Intent.EXTRA_TEXT, "W Reader · https://play.google.com/store/apps/details?id=com.blw.wreader")
+            }
+            try {
+                context.startActivity(Intent.createChooser(share, "Share W Reader"))
+            } catch (_: ActivityNotFoundException) {
+                vm.report("No app is available to share the link.")
+            }
+        })
         SettingsAction(Icons.Default.HelpOutline, "Help & Feedback", feedback)
         SettingsAction(Icons.Default.Shield, "Privacy Policy", privacy)
         if (com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) SettingsAction(Icons.Default.Security, "Ad privacy options", privacyOptions)
@@ -835,6 +855,27 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
         Text("W Reader ${com.blw.documentreader.BuildConfig.VERSION_NAME} · English", fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp))
+    }
+    retentionInput?.let { input ->
+        val days = input.toIntOrNull()?.takeIf { it in DocumentEntry.RECENT_DAYS_RANGE }
+        WReaderAlertDialog(onDismissRequest = { retentionInput = null },
+            title = { WReaderDialogTitle("Keep Recent files") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Days after the last time you open a file. Only the Recent list is affected.")
+                    OutlinedTextField(value = input, onValueChange = { retentionInput = it },
+                        label = { Text("Days (1–365)") }, singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = days != null, onClick = {
+                    days?.let(vm::updateRecentDays)
+                    retentionInput = null
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { retentionInput = null }) { Text("Cancel") } })
     }
     if (clearDialog) WReaderAlertDialog(onDismissRequest = { clearDialog = false },
         title = { WReaderDialogTitle("Clear recent history?") },

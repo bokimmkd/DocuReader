@@ -150,8 +150,8 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         editError = null
     }
     val data = vm.recent.filter {
-        (if (collection == "Recent") it.isRecent() else it.isSaved) &&
-        (filter == "All" || filter == "Recent" && it.isRecent() ||
+        (if (collection == "Recent") it.isRecent(days = vm.recentDays) else it.isSaved) &&
+        (filter == "All" || filter == "Recent" && it.isRecent(days = vm.recentDays) ||
             filter == "Favorites" && it.favorite || com.blw.documentreader.data.DocumentFormats.matches(filter,it.type)) &&
         (category == "All categories" || it.category == category) &&
         (tag == "All tags" || it.tags.split(',').any { value -> value.trim().equals(tag, true) }) &&
@@ -172,7 +172,12 @@ fun LibraryScreen(vm: MainViewModel, onOpen: (DocumentEntry) -> Unit, onAdd: () 
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Library", fontSize = 18.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold)
-                Text("${entries.size} documents · " + if (collection == "Recent") "Last 30 days" else "Saved in Library", fontSize = 10.sp, lineHeight = 13.sp,
+                val period = when {
+                    collection != "Recent" -> "Saved in Library"
+                    vm.recentDays == 1 -> "Last 24 hours"
+                    else -> "Last ${vm.recentDays} days"
+                }
+                Text("${entries.size} documents · $period", fontSize = 10.sp, lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = { manageCategories = true }) { Icon(Icons.Default.FolderOpen, "Manage categories", Modifier.size(20.dp)) }

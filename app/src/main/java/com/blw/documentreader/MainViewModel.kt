@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 class MainViewModel(app: Application, private val savedState: SavedStateHandle = SavedStateHandle()) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
     private val store = DocumentStore(appContext)
+    var recentDays by mutableStateOf(store.recentDays()); private set
     var recent by mutableStateOf(store.load()); private set
     init { store.save(recent) }
     var libraryState by mutableStateOf(LibraryState(
@@ -69,7 +70,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
         }
     }
     fun refreshAvailability() {
-        val kept = recent.filter { it.isSaved || it.isRecent() || it.uri == current?.uri }
+        val kept = recent.filter { it.isSaved || it.isRecent(days = recentDays) || it.uri == current?.uri }
         if (kept != recent) { recent = kept; store.save(recent) }
         availabilityEpoch++
     }
@@ -152,6 +153,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle =
     fun report(text: String) { message = text }
     fun updateAppearance(theme: String) { appearance = theme; store.setAppearance(theme) }
     fun updateRemember(on: Boolean) { remember = on; store.setRememberPosition(on) }
+    fun updateRecentDays(days: Int) {
+        store.setRecentDays(days)
+        recentDays = days
+        refreshAvailability()
+    }
     fun clearRecent() {
         // Clearing history must not discard separately starred documents.
         recent = recent.filter { it.isSaved }.map { it.copy(openedAt = 0L, lastPage = 0) }

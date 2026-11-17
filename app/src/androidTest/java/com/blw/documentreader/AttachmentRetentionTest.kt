@@ -42,6 +42,7 @@ class AttachmentRetentionTest {
     @Test fun migrationPreservesLegacyEntriesAndExpiryDoesNotDeleteOriginals() {
         val prefs = context.getSharedPreferences("metadata_only", android.content.Context.MODE_PRIVATE)
         val before = prefs.getString("recent", "[]")
+        val previousDays = prefs.all["recent_days"] as? Int
         val original = File(context.filesDir, "library/migration-source.txt").also { it.parentFile!!.mkdirs(); it.writeText("Keep original") }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", original)
         try {
@@ -53,8 +54,25 @@ class AttachmentRetentionTest {
             assertTrue(store.load().single().isSaved)
             store.save(listOf(DocumentEntry(uri.toString(), "recent.txt", "TXT", openedAt = 1)))
             assertTrue(store.load().isEmpty())
+            val old = DocumentEntry(uri.toString(), "old.txt", "TXT",
+                openedAt = System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(45))
+            store.setRecentDays(90)
+            store.save(listOf(old))
+            val reopened = DocumentStore(context)
+            assertEquals(90, reopened.recentDays())
+            assertEquals(old, reopened.load().single())
+            reopened.setRecentDays(7)
+            reopened.save(reopened.load())
+            assertTrue(reopened.load().isEmpty())
+            reopened.save(listOf(old.copy(favorite = true)))
+            assertTrue(reopened.load().single().favorite)
             assertEquals("Keep original", original.readText())
-        } finally { prefs.edit().putString("recent", before).commit(); original.delete() }
+        } finally {
+            val restore = prefs.edit().putString("recent", before)
+            if (previousDays == null) restore.remove("recent_days") else restore.putInt("recent_days", previousDays)
+            restore.commit()
+            original.delete()
+        }
     }
 
     @Test fun oversizedTemporaryAttachmentLeavesNoHalfWrittenFile() {
