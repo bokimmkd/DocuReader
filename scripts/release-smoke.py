@@ -152,6 +152,13 @@ def main():
  try:
   tap('Settings')
   await_node('Restore Purchase')
+  # The additional Settings actions make this a scrollable screen.
+  # Reveal the footer within the content viewport, above the ad and navigation.
+  for _ in range(5):
+   tree=dump()
+   scroll=next(n for n in tree.iter('node') if n.get('scrollable')=='true')
+   a,b,c,d=[int(x) for x in re.findall(r'\d+',scroll.get('bounds',''))]
+   adb('shell','input','swipe',str((a+c)//2),str(d-30),str((a+c)//2),str(b+30),'400')
   nav=await_node('Home')
   nav_top=int(re.findall(r'\d+',nav.get('bounds',''))[1])
   deadline=time.monotonic()+25

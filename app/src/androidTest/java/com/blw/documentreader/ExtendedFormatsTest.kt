@@ -99,4 +99,60 @@ class ExtendedFormatsTest {
             }
         }
     }
+
+    @Test fun recentDaysAreEnteredValidatedPersistedAndAppLinkIsShared() {
+        val store = com.blw.documentreader.data.DocumentStore(context)
+        val originalDays = store.recentDays()
+        val device = UiDevice.getInstance(inst)
+        var chooser: Intent? = null
+        val monitor = object : android.app.Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): android.app.Instrumentation.ActivityResult? {
+                if (intent.action != Intent.ACTION_CHOOSER) return null
+                chooser = intent
+                return android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_CANCELED, null)
+            }
+        }
+        fun reveal(prefix: String): UiObject2 {
+            repeat(10) {
+                device.findObject(By.textStartsWith(prefix))?.let { return it }
+                device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
+                    device.displayWidth / 2, device.displayHeight / 3, 25)
+                device.waitForIdle()
+            }
+            error("Missing Settings action $prefix")
+        }
+        inst.addMonitor(monitor)
+        try {
+            ActivityScenario.launch(SettingsTestActivity::class.java).use { scenario ->
+                reveal("Keep Recent files").click()
+                val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5000)
+                assertNotNull(field)
+                for (invalid in listOf("0", "31", "")) {
+                    field.text = invalid
+                    device.waitForIdle()
+                    assertFalse("Invalid duration accepted: $invalid", device.findObject(By.text("Save")).isEnabled)
+                }
+                field.text = "7"
+                device.waitForIdle()
+                device.findObject(By.text("Save")).click()
+                assertEquals(7, com.blw.documentreader.data.DocumentStore(context).recentDays())
+                scenario.recreate()
+                assertNotNull(reveal("Keep Recent files · 7 days"))
+                reveal("Share app").click()
+                inst.waitForIdleSync()
+                assertNotNull("Android share chooser was not launched", chooser)
+                @Suppress("DEPRECATION")
+                val shared = chooser!!.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+                assertEquals(Intent.ACTION_SEND, shared.action)
+                assertEquals("text/plain", shared.type)
+                assertEquals("W Reader · https://play.google.com/store/apps/details?id=com.blw.wreader",
+                    shared.getStringExtra(Intent.EXTRA_TEXT))
+                assertFalse(shared.hasExtra(Intent.EXTRA_STREAM))
+            }
+        } finally {
+            inst.removeMonitor(monitor)
+            store.setRecentDays(originalDays)
+        }
+    }
+
 }
