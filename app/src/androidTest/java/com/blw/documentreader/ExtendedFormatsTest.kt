@@ -130,7 +130,14 @@ class ExtendedFormatsTest {
                 for (invalid in listOf("0", "31", "")) {
                     field.text = invalid
                     device.waitForIdle()
-                    assertFalse("Invalid duration accepted: $invalid", device.findObject(By.text("Save")).isEnabled)
+                    // Compose exposes the label separately from its disabled button parent.
+                    // Check the user-visible behavior instead of the Text node's enabled flag.
+                    device.findObject(By.text("Save")).click()
+                    device.waitForIdle()
+                    assertNotNull("Invalid duration dismissed the dialog: $invalid",
+                        device.findObject(By.clazz("android.widget.EditText")))
+                    assertEquals("Invalid duration changed retention: $invalid", originalDays,
+                        com.blw.documentreader.data.DocumentStore(context).recentDays())
                 }
                 field.text = "7"
                 device.waitForIdle()
