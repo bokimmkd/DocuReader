@@ -862,9 +862,9 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             title = { WReaderDialogTitle("Keep Recent files") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Days after the last time you open a file. Only the Recent list is affected.")
+                    Text("Enter 1–30 days after the last time you open a file. Save it to Library to keep it there longer.")
                     OutlinedTextField(value = input, onValueChange = { retentionInput = it },
-                        label = { Text("Days (1–365)") }, singleLine = true,
+                        label = { Text("Days (1–30)") }, singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
                 }

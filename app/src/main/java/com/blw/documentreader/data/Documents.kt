@@ -31,7 +31,7 @@ data class DocumentEntry(
 
     companion object {
         const val DEFAULT_RECENT_DAYS = 30
-        val RECENT_DAYS_RANGE = 1..365
+        val RECENT_DAYS_RANGE = 1..30
     }
 }
 

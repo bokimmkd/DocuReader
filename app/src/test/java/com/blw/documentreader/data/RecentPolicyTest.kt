@@ -12,11 +12,11 @@ class RecentPolicyTest {
         assertFalse(doc.copy(openedAt = 0).isRecent(now))
         assertTrue(doc.copy(openedAt = now).isRecent(now))
         assertFalse(doc.isRecent(now, days = 7))
-        assertTrue(doc.isRecent(now, days = 90))
+        assertTrue(doc.isRecent(now, days = 30))
         val yesterday = doc.copy(openedAt = now - 86_400_000L)
         assertTrue(yesterday.isRecent(now, days = 1))
         assertFalse(yesterday.isRecent(now + 1, days = 1))
-        assertFalse(doc.copy(openedAt = 0).isRecent(now, days = 365))
+        assertFalse(doc.copy(openedAt = 0).isRecent(now, days = 30))
     }
     @Test fun temporaryIsNotSavedAndSavedSurvivesHistoryExpiry() {
         val doc = DocumentEntry("content://sample/one", "one.pdf", "PDF", openedAt = 1, temporaryCopy = true)
