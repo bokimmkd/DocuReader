@@ -1,3 +1,42 @@
+# W Reader 0.1.20 — Recent retention and app sharing
+
+Boki authorized this update on November 18, 2026 ("Praj update"). Continued `fix/wreader-0113-viber-billing-zoom-excel` from the accepted 0.1.19 release; no main merge, Production rollout or upload-key change.
+
+## Delivered
+- Settings → Keep Recent files opens a numeric input for any whole number from 1 through 30. This is manual entry, not a list of preset durations. Default remains 30 days; the chosen value persists across restarts. Empty, zero and above-30 values cannot be saved.
+- Retention counts from the file's last opening. Home, Library → Recent, the displayed duration and stored metadata use the same preference. Saved Library documents and favorites are retained independently of the Recent window. Expiry does not delete original files.
+- Settings → Share app opens Android's chooser with the W Reader Play link (`com.blw.wreader`), without attaching document contents.
+- Version `0.1.20-closed`, code22. Existing readers, per-page zoom/navigation, Excel layout, signature import/export/colors, purchase/restore and compact Library layout preserved.
+- The release smoke test now scrolls within the Settings content before checking its version footer, since two new rows can place the footer below the initial viewport.
+
+## Verification and signed artifact
+Final source `e01afc29f15ecafbb0818ac844618321a88e5dd7`, tree `8c83a398f5eb7e4e70be0517aa34d51c1d363ead`.
+CI https://github.com/bokimmkd/DocuReader/actions/runs/44406974745 succeeded (job135164694743).
+**57 unit +44 Android tests, zero failures/errors/skips**, independently counted from the final run's XML. No baseline reuse: this run rebuilt and executed the full suite, followed by the actual optimized release-AAB APK smoke. The new UI test checks empty/0/31 rejection through Save behavior, manual 7-day entry, persistence after activity recreation, and the exact Android chooser link without sending a message. Existing retention tests check elapsed-time boundaries, saved/favorite preservation and unchanged original bytes. Light/Dark Settings and release-footer evidence inspected.
+The prior run44402788588 passed57 unit and43 other Android tests but its new test incorrectly read the child Text node's enabled flag. The final test checks the actual invalid-Save behavior instead; no application workaround or relaxed range was introduced.
+
+Evidence artifact14476953344 (historical artifact name `WReader-0.1.19-test-evidence`), ZIP SHA256 `f5397bcf1652a0616c193d1d70a2cb9f18ac61bb9b5ee4d8bcddb6de82efdb8a`.
+Unsigned artifact14476878335, ZIP SHA256 `af1889188e9c3c2dbf4d509ba06d59c4ef09fd6223d4de748adc59798f85e333`; unsigned AAB SHA256 `d338ecb7b8f990fbcfa8efd07d2f6a0e7ab4160c4ceb8452783db12afdb81fe1`.
+Signed `WReader-0.1.20-closed-v22-signed.aab`,19314590bytes, SHA256 `00fcc49252e90f28ff793020a0457ccd3b30db1c0d311925fa8ad9dd50051f57`.
+Artifact: https://chatgpt.com/library?file_id=libfile_fde3_f-0885d657c6e48191ab1b2ebffdbc2648_d337346734c88191ac7c1b6dccfe2f84&account_id=personal
+JAR signature verified and every original ZIP payload entry is byte-identical after signing. Same accepted upload certificate SHA256 `16:76:77:B4:3B:67:4F:73:C2:87:73:C1:D1:94:D8:C3:F8:98:54:05:4C:98:AE:19:30:76:3F:06:67:15:77:F8`. Private key/password remain off GitHub.
+
+## Google Play — November18,2026, approximately23:26 Europe/Skopje
+Code22 accepted in Closed Alpha track4699280419648890924, release17, name `0.1.20 - Recent history and app sharing`. Previous code21 excluded from this new release. TargetSDK36/minSDK26,4ABIs, ReTrace mapping included; supported-device counts unchanged. No validation errors; only the existing missing native debug-symbols warning.
+Submitted exactly one change: **Closed testing - Alpha / Start full rollout**. Publishing overview visibly confirms **Changes in review**. Quick checks were still running; Google review/approval and tester availability are not yet established. Managed publishing remains off. Production, store listing/artwork and upload keys unchanged.
+Verified URL: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+Proof: `/workspace/shared/WReader-0.1.20-closed-in-review.jpg`; live browser tab2 marked as deliverable.
+
+## Phone acceptance after availability
+- Settings → Keep Recent files: type7, save, close/reopen; verify7 is retained. Empty/0/31 must not save;1 and30 are valid. Default is30.
+- Verify Recent uses the selected window while Saved/Favorites remain in Library.
+- Share app: choose Viber or another app and verify the link opens W Reader's Play listing.
+- Briefly spot-check a PDF, a wide Excel file and the existing ad-free entitlement. Automated tests do not establish a fresh live Play purchase result.
+
+This section supersedes the 0.1.19 release status below; earlier records are historical.
+
+---
+
 # W Reader 0.1.19 — submitted to Closed Alpha review
 
 Boki authorized another AAB after v20 feedback. Continued `fix/wreader-0113-viber-billing-zoom-excel`, without main merge, Production rollout or upload-key change.
