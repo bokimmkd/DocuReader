@@ -7,7 +7,9 @@ import android.content.pm.ShortcutManager
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
-import androidx.test.core.app.ActivityScenario
+import androidx.lifecycle.Lifecycle
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -26,7 +28,38 @@ class LauncherShortcutsTest {
     private val context get() = inst.targetContext
     private val device get() = UiDevice.getInstance(inst)
     private fun vm(activity: MainActivity) = ViewModelProvider(activity)[MainViewModel::class.java]
-    private fun await(scenario: ActivityScenario<MainActivity>, condition: (MainActivity) -> Boolean) {
+    // ActivityScenario filters lifecycle events by the ORIGINAL intent. A real
+    // onNewIntent changes that intent, so observe Android lifecycle by component.
+    private inner class Session(intent: Intent) : java.io.Closeable {
+        init {
+            context.startActivity(Intent(intent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+            await(this) { it.lifecycle.currentState == Lifecycle.State.RESUMED }
+        }
+        private fun activities() = listOf(Stage.RESUMED, Stage.PAUSED, Stage.STARTED, Stage.STOPPED, Stage.CREATED)
+            .flatMap { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(it) }
+            .filterIsInstance<MainActivity>().distinct()
+        fun onActivity(action: (MainActivity) -> Unit) {
+            inst.runOnMainSync { activities().firstOrNull()?.let(action) }
+        }
+        fun recreate() {
+            var old: MainActivity? = null
+            onActivity { old = it; it.recreate() }
+            assertNotNull(old)
+            await(this) { it !== old && it.lifecycle.currentState == Lifecycle.State.RESUMED }
+        }
+        override fun close() {
+            inst.runOnMainSync { activities().forEach { it.finish() } }
+            val deadline = System.currentTimeMillis() + 15000
+            do {
+                var empty = false
+                inst.runOnMainSync { empty = activities().isEmpty() }
+                if (empty) return
+                Thread.sleep(50)
+            } while (System.currentTimeMillis() < deadline)
+            fail("Test activity did not finish")
+        }
+    }
+    private fun await(scenario: Session, condition: (MainActivity) -> Boolean) {
         val deadline = System.currentTimeMillis() + 15000
         do {
             var ready = false
@@ -48,7 +81,7 @@ class LauncherShortcutsTest {
         context.startActivity(LauncherShortcuts.intent(context, destination))
 
     @Test fun publishesFourDistinctShortcutsWithExplicitReusableActivityIntents() {
-        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+        Session(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)).use { scenario ->
             val manager = context.getSystemService(ShortcutManager::class.java)
             await(scenario) { manager.dynamicShortcuts.size == 4 }
             val shortcuts = manager.dynamicShortcuts.sortedBy { it.rank }
@@ -71,9 +104,9 @@ class LauncherShortcutsTest {
     }
 
     @Test fun coldRecentAndWarmFavoritesResetFiltersAndDoNotReplayOnRecreation() {
-        ActivityScenario.launch<MainActivity>(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Recent)).use { scenario ->
+        Session(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Recent)).use { scenario ->
             await(scenario) { vm(it).libraryState.collection == "Recent" }
-            assertTrue(device.wait(Until.hasObject(By.text("Library")), 10000))
+            assertTrue(device.wait(Until.hasObject(By.textContains("documents · Last")), 10000))
             var original: MainActivity? = null
             scenario.onActivity {
                 original = it
@@ -87,6 +120,7 @@ class LauncherShortcutsTest {
                 // A user's later search must survive rotation; the launch action is consumed.
                 vm(it).libraryState(vm(it).libraryState.copy(search="keep after rotation"))
             }
+            assertTrue(device.wait(Until.hasObject(By.textContains("Saved in Library")), 10000))
             scenario.recreate()
             await(scenario) { it.hasWindowFocus() }
             scenario.onActivity { assertEquals("keep after rotation", vm(it).libraryState.search) }
@@ -99,7 +133,7 @@ class LauncherShortcutsTest {
         val monitor = PickerMonitor()
         inst.addMonitor(monitor)
         try {
-            ActivityScenario.launch<MainActivity>(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Sign)).use { scenario ->
+            Session(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Sign)).use { scenario ->
                 await(scenario) { monitor.requests.size == 1 && it.hasWindowFocus() }
                 assertEquals("application/pdf", monitor.requests[0].getStringArrayExtra(Intent.EXTRA_MIME_TYPES)?.single())
                 scenario.recreate()
@@ -132,7 +166,7 @@ class LauncherShortcutsTest {
         val monitor = PickerMonitor(Intent().setData(uri))
         inst.addMonitor(monitor)
         try {
-            ActivityScenario.launch<MainActivity>(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Sign)).use { scenario ->
+            Session(LauncherShortcuts.intent(context, LauncherShortcuts.Destination.Sign)).use { scenario ->
                 assertTrue(device.wait(Until.hasObject(By.desc("Draw signature here")), 15000))
                 val canvas = device.findObject(By.desc("Draw signature here")).visibleBounds
                 device.swipe(canvas.left+20, canvas.centerY(), canvas.right-20, canvas.centerY()-15, 15)
