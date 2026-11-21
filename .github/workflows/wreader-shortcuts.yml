@@ -44,8 +44,6 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -memory 3072
           script: |
             gradle :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.blw.documentreader.LauncherShortcutsTest --stacktrace --no-daemon
-            mkdir -p verification/shortcuts
-            adb pull /sdcard/Android/data/com.blw.wreader/files/shortcut-qa verification/shortcuts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -54,5 +52,4 @@ jobs:
             app/build/reports/tests/testDebugUnitTest
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
-            verification/shortcuts
 
