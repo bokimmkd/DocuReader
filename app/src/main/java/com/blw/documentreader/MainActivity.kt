@@ -13,6 +13,7 @@ import com.blw.documentreader.data.DocumentFormats
 import com.blw.documentreader.updates.PlayUpdates
 import com.blw.documentreader.reviews.PlayReview
 import com.blw.documentreader.data.DocumentEntry
+import com.blw.documentreader.data.LibraryState
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -67,6 +68,8 @@ class MainActivity : ComponentActivity() {
     private var protectedShare by mutableStateOf<Pair<Uri, String>?>(null)
     private var stampRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
     private var signatureRequest by mutableStateOf<Triple<Uri, String, Int>?>(null)
+    private var pendingShortcut by mutableStateOf<LauncherShortcuts.Destination?>(null)
+    private var shortcutIntentHandled = false
     private val pickSignature = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) { persistIfAvailable(uri); signatureRequest = Triple(uri, DocumentTypes.displayName(this, uri), 0) }
     }
@@ -96,6 +99,10 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        shortcutIntentHandled = savedInstanceState?.getBoolean("shortcut.intentHandled") ?: false
+        pendingShortcut = savedInstanceState?.getString("shortcut.pending")?.let { id ->
+            LauncherShortcuts.Destination.entries.firstOrNull { it.id == id }
+        }
         consent = AdConsent(this) { permittedAds = true }
         billing = RemoveAdsBilling(this) { vm.report(it) }
         updates = PlayUpdates(this, vm::report)
@@ -111,7 +118,8 @@ class MainActivity : ComponentActivity() {
                     optionalServicesReady = true
                     if (BuildConfig.MONETIZATION_ENABLED) consent.start()
                     if (BuildConfig.BILLING_ENABLED) billing.start()
-                    handleIncomingIntent(intent)
+                    LauncherShortcuts.publish(this)
+                    if (!shortcutIntentHandled) handleIncomingIntent(intent)
                 }
             }
         }
@@ -119,9 +127,20 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        shortcutIntentHandled = false
         handleIncomingIntent(intent)
     }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("shortcut.intentHandled", shortcutIntentHandled)
+        outState.putString("shortcut.pending", pendingShortcut?.id)
+        super.onSaveInstanceState(outState)
+    }
     private fun handleIncomingIntent(intent: Intent?) {
+        LauncherShortcuts.destination(intent)?.let {
+            shortcutIntentHandled = true
+            pendingShortcut = it
+            return
+        }
         if (outputBusy) { vm.report("Finish printing or saving before opening another document."); return }
         val uri = when (intent?.action) {
             Intent.ACTION_VIEW -> intent.data
@@ -209,6 +228,7 @@ class MainActivity : ComponentActivity() {
         var libraryFilter by rememberSaveable { mutableStateOf("All") }
         var pendingPdfAction by rememberSaveable { mutableStateOf<PdfLibraryAction?>(null) }
         var toolFromLibrary by rememberSaveable { mutableStateOf(false) }
+        var shortcutNavigation by rememberSaveable { mutableIntStateOf(0) }
         BackHandler(enabled = vm.current != null || tab == 2) {
             if (outputBusy) return@BackHandler
             convertOnReady = false
@@ -229,6 +249,32 @@ class MainActivity : ComponentActivity() {
         var infoPage by rememberSaveable { mutableStateOf<String?>(null) }
         BackHandler(infoPage != null) { infoPage = null }
         LaunchedEffect(vm.current?.uri) { if(vm.current != null) infoPage = null }
+        LaunchedEffect(pendingShortcut) {
+            val destination = pendingShortcut ?: return@LaunchedEffect
+            // Consume before launching a picker: cancellation/rotation must not reopen it.
+            pendingShortcut = null
+            if (outputBusy || preparingShare || vm.busy || signatureRequest != null ||
+                stampRequest != null || protectedShare != null || (tab == 2 && vm.toolReady)) {
+                vm.report("Finish the current action before using a shortcut.")
+                return@LaunchedEffect
+            }
+            infoPage = null
+            when (destination) {
+                LauncherShortcuts.Destination.Open -> openPicker()
+                LauncherShortcuts.Destination.Sign -> pickSignature.launch(arrayOf("application/pdf"))
+                LauncherShortcuts.Destination.Recent, LauncherShortcuts.Destination.Favorites -> {
+                    convertOnReady = false; pendingPdfAction = null; bookModeOnOpen = false
+                    vm.closeDocument()
+                    val recent = destination == LauncherShortcuts.Destination.Recent
+                    libraryFilter = if (recent) "All" else "Favorites"
+                    vm.consumeLibraryReveal()
+                    vm.libraryState(LibraryState(type = libraryFilter, collection = if (recent) "Recent" else "Saved"))
+                    // Also reset any old selection, open menu and scroll position.
+                    shortcutNavigation++
+                    tab = 1
+                }
+            }
+        }
         LaunchedEffect(vm.reviewMoment, vm.current?.uri, vm.busy, outputBusy, tab, resumeTick) {
             if (vm.reviewMoment > 0 && tab == 0 && vm.current == null && !vm.busy && !outputBusy) {
                 delay(4000)
@@ -417,7 +463,7 @@ class MainActivity : ComponentActivity() {
                         0 -> HomeScreen(vm, openPicker = ::openPicker,
                             reopen = { bookModeOnOpen = false; incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onLibrary = { vm.showLibrary(it); libraryFilter = it; tab = 1 })
-                        1 -> LibraryScreen(vm,
+                        1 -> key(shortcutNavigation) { LibraryScreen(vm,
                             onOpen = { bookModeOnOpen = false; incomingUri = Uri.parse(it.uri); vm.openDocument(incomingUri!!) },
                             onShare = ::shareDocument,
                             onConvert = { doc ->
@@ -442,7 +488,7 @@ class MainActivity : ComponentActivity() {
                             initialFilter = libraryFilter,
                             onOpenFiltered = { doc, entries -> bookModeOnOpen = false; incomingUri = Uri.parse(doc.uri); vm.openFromLibrary(doc, entries) },
                             onLocate = { doc -> locating = doc; locateDocument.launch(DocumentFormats.pickerTypes) },
-                            showAds = BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds)
+                            showAds = BuildConfig.MONETIZATION_ENABLED && !billing.adFree && permittedAds) }
                         2 -> if (vm.toolReady) ToolEditor(vm,
                             addPdf = { addTool.launch(arrayOf("application/pdf")) },
                             onSave = { saveTool.launch("WReader_edited.pdf") },
@@ -501,3 +547,4 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+

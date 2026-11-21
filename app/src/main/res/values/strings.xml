@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">W Reader</string>
+    <string name="shortcut_open">Open document</string>
+    <string name="shortcut_recent">Recent</string>
+    <string name="shortcut_favorites">Favorites</string>
+    <string name="shortcut_sign">Sign PDF</string>
 </resources>
+
