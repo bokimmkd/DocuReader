@@ -122,11 +122,12 @@ class LauncherShortcutsTest {
 
     @Test fun signatureInProgressSurvivesAnotherLauncherShortcut() {
         val file = File(context.filesDir, "library/shortcut-sign.pdf").also { it.parentFile!!.mkdirs() }
-        PdfDocument().use { pdf ->
+        val pdf = PdfDocument()
+        try {
             val page = pdf.startPage(PdfDocument.PageInfo.Builder(300, 400, 1).create())
             pdf.finishPage(page)
             file.outputStream().use { pdf.writeTo(it) }
-        }
+        } finally { pdf.close() }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val monitor = PickerMonitor(Intent().setData(uri))
         inst.addMonitor(monitor)
