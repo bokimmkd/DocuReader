@@ -374,3 +374,7 @@ Automated tests are not proof of a real Viber provider grant revocation, physica
 - Saved artifact ID `libfile_7a9791fedc4481919c8fe83993e8fff6`.
 
 Publishing overview: https://play.google.com/console/u/0/developers/4766816481672407684/app/4976011020982627479/publishing
+
+## 0.1.21-closed (23), 2026-11-25
+
+Google Play confirmed “1 change sent for review” on Closed testing – Alpha. The requested rollout covers the full Alpha track after approval. Release commit `014258361f05f1ba26412672a5cc1332038b9b0d`. [Release CI](https://github.com/bokimmkd/DocuReader/actions/runs/45710303360) passed 57 unit and 48 Android tests, plus the optimized release APK checks. This update adds the ScanCabinet card in Tools, four launcher shortcuts (Open document, Recent, Favorites, Sign PDF), and tighter Settings spacing. The emulator verified the install prompt when ScanCabinet is absent. The installed app launch was checked against ScanCabinet’s scanner shortcut in source. Play accepted the signed bundle using the existing upload key. AAB SHA-256 `a94e453c8ccd364db13246a55209099867530539644c703da39d8126af5734fc`. Play reported one non-blocking warning about missing native debug symbols.
