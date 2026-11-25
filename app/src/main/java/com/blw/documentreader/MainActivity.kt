@@ -169,6 +169,19 @@ class MainActivity : ComponentActivity() {
             false
         }
     }
+    private fun closePdfReader() {
+        if (outputBusy) return
+        val source = incomingUri
+        val returnToScanCabinet = intent.action == Intent.ACTION_VIEW &&
+            intent.type == "application/pdf" &&
+            source?.scheme == "content" &&
+            source.authority == "app.scancabinet.android.files" &&
+            source == intent.data
+
+        convertOnReady = false
+        vm.closeDocument()
+        if (returnToScanCabinet) finish()
+    }
     private fun openPicker() {
         openDocument.launch(DocumentFormats.pickerTypes)
     }
@@ -233,7 +246,7 @@ class MainActivity : ComponentActivity() {
             if (outputBusy) return@BackHandler
             convertOnReady = false
             pendingPdfAction = null
-            if (vm.current != null) vm.closeDocument() else tab = if (toolFromLibrary && vm.toolReady) 1 else 0
+            if (vm.current != null) closePdfReader() else tab = if (toolFromLibrary && vm.toolReady) 1 else 0
         }
         val dark = when (vm.appearance) {
             "Dark" -> true
@@ -451,11 +464,19 @@ class MainActivity : ComponentActivity() {
                             onReady = vm::markReaderReady, report = vm::report
                         )
                     } else if (vm.current != null && vm.pdf != null) {
-                        ReaderScreen(vm, onBack = { if (!outputBusy) { convertOnReady = false; vm.closeDocument() } },
+                        ReaderScreen(vm, onBack = ::closePdfReader,
                             readingMode = bookModeOnOpen, onDocumentView = { bookModeOnOpen = false },
                             onShare = { vm.current?.let(::shareDocument) },
                             onPrint = { vm.current?.let { PdfPrint.print(this@MainActivity, Uri.parse(it.uri), it.name) } },
-                            onOrganize = { vm.current?.let { toolFromLibrary = false; vm.beginTool(Uri.parse(it.uri)); tab = 2; vm.closeDocument() } },
+                            onOrganize = {
+                                vm.current?.let { document ->
+                                    incomingUri = null
+                                    toolFromLibrary = false
+                                    vm.beginTool(Uri.parse(document.uri))
+                                    tab = 2
+                                    vm.closeDocument()
+                                }
+                            },
                             onSign = { page -> vm.current?.let { signatureRequest = Triple(Uri.parse(it.uri), it.name, page) } },
                             onStamp = { page -> vm.current?.let { stampRequest = Triple(Uri.parse(it.uri), it.name, page) } },
                             onProtect = { vm.current?.let { protectedShare = Uri.parse(it.uri) to it.name } })
