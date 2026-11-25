@@ -150,13 +150,19 @@ def main():
  adb('shell','wm','size','1080x2340')
  adb('shell','wm','density','450')
  try:
+  tap('Tools')
+  tap('Scan with ScanCabinet')
+  await_node('Get ScanCabinet')
+  tap('Cancel')
+  await_node('Convert to PDF')
   tap('Settings')
   await_node('Restore Purchase')
   # The additional Settings actions make this a scrollable screen.
   # Reveal the footer within the content viewport, above the ad and navigation.
   for _ in range(5):
    tree=dump()
-   scroll=next(n for n in tree.iter('node') if n.get('scrollable')=='true')
+   scroll=next((n for n in tree.iter('node') if n.get('scrollable')=='true'),None)
+   if scroll is None:break
    a,b,c,d=[int(x) for x in re.findall(r'\d+',scroll.get('bounds',''))]
    adb('shell','input','swipe',str((a+c)//2),str(d-30),str((a+c)//2),str(b+30),'400')
   nav=await_node('Home')

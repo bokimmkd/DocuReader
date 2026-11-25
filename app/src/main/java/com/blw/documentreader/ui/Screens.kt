@@ -478,7 +478,8 @@ private fun PdfThumb(session: PdfSession, index: Int) {
 
 @Composable
 private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
-                       title: String, detail: String, color: Color, onClick: () -> Unit) {
+                       title: String, detail: String, color: Color, onClick: () -> Unit,
+                       artwork: (@Composable () -> Unit)? = null) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -486,7 +487,7 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(MaterialTheme.shapes.medium)
                 .background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, Modifier.size(23.dp), tint = color)
+                if (artwork != null) artwork() else Icon(icon, null, Modifier.size(23.dp), tint = color)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -502,9 +503,47 @@ private fun ToolChoice(icon: androidx.compose.ui.graphics.vector.ImageVector,
 
 @Composable
 fun ToolsStartScreen(onChoosePdf: () -> Unit, onConvert: () -> Unit, onSign: () -> Unit = {}) {
+    val context = LocalContext.current
+    val scanPackage = "app.scancabinet.android"
+    var showScanOffer by rememberSaveable { mutableStateOf(false) }
+    if (showScanOffer) WReaderAlertDialog(
+        onDismissRequest = { showScanOffer = false },
+        title = { WReaderDialogTitle("Scan with ScanCabinet") },
+        text = { Text("Get ScanCabinet to scan paper documents to PDF.") },
+        confirmButton = {
+            TextButton(onClick = {
+                showScanOffer = false
+                val listing = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$scanPackage"))
+                try {
+                    context.startActivity(Intent(listing).setPackage("com.android.vending"))
+                } catch (_: ActivityNotFoundException) {
+                    try {
+                        context.startActivity(listing)
+                    } catch (_: ActivityNotFoundException) {
+                        android.widget.Toast.makeText(context, "No app available to open Google Play.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }) { Text("Get ScanCabinet") }
+        },
+        dismissButton = { TextButton(onClick = { showScanOffer = false }) { Text("Cancel") } }
+    )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ToolChoice(Icons.Default.PictureAsPdf, "Convert to PDF", "Documents, books or images · Save as PDF", BrandBlue, onConvert)
+        ToolChoice(Icons.Default.CameraAlt, "Scan with ScanCabinet", "Scan paper documents to PDF", BrandBlue, onClick = {
+            val scan = Intent(Intent.ACTION_VIEW).setClassName(scanPackage, "$scanPackage.MainActivity")
+                .putExtra("shortcut", "scan")
+            try {
+                context.startActivity(scan)
+            } catch (_: ActivityNotFoundException) {
+                showScanOffer = true
+            } catch (_: SecurityException) {
+                showScanOffer = true
+            }
+        }, artwork = {
+            Image(androidx.compose.ui.res.painterResource(com.blw.documentreader.R.drawable.scancabinet_logo),
+                null, modifier = Modifier.size(36.dp).clip(MaterialTheme.shapes.small))
+        })
         Text("PDF Tools", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Text("Edit pages. Keep your original unchanged.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -707,7 +746,7 @@ private fun PdfPageTile(page: ToolPage, index: Int, selected: Boolean, onClick: 
 @Composable
 private fun SettingsAction(icon: androidx.compose.ui.graphics.vector.ImageVector,
                            title: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 36.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 32.dp)
         .clip(androidx.compose.foundation.shape.RoundedCornerShape(9.dp))
         .clickable(onClick = onClick).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -734,8 +773,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
     val priceAvailable = !closedTest && !priceLoading && price.isNotBlank() &&
         !price.contains("unavailable", ignoreCase = true)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Spacer(Modifier.height(2.dp))
+        verticalArrangement = Arrangement.Top) {
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Icon(Icons.Default.Palette, null, modifier = Modifier.size(19.dp),
@@ -756,7 +794,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 2.dp))
+        HorizontalDivider()
         Row(Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(20.dp),
@@ -770,15 +808,15 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
             }
             Switch(checked = vm.remember, onCheckedChange = vm::updateRemember)
         }
-        HorizontalDivider(Modifier.padding(vertical = 2.dp))
+        HorizontalDivider()
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Icon(Icons.Default.Diamond, null, Modifier.size(19.dp), tint = Color(0xFFE5B530))
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text("Ads & purchase", fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold)
-                    Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
-                        else if (adFree) "Ad-free is active" else "Banner ads · No interruptions",
+                    if (!adFree) Text(if (!com.blw.documentreader.BuildConfig.MONETIZATION_ENABLED) "Closed test · Ads and purchases are disabled"
+                        else "Banner ads · No interruptions",
                         fontSize = 11.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -814,7 +852,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = restore),
+                Row(Modifier.fillMaxWidth().heightIn(min = 36.dp).clickable(onClick = restore),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Icon(Icons.Default.Restore, null, Modifier.size(19.dp), tint = MaterialTheme.colorScheme.primary)
                     Text("Restore Purchase", fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -822,7 +860,7 @@ fun SettingsScreen(vm: MainViewModel, removeAds: () -> Unit, restore: () -> Unit
                 }
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 2.dp))
+        HorizontalDivider()
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             Icon(Icons.Default.Tune, null, modifier = Modifier.size(19.dp),
