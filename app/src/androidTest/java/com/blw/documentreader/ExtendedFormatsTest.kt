@@ -81,7 +81,10 @@ class ExtendedFormatsTest {
                 val offer = reveal("Ad-free Lifetime")
                 val buy = reveal(if(active) "Active" else "Buy")
                 assertTrue("Purchase overlaps offer", buy.visibleBounds.left >= offer.visibleBounds.right || buy.visibleBounds.top >= offer.visibleBounds.bottom)
-                if(active) assertTrue(d.hasObject(By.text("Ad-free is active")))
+                if (active) {
+                    assertTrue("Owned lifetime purchase should be visible", d.hasObject(By.text("Lifetime active")))
+                    assertFalse("Owned purchase should not offer Buy", d.hasObject(By.text("Buy")))
+                }
                 val dir=File("/sdcard/Download/WReaderSettingsQA").also{it.mkdirs()}
                 d.takeScreenshot(File(dir,"settings-$dark-$scale-$active.png"))
                 val rate=reveal("Rate app")
